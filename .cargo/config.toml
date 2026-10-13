@@ -1,0 +1,4 @@
+# Cross-compiling from Linux: `cargo build --release --target x86_64-pc-windows-gnu`
+# (requires the mingw-w64 toolchain). On Windows, the default host target is used.
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"

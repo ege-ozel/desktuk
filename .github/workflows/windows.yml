@@ -1,0 +1,45 @@
+name: windows
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          rustup component add clippy rustfmt
+          rustc --version
+          cargo --version
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Clippy
+        run: cargo clippy --release --locked -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --release --locked
+
+      - name: Integration self-test on the runner's desktop
+        shell: powershell
+        run: ./scripts/windows-integration-test.ps1 -Exe target/release/DeskTuk.exe -Out test-results -ExplorerRestart
+
+      - name: Upload executable and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskTuk-windows-x64
+          path: |
+            target/release/DeskTuk.exe
+            test-results/
