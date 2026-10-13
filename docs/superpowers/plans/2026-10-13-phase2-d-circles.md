@@ -1149,7 +1149,7 @@ Expected: PASS (8 tests).
 - Produces (`view`): `pub enum Target { Recent, Circle(usize), Group(usize, usize) }` (`Copy`, `Debug`); `pub enum SlotRef { Back, Group(usize), Suggestion(usize), Item(PathBuf) }`; `slot_refs(&Board, Target, recent: &[PathBuf], &[Suggestion]) -> Vec<SlotRef>`; `title(&Board, Target) -> String`; `circle_count(&Board, usize) -> usize`; `drop_place(Target, Option<&SlotRef>) -> Option<Place>` (`None` = back to Recent).
 - Consumes: `model::{Board, Place}` (D1), `items::known_folder` (Phase 1).
 
-- [ ] **Step 1: Write the failing tests.** Add the three `pub mod` lines and create each file with only its test module:
+- [x] **Step 1: Write the failing tests.** Add the three `pub mod` lines and create each file with only its test module:
 
 `src/circles/desktop.rs`:
 
@@ -1305,12 +1305,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify failure.**
+- [x] **Step 2: Run to verify failure.**
 
 Run: `cargo test --release --locked circles::`
 Expected: FAIL to compile (`Entry`, `recent`, `suggest`, `slot_refs`, ... not found).
 
-- [ ] **Step 3: Implement.** Insert above each test module:
+- [x] **Step 3: Implement.** Insert above each test module:
 
 `src/circles/desktop.rs`:
 
@@ -1574,12 +1574,12 @@ pub fn drop_place(target: Target, on: Option<&SlotRef>) -> Option<Place> {
 }
 ```
 
-- [ ] **Step 4: Run.**
+- [x] **Step 4: Run.**
 
 Run: `cargo test --release --locked circles::`
 Expected: PASS (model 7, geom 8, desktop 3, suggest 3, view 3). `listing_reads_a_real_folder_and_skips_hidden_files` writes only under `%TEMP%`.
 
-- [ ] **Step 5: Pre-commit checks and commit** (`Add Desktop listing, Recent, suggestions and ring contents`, last line `... Task D3`).
+- [x] **Step 5: Pre-commit checks and commit** (`Add Desktop listing, Recent, suggestions and ring contents`, last line `... Task D3`).
 
 ---
 
