@@ -26,6 +26,7 @@ pub const WM_APP_NODE_LOST: u32 = WM_APP + 1;
 pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;
 /// Shell change notification (SHChangeNotifyRegister, new delivery).
 pub const WM_APP_SHELL_CHANGE: u32 = WM_APP + 3;
+pub const WM_APP_RING_LOADED: u32 = WM_APP + 4;
 
 const TIMER_RECREATE: usize = 1;
 const TIMER_EXIT: usize = 2;
@@ -507,6 +508,13 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
     match msg {
         WM_APP_NODE_LOST => {
             on_node_lost();
+            0
+        }
+        WM_APP_RING_LOADED => {
+            if lparam != 0 {
+                let batch = Box::from_raw(lparam as *mut items::RingBatch);
+                circles::ring::apply_batch(*batch);
+            }
             0
         }
         WM_APP_ITEMS_LOADED => {

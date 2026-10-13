@@ -4222,3 +4222,38 @@ Benchmark gate: PASS. Three-run medians, 15-second idle CPU samples; v1 is 39ef8
 * Spec coverage: radial circles + ring (D2, D4, D5); three levels with Back (D3 `view`, D5 ring); paging 20 + wheel + centre click (D2, D5); Recent newest-first (D3, D5); drop to assign, drag between circles/groups, Remove (D3 `drop_place`, D5); suggestions accept/not now (D3, D5); renamable names with uniqueness (D1, D5 rename box); persistence keys (D1); `--ui`, default circles, selftest on panel (D1, D5); Desktop watching without threads (D3 Watcher, D5 loop); free + trim after a ring (D5); benchmark gate vs v1 (D6).
 * Types: `Place`, `Target`, `SlotRef`, `Suggestion`, `Which`, `RenameTarget` are defined once (D1/D3/D5) and used with the same names everywhere; `assign(&[PathBuf], Option<Place>)` (`None` = back to Recent) matches `view::drop_place`.
 * Review Focus items have owners: config compatibility (D1 tests + D5 Step 7), paging (D2 tests + D5 Step 8.6), menus over the ring (`with_menu`, D5 Step 8.4), index shifts (`rebuild` cancels rename/ring, D5 Step 8.9), live Desktop changes (D1 `follow` test, D5 Watcher + Step 8.3).
+
+
+## Owner follow-ups (2026-10-13, after PR #3)
+
+The owner requested desktop-sized, sharp ring icons and a context-menu toggle for
+Windows desktop icons. Continue the existing Plan D branch/PR, one commit per task.
+No dependencies are added; only features of the existing Windows bindings are enabled.
+
+### Task D7: Match the desktop icon size and resolution
+
+- [x] Query the current Explorer desktop icon size only when opening a ring; use 48
+      DPI-scaled pixels when Explorer is unavailable. Read it again on the next opening.
+- [x] Keep native-sized icons and the desktop label font. Enlarge the ring and reduce
+      page capacity when needed to fit the monitor work area; never shrink the icons.
+- [x] Extract size-specific shell icons on the loader thread, discard obsolete batches,
+      and release image/COM resources on failure, refresh and close.
+- [x] Update the design/README; run the AGENTS pre-commit checks and release build,
+      commit and push. Actual visual comparison at the desktop: **not verified**.
+
+### Task D8: Toggle Windows desktop icons from the app context menu
+
+- [ ] Add a checked Show desktop items entry to circle/Recent menus and the panel menu.
+      Read Explorer's current visibility whenever the menu is opened.
+- [ ] Change only the desktop view's visibility flag on explicit selection; show an error
+      if Explorer is unavailable. Do not change it at startup or shutdown.
+- [ ] Update the design/README; run the AGENTS pre-commit checks and release build,
+      commit and push. Human menu/show/hide check: **not verified**.
+
+
+D7 evidence: cargo fmt, cargo clippy --release --locked -- -D warnings and
+cargo test --release --locked passed (38 passed, one ignored). Release build passed
+with --target-dir target/desktop-update because the owner has the original release
+executable running; the default build could not replace that locked executable.
+Visual parity, alternate desktop icon sizes/DPI, and large-icon paging at the desktop:
+**not verified**. No desktop settings were changed and no integration script was run.

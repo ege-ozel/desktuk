@@ -9,6 +9,7 @@ compile_error!("DeskTuk is a Windows application: build with --target x86_64-pc-
 mod app;
 mod circles;
 mod config;
+mod desktop_view;
 mod diag;
 mod host;
 mod items;

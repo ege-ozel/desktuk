@@ -8,10 +8,11 @@
 //! returns. (`UpdateLayeredWindow` does run inside: it only sends `WM_WINDOWPOS*`, which
 //! `ring_proc` passes to `DefWindowProcW` without touching `RING`.)
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
@@ -45,6 +46,7 @@ struct PageSlot {
     r: SlotRef,
     /// Shell metadata/icon for `SlotRef::Item` slots.
     item: Option<Item>,
+    load_id: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -73,6 +75,7 @@ struct Ring {
     hover: Option<usize>,
     wheel: i32,
     dpi: u32,
+    metrics: geom::Metrics,
     /// Screen position of the ring centre (= the circle centre).
     center: POINT,
     radius: f32,
@@ -87,6 +90,15 @@ struct Ring {
 
 thread_local! {
     static RING: RefCell<Option<Ring>> = const { RefCell::new(None) };
+    static NEXT_LOAD: Cell<u64> = const { Cell::new(0) };
+    static OPENING: Cell<bool> = const { Cell::new(false) };
+}
+
+struct Opening;
+impl Drop for Opening {
+    fn drop(&mut self) {
+        OPENING.with(|busy| busy.set(false));
+    }
 }
 
 fn with<R>(f: impl FnOnce(&mut Ring) -> R) -> Option<R> {
@@ -123,7 +135,7 @@ fn which_of(t: Target) -> Which {
 }
 
 fn top_left(r: &Ring) -> POINT {
-    let m = geom::metrics(r.dpi);
+    let m = r.metrics;
     POINT { x: r.center.x - m.ring_r, y: r.center.y - m.ring_r }
 }
 
@@ -138,9 +150,28 @@ pub fn is_open_for(anchor: HWND) -> bool {
 
 /// Opens the ring for `target` over the circle window `anchor`, closing any other ring.
 pub fn open(anchor: HWND, target: Target) {
+    if OPENING.with(|busy| busy.replace(true)) {
+        return;
+    }
+    let _opening = Opening;
     close_now();
     let dpi = unsafe { GetDpiForWindow(anchor) }.max(96);
-    let m = geom::metrics(dpi);
+    // Query Explorer outside RING/board borrows: cross-process COM can pump messages.
+    let icon = crate::desktop_view::icon_size().unwrap_or_else(|e| {
+        dlog!("desktop icon size unavailable: {e}");
+        win::scale(48, dpi)
+    });
+    if unsafe { IsWindow(anchor) } == 0 {
+        return;
+    }
+    let mut mi: MONITORINFO = unsafe { std::mem::zeroed() };
+    mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+    let max_diameter = if unsafe { GetMonitorInfoW(MonitorFromWindow(anchor, MONITOR_DEFAULTTONEAREST), &mut mi) } != 0 {
+        (mi.rcWork.right - mi.rcWork.left).min(mi.rcWork.bottom - mi.rcWork.top) - win::scale(16, dpi)
+    } else {
+        win::scale(800, dpi)
+    };
+    let m = geom::desktop_metrics(dpi, icon, max_diameter);
     let wr = win::window_rect(anchor);
     let size = 2 * m.ring_r;
     // Centred on the circle, but shifted inwards near a screen edge so every slot stays reachable.
@@ -181,6 +212,7 @@ pub fn open(anchor: HWND, target: Target) {
         hover: None,
         wheel: 0,
         dpi,
+        metrics: m,
         center,
         radius: r0,
         anim: Some(Anim { t0: diag::since_start_ms(), from: r0, to: m.ring_r as f32, closing: false }),
@@ -204,12 +236,54 @@ pub fn open(anchor: HWND, target: Target) {
         return;
     }
     with(redraw);
-    items::spawn_loader(app().controller.get(), to_load);
+    spawn_loader(to_load);
     unsafe {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
         SetTimer(hwnd, TIMER_ANIM, FRAME_MS, None);
     }
-    dlog!("ring opened target={target:?} slots={slots}");
+    dlog!("ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size}", m.icon, m.per_page());
+}
+
+fn spawn_loader(paths: Vec<PathBuf>) {
+    let request = NEXT_LOAD.with(|n| {
+        let id = n.get().wrapping_add(1);
+        n.set(id);
+        id
+    });
+    let px = with(|r| {
+        for slot in &mut r.page {
+            if let SlotRef::Item(path) = &slot.r {
+                if paths.contains(path) {
+                    slot.load_id = request;
+                }
+            }
+        }
+        r.metrics.icon
+    });
+    if let Some(px) = px {
+        items::spawn_ring_loader(app().controller.get(), paths, px, request);
+    }
+}
+
+pub fn apply_batch(batch: items::RingBatch) {
+    with(|r| {
+        if batch.px != r.metrics.icon {
+            return;
+        }
+        let mut any = false;
+        for (path, meta, icon) in batch.entries {
+            if let Some(slot) = r.page.iter_mut().find(|s| s.load_id == batch.request && s.r == SlotRef::Item(path.clone())) {
+                if let Some(item) = &mut slot.item {
+                    item.apply(meta);
+                    item.set_icon(icon, batch.px);
+                    any = true;
+                }
+            }
+        }
+        if any && !closing(r) {
+            redraw(r);
+        }
+    });
 }
 
 /// Destroys the ring immediately (no animation). Safe to call when none is open.
@@ -234,7 +308,7 @@ fn begin_close() {
         if closing(r) {
             return;
         }
-        let m = geom::metrics(r.dpi);
+        let m = r.metrics;
         if r.full.is_none() {
             r.full = Some(r.surface.pixels().to_vec());
         }
@@ -259,7 +333,7 @@ pub fn refresh() {
         to_load
     });
     if let Some(paths) = to_load {
-        items::spawn_loader(app().controller.get(), paths);
+        spawn_loader(paths);
     }
 }
 
@@ -272,7 +346,7 @@ pub fn on_shell_change(change: &crate::watch::Change) {
         crate::watch::apply_change(&mut paths, change)
     });
     if let Some(paths) = paths {
-        items::spawn_loader(app().controller.get(), paths);
+        spawn_loader(paths);
     }
 }
 
@@ -294,13 +368,14 @@ pub fn apply_metas(metas: Vec<(PathBuf, Meta)>) {
 
 /// Builds `page` for the current `start`; returns the item paths whose metadata must load.
 fn load_page(r: &mut Ring) -> Vec<PathBuf> {
-    let range = geom::page_range(r.refs.len(), r.start);
+    let range = geom::page_range(r.refs.len(), r.start, r.metrics.per_page());
     r.start = range.start;
     r.hover = None;
     r.page = r.refs[range]
         .iter()
         .map(|sr| PageSlot {
             r: sr.clone(),
+            load_id: 0,
             item: match sr {
                 SlotRef::Item(p) => Some(Item::placeholder(p.clone())),
                 _ => None,
@@ -322,7 +397,7 @@ fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
 }
 
 fn subtitle(r: &Ring) -> String {
-    let label = geom::page_label(r.refs.len(), r.start);
+    let label = geom::page_label(r.refs.len(), r.start, r.metrics.per_page());
     if !label.is_empty() {
         return label;
     }
@@ -334,7 +409,7 @@ fn subtitle(r: &Ring) -> String {
 }
 
 fn render(r: &mut Ring) {
-    let m = geom::metrics(r.dpi);
+    let m = r.metrics;
     let mut labels: Vec<String> = Vec::with_capacity(r.page.len());
     let mut looks: Vec<SlotLook> = Vec::with_capacity(r.page.len());
     {
@@ -382,6 +457,7 @@ fn render(r: &mut Ring) {
     draw::ring(
         &r.surface,
         r.dpi,
+        &m,
         &RingView { title: &title, subtitle: &sub, slots: &views, hover: r.hover, recent: r.target == Target::Recent },
     );
     let size = r.surface.w as usize;
@@ -439,7 +515,7 @@ fn tick() {
 
 /// What is under client point `(x, y)` of the ring window.
 fn hit(r: &Ring, x: i32, y: i32) -> RingHit {
-    let m = geom::metrics(r.dpi);
+    let m = r.metrics;
     geom::ring_hit(&m, r.page.len(), x - m.ring_r, y - m.ring_r)
 }
 
@@ -561,8 +637,8 @@ fn on_left_up(lparam: LPARAM) {
                 },
                 // Clicking the centre turns the page (wraps to the first page at the end);
                 // useful when "scroll inactive windows" is switched off.
-                RingHit::Center if r.refs.len() > geom::PER_PAGE => {
-                    let next = geom::scroll(r.refs.len(), r.start, 1);
+                RingHit::Center if r.refs.len() > r.metrics.per_page() => {
+                    let next = geom::scroll(r.refs.len(), r.start, 1, r.metrics.per_page());
                     r.start = if next == r.start { 0 } else { next };
                     let to_load = load_page(r);
                     redraw(r);
@@ -583,7 +659,7 @@ fn run(action: Action) {
             close_now();
             let _ = items::open(&p, app().controller.get());
         }
-        Action::Load(paths) => items::spawn_loader(app().controller.get(), paths),
+        Action::Load(paths) => spawn_loader(paths),
         Action::Accept(s) => super::accept_suggestion(&s),
         Action::Drop { path, at } => {
             finish_drag(path, at);
@@ -691,7 +767,7 @@ fn on_wheel(wparam: WPARAM) {
         if pages == 0 {
             return None;
         }
-        let s = geom::scroll(r.refs.len(), r.start, pages);
+        let s = geom::scroll(r.refs.len(), r.start, pages, r.metrics.per_page());
         if s == r.start {
             return None;
         }
@@ -702,7 +778,7 @@ fn on_wheel(wparam: WPARAM) {
     })
     .flatten();
     if let Some(paths) = to_load {
-        items::spawn_loader(app().controller.get(), paths);
+        spawn_loader(paths);
     }
 }
 

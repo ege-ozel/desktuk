@@ -26,21 +26,78 @@ pub struct Metrics {
     /// Distance from the ring centre to inner / outer slot centres.
     pub inner_r: i32,
     pub outer_r: i32,
+    pub inner_slots: usize,
+    pub outer_slots: usize,
 }
 
 pub fn metrics(dpi: u32) -> Metrics {
     let s = |v| win::scale(v, dpi);
-    Metrics { circle_d: s(88), ring_r: s(186), slot: s(54), icon: s(32), inner_r: s(90), outer_r: s(150) }
+    Metrics {
+        circle_d: s(88),
+        ring_r: s(186),
+        slot: s(54),
+        icon: s(32),
+        inner_r: s(90),
+        outer_r: s(150),
+        inner_slots: INNER_SLOTS,
+        outer_slots: OUTER_SLOTS,
+    }
+}
+
+impl Metrics {
+    pub fn per_page(&self) -> usize {
+        self.inner_slots + self.outer_slots
+    }
+}
+
+/// Keep native-sized icons and two lines of desktop-font text. Reduce page capacity
+/// when a 20-slot ring would exceed the monitor; do not shrink the icons to fit.
+pub fn desktop_metrics(dpi: u32, icon: i32, max_diameter: i32) -> Metrics {
+    let mut best = metrics(dpi);
+    best.icon = icon;
+    best.slot = icon + win::scale(36, dpi);
+    let pad = win::scale(8, dpi) as f64;
+    let half_diagonal = best.slot as f64 / 2.0 * std::f64::consts::SQRT_2;
+    let separation = 2.0 * half_diagonal + pad;
+    let min_r = best.circle_d as f64 / 2.0 + half_diagonal + pad;
+    let radius_for = |n: usize| {
+        if n < 2 {
+            min_r
+        } else {
+            min_r.max(separation / (2.0 * (std::f64::consts::PI / n as f64).sin()))
+        }
+    };
+    // The one-slot fallback still keeps its icon clear of the centre.
+    best.inner_slots = 0;
+    best.outer_slots = 1;
+    best.outer_r = min_r.ceil() as i32;
+    best.ring_r = (min_r + half_diagonal + pad).ceil() as i32;
+    for inner in 0..=INNER_SLOTS {
+        for outer in 1..=OUTER_SLOTS {
+            let ir = radius_for(inner).ceil();
+            let or = radius_for(outer).max(if inner == 0 { min_r } else { ir + separation }).ceil();
+            let radius = (or + half_diagonal + pad).ceil() as i32;
+            let count = inner + outer;
+            if 2 * radius <= max_diameter && (count > best.per_page() || (count == best.per_page() && radius < best.ring_r)) {
+                best.inner_slots = inner;
+                best.outer_slots = outer;
+                best.inner_r = ir as i32;
+                best.outer_r = or as i32;
+                best.ring_r = radius;
+            }
+        }
+    }
+    best
 }
 
 /// Centre of slot `k` relative to the ring centre. Slot 0 is at 12 o'clock on the inner
 /// ring; the outer ring starts half a step clockwise of 12 o'clock.
 pub fn slot_center(m: &Metrics, k: usize) -> (i32, i32) {
-    let (r, deg) = if k < INNER_SLOTS {
-        (m.inner_r, -90.0 + k as f64 * (360.0 / INNER_SLOTS as f64))
+    let (r, deg) = if k < m.inner_slots {
+        (m.inner_r, -90.0 + k as f64 * (360.0 / m.inner_slots as f64))
     } else {
-        let j = (k - INNER_SLOTS) % OUTER_SLOTS;
-        (m.outer_r, -90.0 + j as f64 * (360.0 / OUTER_SLOTS as f64))
+        let j = (k - m.inner_slots) % m.outer_slots;
+        (m.outer_r, -90.0 + j as f64 * (360.0 / m.outer_slots as f64))
     };
     let a = deg.to_radians();
     ((r as f64 * a.cos()).round() as i32, (r as f64 * a.sin()).round() as i32)
@@ -63,7 +120,7 @@ pub fn ring_hit(m: &Metrics, n: usize, dx: i32, dy: i32) -> RingHit {
         return RingHit::Outside;
     }
     let half = m.slot / 2;
-    for k in 0..n.min(PER_PAGE) {
+    for k in 0..n.min(m.per_page()) {
         let (cx, cy) = slot_center(m, k);
         if (dx - cx).abs() <= half && (dy - cy).abs() <= half {
             return RingHit::Slot(k);
@@ -77,25 +134,25 @@ pub fn ring_hit(m: &Metrics, n: usize, dx: i32, dy: i32) -> RingHit {
     }
 }
 
-/// Normalises a page start: a multiple of `PER_PAGE`, never past the last page.
-pub fn clamp_start(total: usize, start: usize) -> usize {
+/// Normalises a page start: a multiple of `capacity`, never past the last page.
+pub fn clamp_start(total: usize, start: usize, capacity: usize) -> usize {
     if total == 0 {
         return 0;
     }
-    let last = (total - 1) / PER_PAGE * PER_PAGE;
-    (start / PER_PAGE * PER_PAGE).min(last)
+    let last = (total - 1) / capacity * capacity;
+    (start / capacity * capacity).min(last)
 }
 
 /// Indices shown on the page beginning at `start`.
-pub fn page_range(total: usize, start: usize) -> std::ops::Range<usize> {
-    let s = clamp_start(total, start);
-    s..(s + PER_PAGE).min(total)
+pub fn page_range(total: usize, start: usize, capacity: usize) -> std::ops::Range<usize> {
+    let s = clamp_start(total, start, capacity);
+    s..(s + capacity).min(total)
 }
 
 /// New page start after `pages` wheel steps (positive = next page, negative = previous).
-pub fn scroll(total: usize, start: usize, pages: i32) -> usize {
-    let s = clamp_start(total, start) as i64 + pages as i64 * PER_PAGE as i64;
-    clamp_start(total, s.max(0) as usize)
+pub fn scroll(total: usize, start: usize, pages: i32, capacity: usize) -> usize {
+    let s = clamp_start(total, start, capacity) as i64 + pages as i64 * capacity as i64;
+    clamp_start(total, s.max(0) as usize, capacity)
 }
 
 /// Converts accumulated wheel delta into whole page steps. Returns `(pages, remainder)`.
@@ -106,11 +163,11 @@ pub fn wheel_pages(acc: i32) -> (i32, i32) {
 }
 
 /// "21-40 / 300"; empty when everything fits on one page.
-pub fn page_label(total: usize, start: usize) -> String {
-    if total <= PER_PAGE {
+pub fn page_label(total: usize, start: usize, capacity: usize) -> String {
+    if total <= capacity {
         return String::new();
     }
-    let r = page_range(total, start);
+    let r = page_range(total, start, capacity);
     format!("{}-{} / {}", r.start + 1, r.end, total)
 }
 
@@ -217,18 +274,18 @@ mod tests {
 
     #[test]
     fn paging_walks_300_items_in_steps_of_20() {
-        assert_eq!(page_range(300, 0), 0..20);
-        assert_eq!(scroll(300, 0, 1), 20);
-        assert_eq!(page_range(300, 20), 20..40);
-        assert_eq!(scroll(300, 20, -1), 0);
-        assert_eq!(scroll(300, 0, -3), 0, "never before the first page");
-        assert_eq!(scroll(300, 280, 5), 280, "never past the last page");
-        assert_eq!(page_range(301, 300), 300..301);
-        assert_eq!(page_label(300, 20), "21-40 / 300");
-        assert_eq!(page_label(20, 0), "");
-        assert_eq!(page_range(0, 40), 0..0);
-        assert_eq!(clamp_start(300, 37), 20);
-        assert_eq!(clamp_start(25, 400), 20, "item count shrank while scrolled: clamped");
+        assert_eq!(page_range(300, 0, PER_PAGE), 0..20);
+        assert_eq!(scroll(300, 0, 1, PER_PAGE), 20);
+        assert_eq!(page_range(300, 20, PER_PAGE), 20..40);
+        assert_eq!(scroll(300, 20, -1, PER_PAGE), 0);
+        assert_eq!(scroll(300, 0, -3, PER_PAGE), 0, "never before the first page");
+        assert_eq!(scroll(300, 280, 5, PER_PAGE), 280, "never past the last page");
+        assert_eq!(page_range(301, 300, PER_PAGE), 300..301);
+        assert_eq!(page_label(300, 20, PER_PAGE), "21-40 / 300");
+        assert_eq!(page_label(20, 0, PER_PAGE), "");
+        assert_eq!(page_range(0, 40, PER_PAGE), 0..0);
+        assert_eq!(clamp_start(300, 37, PER_PAGE), 20);
+        assert_eq!(clamp_start(25, 400, PER_PAGE), 20, "item count shrank while scrolled: clamped");
     }
 
     #[test]

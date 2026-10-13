@@ -149,8 +149,7 @@ pub struct RingView<'a> {
 }
 
 /// An open ring: rim, centre disc with title/subtitle, and up to `PER_PAGE` slots.
-pub fn ring(s: &Surface, dpi: u32, v: &RingView) {
-    let m: Metrics = geom::metrics(dpi);
+pub fn ring(s: &Surface, dpi: u32, m: &Metrics, v: &RingView) {
     let dc = s.dc();
     let size = s.w;
     let c = size / 2;
@@ -162,7 +161,7 @@ pub fn ring(s: &Surface, dpi: u32, v: &RingView) {
     fill_ellipse(dc, &square(c, c, m.circle_d), CENTER_BG);
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 100);
-    let small = Font::new(dpi, false, 85);
+    let small = Font::new(dpi, false, 100);
     let inner = m.circle_d / 2 - sc(8);
     text(
         dc,
@@ -174,8 +173,8 @@ pub fn ring(s: &Surface, dpi: u32, v: &RingView) {
     );
     text(dc, v.subtitle, win::rect(c - inner, c + sc(8), c + inner, c + inner), SUBTEXT, &small, DT_CENTER | DT_WORDBREAK);
 
-    for (k, slot) in v.slots.iter().enumerate().take(geom::PER_PAGE) {
-        let (dx, dy) = geom::slot_center(&m, k);
+    for (k, slot) in v.slots.iter().enumerate().take(m.per_page()) {
+        let (dx, dy) = geom::slot_center(m, k);
         let b = square(c + dx, c + dy, m.slot);
         if v.hover == Some(k) {
             fill_rect(dc, &b, HOVER);
@@ -204,7 +203,7 @@ pub fn ring(s: &Surface, dpi: u32, v: &RingView) {
             SlotLook::Suggestion { count } => glyph(ACCENT, &format!("+{count}")),
         }
         let lr = win::rect(b.left, iy + m.icon + sc(2), b.right, b.bottom);
-        text(dc, slot.label, lr, label_color, &small, DT_CENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        text(dc, slot.label, lr, label_color, &small, DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS);
     }
 }
 
@@ -261,7 +260,7 @@ mod tests {
         slots[0] = SlotView { label: "Titled Project", look: SlotLook::Group };
         slots[1] = SlotView { label: ".wav \u{2192} Music", look: SlotLook::Suggestion { count: 12 } };
         slots[2] = SlotView { label: "Back", look: SlotLook::Back };
-        ring(&r, dpi, &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false });
+        ring(&r, dpi, &m, &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false });
         geom::mask_disc(r.pixels(), size as usize, size as usize, m.ring_r as f32);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-ring.bmp"), r.pixels(), size as usize, size as usize);
     }

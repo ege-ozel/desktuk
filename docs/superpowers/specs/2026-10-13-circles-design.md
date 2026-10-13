@@ -46,10 +46,16 @@ only - it is not a file browser for `C:\`.
 * Files dropped from Explorer onto a circle are assigned to it; dropped onto Recent they are
   unassigned.
 
-**Open ring** (radius 186 px at 96 DPI), one at a time, centred on its circle (shifted inwards
+**Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):
 
-* Centre: title and page indicator. 20 slots: 8 on an inner ring, 12 on an outer ring.
+* Centre: title and page indicator. Up to 20 slots: up to 8 on an inner ring, 12 on an outer ring.
+  **Owner follow-up (2026-10-13):** icons use the current Windows desktop icon size in pixels
+  and size-specific shell images, with the desktop label font. The ring grows with the icons;
+  large icons or small monitors reduce the page capacity to keep it inside the work area.
+  Size changes take effect the next time a ring opens. When Explorer is unavailable,
+  fall back to 48 pixels scaled for the circle's DPI. Source images without a high-resolution
+  variant can still appear soft, as on the desktop.
 * Circle view: its groups first, then its files. Group view: a Back slot, then the group's files.
   Recent view: suggestions first, then unassigned Desktop files.
 * Click a file: opens it with its default verb, the ring closes. Click a group: enters it.

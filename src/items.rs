@@ -110,6 +110,11 @@ impl Item {
                 // An IImageList* may be used directly as an HIMAGELIST (documented interop).
                 let style = ILD_TRANSPARENT | (self.overlay << 8); // INDEXTOOVERLAYMASK
                 self.icon = unsafe { ImageList_GetIcon(himl as HIMAGELIST, self.sys_index, style) };
+                // SHGetImageList returned a COM reference, not a borrowed global list.
+                unsafe {
+                    use windows::core::Interface;
+                    drop(windows::core::IUnknown::from_raw(himl));
+                }
             }
             self.icon_px = px;
         }
@@ -122,6 +127,94 @@ impl Item {
             self.icon = std::ptr::null_mut();
         }
     }
+
+    pub fn set_icon(&mut self, mut icon: LoadedIcon, px: i32) {
+        if icon.0 != 0 {
+            self.release_icon();
+            self.icon = icon.0 as HICON;
+            self.icon_px = px;
+            icon.0 = 0; // ownership transferred to Item
+        }
+    }
+}
+
+/// Owned HICON transported as plain data between threads. Dropping an obsolete batch
+/// or a failed PostMessage releases every icon, just like closing a ring does.
+pub struct LoadedIcon(usize);
+
+impl Drop for LoadedIcon {
+    fn drop(&mut self) {
+        if self.0 != 0 {
+            unsafe { DestroyIcon(self.0 as HICON) };
+        }
+    }
+}
+
+pub struct RingBatch {
+    pub request: u64,
+    pub px: i32,
+    pub entries: Vec<(PathBuf, Meta, LoadedIcon)>,
+}
+
+/// Request a bitmap at the actual display size rather than shrinking a padded jumbo
+/// image-list cell. This runs only on the loader thread, never on the UI thread.
+fn sized_icon(path: &Path, px: i32) -> LoadedIcon {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_ICONONLY, SIIGBF_SCALEUP};
+    use windows_sys::Win32::Graphics::Gdi::{CreateBitmap, DeleteObject, GetObjectW, BITMAP};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{CreateIconIndirect, ICONINFO};
+    let w = wide_path(path);
+    unsafe {
+        let Ok(factory) = SHCreateItemFromParsingName::<_, _, IShellItemImageFactory>(PCWSTR(w.as_ptr()), None) else {
+            return LoadedIcon(0);
+        };
+        let Ok(image) = factory.GetImage(SIZE { cx: px, cy: px }, SIIGBF_ICONONLY | SIIGBF_SCALEUP) else {
+            return LoadedIcon(0);
+        };
+        let mut bitmap: BITMAP = std::mem::zeroed();
+        let mut icon = std::ptr::null_mut();
+        if GetObjectW(image.0, std::mem::size_of::<BITMAP>() as i32, (&mut bitmap as *mut BITMAP).cast()) != 0
+            && (1..=512).contains(&bitmap.bmWidth)
+            && (1..=512).contains(&bitmap.bmHeight)
+        {
+            let zeros = vec![0u8; ((bitmap.bmWidth as usize).div_ceil(16) * 2) * bitmap.bmHeight as usize];
+            let mask = CreateBitmap(bitmap.bmWidth, bitmap.bmHeight, 1, 1, zeros.as_ptr().cast());
+            if !mask.is_null() {
+                let info = ICONINFO { fIcon: 1, xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: image.0 };
+                icon = CreateIconIndirect(&info);
+                DeleteObject(mask);
+            }
+        }
+        DeleteObject(image.0);
+        LoadedIcon(icon as usize)
+    }
+}
+
+pub fn spawn_ring_loader(controller: HWND, paths: Vec<PathBuf>, px: i32, request: u64) {
+    if paths.is_empty() {
+        return;
+    }
+    let ctl = controller as usize;
+    std::thread::spawn(move || unsafe {
+        use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+        let hr = CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
+        let entries = paths
+            .into_iter()
+            .map(|p| {
+                let meta = query_meta(&p);
+                let icon = if hr >= 0 { sized_icon(&p, px) } else { LoadedIcon(0) };
+                (p, meta, icon)
+            })
+            .collect();
+        let raw = Box::into_raw(Box::new(RingBatch { request, px, entries }));
+        if windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW(ctl as HWND, crate::app::WM_APP_RING_LOADED, 0, raw as isize) == 0 {
+            drop(Box::from_raw(raw));
+        }
+        if hr >= 0 {
+            CoUninitialize();
+        }
+    });
 }
 
 /// Queries `paths` on a worker thread and posts the result to `controller`.

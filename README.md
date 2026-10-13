@@ -90,7 +90,10 @@ file that is in no circle, newest first. Right-click a circle for *New circle*, 
 *Rename*, *Delete circle*. Hover a circle to open its ring of files (20 per page; the wheel or
 a click on the centre turns the page). Drop files from Explorer onto a circle to add them, drag
 a file out of a ring onto another circle or group to move it, right-click a file for the real
-shell menu and *Remove from circle*. Files are never moved or changed; circles only reference
+shell menu and *Remove from circle*. Ring icons follow the current Windows desktop icon size
+and use the desktop label font. The ring grows as needed; large icons or small screens show
+fewer items per page. Reopen a ring after changing the desktop icon size.
+Files are never moved or changed; circles only reference
 them. `--ui panel` (saved) brings back the Phase 1 panel. Design:
 [`docs/superpowers/specs/2026-10-13-circles-design.md`](docs/superpowers/specs/2026-10-13-circles-design.md).
 
