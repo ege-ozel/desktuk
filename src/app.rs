@@ -15,7 +15,8 @@ use windows_sys::Win32::UI::Controls::{InitCommonControlsEx, ICC_STANDARD_CLASSE
 use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-use crate::config::{self, Args, Config};
+use crate::circles::{self, model::Board};
+use crate::config::{self, Args, Config, Ui};
 use crate::host::{self, DesktopHost, HostKind};
 use crate::items::{self, Item};
 use crate::{diag, dlog, node, selftest, shell, watch, win};
@@ -33,6 +34,8 @@ pub const TIMER_SELFTEST: usize = 4;
 const TIMER_HEALTH: usize = 5;
 const TIMER_REPAINT: usize = 6;
 const TIMER_TRIM: usize = 7;
+/// Debounced re-listing of the Desktop folders (circles UI).
+pub const TIMER_DESKTOP: usize = 8;
 
 /// How often experimental hosts verify that their Explorer parent/owner still exists.
 const HEALTH_INTERVAL_MS: u32 = 2000;
@@ -51,6 +54,11 @@ pub struct Drag {
 /// interior mutability because window procedures re-enter freely.
 pub struct App {
     pub args: Args,
+    pub ui: Ui,
+    /// Circles; only changed while the circles UI runs, saved back unchanged otherwise.
+    pub board: RefCell<Board>,
+    /// The panel's `item=` list as loaded; saved back unchanged while the circles UI runs.
+    panel_items: Vec<PathBuf>,
     host: RefCell<Rc<dyn DesktopHost>>,
     pub controller: Cell<HWND>,
     pub node: Cell<HWND>,
@@ -90,23 +98,27 @@ impl App {
         if self.args.no_save {
             return;
         }
-        let c = Config {
-            host: self.host().kind(),
-            pos: Some(self.pos.get()),
-            items: self.items.borrow().iter().map(|i| i.path.clone()).collect(),
-            // Task D5 replaces these with the running UI and real board.
-            ui: None,
-            board: Default::default(),
+        let items = match self.ui {
+            Ui::Panel => self.items.borrow().iter().map(|i| i.path.clone()).collect(),
+            Ui::Circles => self.panel_items.clone(),
         };
+        let Ok(board) = self.board.try_borrow().map(|b| b.clone()) else { return };
+        let c = Config { host: self.host().kind(), pos: Some(self.pos.get()), items, ui: Some(self.ui), board };
         if let Err(e) = config::save(&c) {
             dlog!("config save failed: {e}");
         }
     }
 }
 
+/// Drops start-up/ring pages from the working set in a second (`TIMER_TRIM`).
+pub fn schedule_trim() {
+    unsafe { SetTimer(app().controller.get(), TIMER_TRIM, 1000, None) };
+}
+
 pub fn quit() {
     let a = app();
     a.quitting.set(true);
+    circles::shutdown();
     let node = a.node.get();
     if !node.is_null() {
         unsafe { DestroyWindow(node) };
@@ -186,6 +198,10 @@ pub fn run() -> i32 {
     // Configuration: command line > saved file > first-run defaults.
     let saved = if args.selftest { None } else { config::load() };
     let kind = args.host.or(saved.as_ref().map(|c| c.host)).unwrap_or(HostKind::Window);
+    // The self-test drives the panel; everything else defaults to the circles UI.
+    let ui = if args.selftest { Ui::Panel } else { args.ui.or(saved.as_ref().and_then(|c| c.ui)).unwrap_or(Ui::Circles) };
+    let board = saved.as_ref().map(|c| c.board.clone()).unwrap_or_default();
+    let panel_items = saved.as_ref().map(|c| c.items.clone()).unwrap_or_default();
     let paths: Vec<PathBuf> = if !args.items.is_empty() {
         args.items.clone()
     } else if let Some(c) = saved.as_ref().filter(|c| !c.items.is_empty()) {
@@ -194,13 +210,18 @@ pub fn run() -> i32 {
         items::default_items()
     };
     let t_items = diag::since_start_ms();
-    let loaded: Vec<Item> = paths.iter().cloned().map(Item::placeholder).collect();
-    let load_paths = paths;
+    let (loaded, load_paths): (Vec<Item>, Vec<PathBuf>) = match ui {
+        Ui::Panel => (paths.iter().cloned().map(Item::placeholder).collect(), paths),
+        Ui::Circles => (Vec::new(), Vec::new()),
+    };
     dlog!("METRIC items_placeholder count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
     let pos = args.pos.or(saved.as_ref().and_then(|c| c.pos)).unwrap_or_else(|| default_pos(loaded.len()));
     let first_run = saved.is_none();
 
     let state: &'static App = Box::leak(Box::new(App {
+        ui,
+        board: RefCell::new(board),
+        panel_items,
         host: RefCell::new(host::create(kind)),
         controller: Cell::new(std::ptr::null_mut()),
         node: Cell::new(std::ptr::null_mut()),
@@ -228,17 +249,21 @@ pub fn run() -> i32 {
     a.controller.set(controller);
     items::spawn_loader(controller, load_paths);
     a.notify_id.set(watch::register(controller));
-    node::register_class();
-
-    if let Err(e) = node::create() {
-        dlog!("host '{}' unavailable: {e}; falling back to 'window'", kind.name());
-        *a.host.borrow_mut() = host::create(HostKind::Window);
+    dlog!("ui={}", ui.name());
+    if ui == Ui::Circles {
+        circles::start();
+    } else {
+        node::register_class();
         if let Err(e) = node::create() {
-            message_box(&format!("Could not create the DeskTuk node: {e}"), true);
-            return 1;
+            dlog!("host '{}' unavailable: {e}; falling back to 'window'", kind.name());
+            *a.host.borrow_mut() = host::create(HostKind::Window);
+            if let Err(e) = node::create() {
+                message_box(&format!("Could not create the DeskTuk node: {e}"), true);
+                return 1;
+            }
         }
     }
-    if first_run {
+    if first_run || a.args.ui.is_some() {
         a.save_config();
     }
 
@@ -259,7 +284,7 @@ pub fn run() -> i32 {
     unsafe {
         SetTimer(controller, TIMER_TRIM, 1000, None);
         SetTimer(controller, TIMER_IDLE_METRICS, 2000, None);
-        if a.host().kind() != HostKind::Window {
+        if ui == Ui::Panel && a.host().kind() != HostKind::Window {
             SetTimer(controller, TIMER_HEALTH, HEALTH_INTERVAL_MS, None);
         }
         if let Some(ms) = a.args.exit_after_ms {
@@ -270,13 +295,7 @@ pub fn run() -> i32 {
         selftest::start();
     }
 
-    let mut msg: MSG = unsafe { std::mem::zeroed() };
-    while unsafe { GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) } > 0 {
-        unsafe {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
-    }
+    pump_messages();
     unsafe { UnhookWinEvent(a.hook.get()) };
     diag::log_resources("exit");
     let code = selftest::exit_code();
@@ -284,6 +303,51 @@ pub fn run() -> i32 {
     code
 }
 
+/// The message loop. Besides messages it waits on the Desktop folder change handles of the
+/// circles UI (none in panel mode), so watching the Desktop needs no thread and no polling.
+fn pump_messages() {
+    use windows_sys::Win32::Foundation::{WAIT_FAILED, WAIT_OBJECT_0};
+    use windows_sys::Win32::System::Threading::INFINITE;
+    let mut msg: MSG = unsafe { std::mem::zeroed() };
+    loop {
+        let handles = circles::wait_handles();
+        let n = handles.len() as u32;
+        let r = unsafe {
+            MsgWaitForMultipleObjectsEx(
+                n,
+                if n == 0 { std::ptr::null() } else { handles.as_ptr() },
+                INFINITE,
+                QS_ALLINPUT,
+                MWMO_INPUTAVAILABLE,
+            )
+        };
+        if r < WAIT_OBJECT_0 + n {
+            circles::on_desktop_signal((r - WAIT_OBJECT_0) as usize);
+            continue;
+        }
+        if r == WAIT_FAILED {
+            // Should not happen; fall back to a plain blocking wait so the loop never spins.
+            dlog!("MsgWaitForMultipleObjectsEx failed: error {}", unsafe { GetLastError() });
+            if unsafe { GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) } <= 0 {
+                return;
+            }
+            unsafe {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+            continue;
+        }
+        while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
+            if msg.message == WM_QUIT {
+                return;
+            }
+            unsafe {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+    }
+}
 unsafe extern "system" fn win_event(_h: HWINEVENTHOOK, event: u32, hwnd: HWND, id_object: i32, _child: i32, _thread: u32, _time: u32) {
     if event != EVENT_SYSTEM_FOREGROUND || id_object != OBJID_WINDOW {
         return;
@@ -291,7 +355,9 @@ unsafe extern "system" fn win_event(_h: HWINEVENTHOOK, event: u32, hwnd: HWND, i
     let a = app();
     let node = a.node.get();
     dlog!("foreground -> {hwnd:?} class={:?}", win::class_name(hwnd));
-    if !node.is_null() {
+    if a.ui == Ui::Circles {
+        circles::foreground_changed(hwnd);
+    } else if !node.is_null() {
         a.host().foreground_changed(node, hwnd);
     }
 }
@@ -445,6 +511,10 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
         }
         WM_APP_ITEMS_LOADED => {
             let metas = *Box::from_raw(lparam as *mut Vec<(PathBuf, items::Meta)>);
+            if a.ui == Ui::Circles {
+                circles::ring::apply_metas(metas);
+                return 0;
+            }
             {
                 let mut items = a.items.borrow_mut();
                 for (p, m) in metas {
@@ -482,6 +552,7 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
                     diag::log_resources("idle_2s");
                 }
                 TIMER_SELFTEST => selftest::on_timer(),
+                TIMER_DESKTOP => circles::refresh_desktop(),
                 TIMER_HEALTH => health_check(),
                 TIMER_REPAINT => {
                     KillTimer(hwnd, TIMER_REPAINT);
@@ -499,10 +570,15 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
             if !node.is_null() {
                 node::reposition(node);
             }
+            circles::refresh_all();
             DefWindowProcW(hwnd, msg, wparam, lparam)
         }
         WM_APP_SHELL_CHANGE => {
             if let Some(change) = watch::decode(wparam, lparam) {
+                if a.ui == Ui::Circles {
+                    circles::on_shell_change(&change);
+                    return 0;
+                }
                 // Copy paths out, compute, write back: no borrow is held across a window call.
                 let mut paths: Vec<PathBuf> = a.items.borrow().iter().map(|i| i.path.clone()).collect();
                 let before = paths.clone();

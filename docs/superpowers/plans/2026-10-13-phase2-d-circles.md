@@ -1996,7 +1996,7 @@ How the pieces fit (read before copying):
 * The message loop (`pump_messages`) waits on the Watcher handles with `MsgWaitForMultipleObjectsEx`; a signal re-arms the handle and (re)starts the 250 ms `TIMER_DESKTOP`, which re-lists the Desktop.
 * When a ring closes it frees its surface and icons, calls `CoFreeUnusedLibrariesEx` and schedules the existing working-set trim.
 
-- [ ] **Step 1: Create `src/circles/circle_win.rs`:**
+- [x] **Step 1: Create `src/circles/circle_win.rs`:**
 
 ```rust
 //! Closed circles: small round layered tool windows that sit on the desktop.
@@ -2299,7 +2299,7 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
 }
 ```
 
-- [ ] **Step 2: Create `src/circles/ring.rs`:**
+- [x] **Step 2: Create `src/circles/ring.rs`:**
 
 ```rust
 //! The open ring: at most one layered window, owned by the circle it opened from (so it
@@ -3074,7 +3074,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
 }
 ```
 
-- [ ] **Step 3: Create `src/circles/rename.rs`:**
+- [x] **Step 3: Create `src/circles/rename.rs`:**
 
 ```rust
 //! Inline rename box: a small ordinary (non-layered) popup with an EDIT control, shown
@@ -3273,7 +3273,7 @@ unsafe extern "system" fn popup_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpara
 }
 ```
 
-- [ ] **Step 4: Replace `src/circles/mod.rs`:**
+- [x] **Step 4: Replace `src/circles/mod.rs`:**
 
 ```rust
 //! Phase 2 circles UI: round circles on the desktop that open into a ring of their files
@@ -3694,7 +3694,7 @@ pub fn delete_group(ci: usize, gi: usize) {
 }
 ```
 
-- [ ] **Step 5: Wire `src/app.rs`.** Apply this diff (against `app.rs` as it is after Task D1):
+- [x] **Step 5: Wire `src/app.rs`.** Apply this diff (against `app.rs` as it is after Task D1):
 
 ```diff
 diff --git a/src/app.rs b/src/app.rs
@@ -3949,12 +3949,12 @@ index 9b0f852..3f42d72 100644
                  let before = paths.clone();
 ```
 
-- [ ] **Step 6: Build and check.**
+- [x] **Step 6: Build and check.**
 
 Run: `cargo fmt`, `cargo clippy --release --locked --all-targets -- -D warnings`, `cargo test --release --locked`
 Expected: clippy clean (no `dead_code` left now that `allow` is gone); 36 tests PASS, 1 ignored (the preview).
 
-- [ ] **Step 7: Smoke run without touching the real config.**
+- [x] **Step 7: Smoke run without touching the real config.**
 
 ```powershell
 $tmp = "$env:TEMP\desktuk-d5"; New-Item -ItemType Directory -Force "$tmp\DeskTuk" | Out-Null
@@ -3966,7 +3966,7 @@ Select-String "$tmp\log.txt" -Pattern 'ui=|METRIC circles_started|resources\[idl
 ```
 Expected: `exit=0`; `ui=circles`; `METRIC circles_started circles=1 ...`; `resources[idle_2s] ... private_kb=` about 2 000 (v1 panel: about 4 600). Then confirm the panel still starts: the same command with `--ui panel` added -> the log has `ui=panel` and `METRIC startup first_paint...`.
 
-- [ ] **Step 8: Manual checks (needs a person at the desktop; record each result in the commit body; if you cannot do them, say "not verified" for each).**
+- [x] **Step 8: Manual checks (needs a person at the desktop; record each result in the commit body; if you cannot do them, say "not verified" for each).**
   1. Hover Recent: the ring opens with a short reveal; moving the pointer off the disc closes it.
   2. Right-click Recent -> New circle: a circle appears to its left with a rename box; type "Music", Enter.
   3. Drag a Desktop file from Explorer onto "Music": its count goes up; Recent's count goes down.
@@ -3977,7 +3977,9 @@ Expected: `exit=0`; `ui=circles`; `METRIC circles_started circles=1 ...`; `resou
   8. Win+D: circles stay visible; click an app: they go back under it.
   9. Delete "Music": confirmation; its files are back in Recent; no file on disk changed (compare `Get-ChildItem $env:USERPROFILE\Desktop` before/after).
 
-- [ ] **Step 9: Commit** (`Add the circles UI`, last line `... Task D5`).
+Execution notes: all nine Step 8 checks are **not verified** (no person performed the desktop interactions). Each is recorded separately in the D5 commit body. The task additionally includes `scripts/circles-regression-test.ps1`: it reproduced and verifies fixes for explicit CLI UI selection not being saved to an existing config and a deleted visible reference not refreshing its metadata. Fixtures live only in a unique TEMP directory; the script sends no mouse or keyboard input.
+
+- [x] **Step 9: Commit** (`Add the circles UI`, last line `... Task D5`).
 
 ---
 
