@@ -8,7 +8,8 @@ use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, L
 use windows_sys::Win32::Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows_sys::Win32::System::Threading::CreateMutexW;
+use windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet as EmptyWorkingSet;
+use windows_sys::Win32::System::Threading::{CreateMutexW, GetCurrentProcess};
 use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows_sys::Win32::UI::Controls::{InitCommonControlsEx, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX};
 use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -27,6 +28,7 @@ const TIMER_IDLE_METRICS: usize = 3;
 pub const TIMER_SELFTEST: usize = 4;
 const TIMER_HEALTH: usize = 5;
 const TIMER_REPAINT: usize = 6;
+const TIMER_TRIM: usize = 7;
 
 /// How often experimental hosts verify that their Explorer parent/owner still exists.
 const HEALTH_INTERVAL_MS: u32 = 2000;
@@ -242,6 +244,7 @@ pub fn run() -> i32 {
     a.hook.set(hook);
 
     unsafe {
+        SetTimer(controller, TIMER_TRIM, 1000, None);
         SetTimer(controller, TIMER_IDLE_METRICS, 2000, None);
         if a.host().kind() != HostKind::Window {
             SetTimer(controller, TIMER_HEALTH, HEALTH_INTERVAL_MS, None);
@@ -437,6 +440,12 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
                 TIMER_EXIT => {
                     KillTimer(hwnd, TIMER_EXIT);
                     quit();
+                }
+                TIMER_TRIM => {
+                    KillTimer(hwnd, TIMER_TRIM);
+                    // Start-up touches shell32/ole32/gdi code once; drop those pages from the
+                    // working set so the idle footprint reflects what the Node really needs.
+                    EmptyWorkingSet(GetCurrentProcess());
                 }
                 TIMER_IDLE_METRICS => {
                     KillTimer(hwnd, TIMER_IDLE_METRICS);

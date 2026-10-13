@@ -91,9 +91,17 @@ pub fn hit_test(l: &Layout, count: usize, p: POINT) -> Hit {
     (0..count).find(|&i| win::rect_contains(&item_rect(l, i), p)).map(Hit::Item).unwrap_or(Hit::Empty)
 }
 
+/// Number of items. Always go through this instead of writing `items.borrow().len()`
+/// inside a `match`/`if let` scrutinee: that `Ref` temporary would live for the whole
+/// block, and a launch or menu inside it pumps messages into `paint`, which needs
+/// `borrow_mut` (BorrowMutError -> panic=abort -> 0xC0000409).
+fn item_count() -> usize {
+    app().items.borrow().len()
+}
+
 pub fn current_layout(node: HWND) -> Layout {
     let dpi = unsafe { GetDpiForWindow(node) }.max(96);
-    layout(dpi, app().items.borrow().len())
+    layout(dpi, item_count())
 }
 
 /// Screen-coordinate centre of item `i`'s icon (used by the self-test).
@@ -225,7 +233,7 @@ fn paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
     let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
-    let l = layout(dpi, a.items.borrow().len());
+    let l = layout(dpi, item_count());
     let mut client = win::rect(0, 0, 0, 0);
     unsafe { GetClientRect(hwnd, &mut client) };
     let (w, h) = (client.right, client.bottom);
@@ -400,7 +408,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 a.drag.set(Some(d));
             } else {
                 let l = current_layout(hwnd);
-                let hit = hit_test(&l, a.items.borrow().len(), client_point(lparam));
+                let hit = hit_test(&l, item_count(), client_point(lparam));
                 set_hover(hwnd, if let Hit::Item(i) = hit { Some(i) } else { None });
                 if !a.tracking_leave.get() {
                     let mut tme = TRACKMOUSEEVENT {
@@ -422,7 +430,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_LBUTTONDOWN => {
             let l = current_layout(hwnd);
-            match hit_test(&l, a.items.borrow().len(), client_point(lparam)) {
+            match hit_test(&l, item_count(), client_point(lparam)) {
                 Hit::Item(i) => {
                     a.selected.set(Some(i));
                     InvalidateRect(hwnd, std::ptr::null(), 0);
@@ -449,7 +457,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_LBUTTONDBLCLK => {
             let l = current_layout(hwnd);
-            if let Hit::Item(i) = hit_test(&l, a.items.borrow().len(), client_point(lparam)) {
+            if let Hit::Item(i) = hit_test(&l, item_count(), client_point(lparam)) {
                 dlog!("double-click on item {i}");
                 launch(hwnd, i);
             }
@@ -458,7 +466,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_RBUTTONUP => {
             let l = current_layout(hwnd);
             let p = client_point(lparam);
-            let item = match hit_test(&l, a.items.borrow().len(), p) {
+            let item = match hit_test(&l, item_count(), p) {
                 Hit::Item(i) => {
                     a.selected.set(Some(i));
                     InvalidateRect(hwnd, std::ptr::null(), 0);
