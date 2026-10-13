@@ -1596,7 +1596,7 @@ Expected: PASS (model 7, geom 8, desktop 3, suggest 3, view 3). `listing_reads_a
 
 Drawing rule: everything is drawn on an opaque background and `geom::mask_disc` runs **last** (GDI text writes alpha 0; the mask sets every alpha byte).
 
-- [ ] **Step 1: Write the preview test first.** Add the two `pub mod` lines and create `src/circles/draw.rs` with only:
+- [x] **Step 1: Write the preview test first.** Add the two `pub mod` lines and create `src/circles/draw.rs` with only:
 
 ```rust
 #[cfg(test)]
@@ -1662,7 +1662,7 @@ mod tests {
 Run: `cargo test --release --locked circles::draw -- --ignored`
 Expected: FAIL to compile (`Surface`, `circle`, `ring`, `SlotView`, ... not found).
 
-- [ ] **Step 2: Implement the surface.** Create `src/circles/surface.rs`:
+- [x] **Step 2: Implement the surface.** Create `src/circles/surface.rs`:
 
 ```rust
 //! A 32-bit top-down DIB section for painting per-pixel-alpha (layered) windows.
@@ -1750,7 +1750,7 @@ impl Drop for Surface {
 }
 ```
 
-- [ ] **Step 3: Implement the drawing.** Insert above the test module of `src/circles/draw.rs`:
+- [x] **Step 3: Implement the drawing.** Insert above the test module of `src/circles/draw.rs`:
 
 ```rust
 //! GDI drawing of closed circles and open rings into a `Surface`.
@@ -1964,12 +1964,12 @@ pub fn ring(s: &Surface, dpi: u32, v: &RingView) {
 }
 ```
 
-- [ ] **Step 4: Render the preview and look at it.**
+- [x] **Step 4: Render the preview and look at it.**
 
 Run: `cargo test --release --locked circles::draw -- --ignored`
 Expected: PASS; `%TEMP%\desktuk-preview-circle.bmp` shows a dark disc with a blue rim, "Kitaplar ve Dergiler" on two lines and "128"; `%TEMP%\desktuk-preview-ring.bmp` shows a disc with "Music" / "21-40 / 300" in the centre, 20 slots on two rings (a lettered group disc "T", a blue "+12" suggestion, a "<" Back disc, 17 "Song NN.wav" labels) and a highlighted square on slot 5. Corners are the background colour (transparent). Mention in the commit body that you looked at both.
 
-- [ ] **Step 5: Pre-commit checks** (`cargo clippy --release --locked --all-targets -- -D warnings` too, so the test code is linted) **and commit** (`Add the layered surface and circle/ring drawing`, last line `... Task D4`).
+- [x] **Step 5: Pre-commit checks** (`cargo clippy --release --locked --all-targets -- -D warnings` too, so the test code is linted) **and commit** (`Add the layered surface and circle/ring drawing`, last line `... Task D4`).
 
 ---
 

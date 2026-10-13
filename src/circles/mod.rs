@@ -2,7 +2,9 @@
 #![allow(dead_code)] // Removed in Task D5, once every item is used.
 
 pub mod desktop;
+pub mod draw;
 pub mod geom;
 pub mod model;
 pub mod suggest;
+pub mod surface;
 pub mod view;
