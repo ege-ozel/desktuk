@@ -388,9 +388,9 @@ WM_APP_SHELL_CHANGE => {
 
 **Why the `windows` crate:** `windows-sys` has no COM interface wrappers (`IContextMenu`, `IShellFolder`). Add `windows` (latest 0.6x release; `cargo add windows --features Win32_UI_Shell,Win32_UI_Shell_Common,Win32_System_Com,Win32_UI_WindowsAndMessaging,Win32_Foundation`). It is only used in this module.
 
-- [ ] **Step 1: Measure the baseline** with the module count/commit script (`scripts/memmap.ps1 -Exe target\release\DeskTuk.exe`) and record `private commit` and `modules` in the commit body.
+- [x] **Step 1: Measure the baseline** with the module count/commit script (`scripts/memmap.ps1 -Exe target\release\DeskTuk.exe`) and record `private commit` and `modules` in the commit body.
 
-- [ ] **Step 2: Implement `shell_menu::show`** with this call sequence (all errors -> `Choice::None`, never panic):
+- [x] **Step 2: Implement `shell_menu::show`** with this call sequence (all errors -> `Choice::None`, never panic):
   1. `SHParseDisplayName(path)` -> absolute PIDL; `SHBindToParent` -> `IShellFolder` + child PIDL.
   2. `folder.GetUIObjectOf(owner, &[child], &IContextMenu::IID)`.
   3. `CreatePopupMenu`; `ctx.QueryContextMenu(hmenu, 0, 1, 0x7FFF, flags)` where `flags = CMF_NORMAL`, plus `CMF_EXTENDEDVERBS` when Shift is held.
@@ -399,7 +399,7 @@ WM_APP_SHELL_CHANGE => {
   6. If the result is `1..=0x7FFF`: `InvokeCommand` with `CMINVOKECOMMANDINFO { lpVerb: MAKEINTRESOURCE(id - 1), nShow: SW_SHOWNORMAL, hwnd: owner }`.
   7. Free PIDLs (`CoTaskMemFree`), `DestroyMenu`.
 
-- [ ] **Step 3: Wire into `node.rs::context_menu`.** Replace the hand-built menu for item right-clicks: call `shell_menu::show(ctl, &path, screen, &[(0x8001, "Remove from DeskTuk"), (0x8002, "Host: window"), (0x8010, "Exit DeskTuk")])` and map `Choice::Extra(0x8010)` to `crate::app::quit()`. Keep the existing menu for right-clicks on empty space. Copy the item path into a local **before** calling `show` (RefCell rule).
+- [x] **Step 3: Wire into `node.rs::context_menu`.** Replace the hand-built menu for item right-clicks: call `shell_menu::show(ctl, &path, screen, &[(0x8001, "Remove from DeskTuk"), (0x8002, "Host: window"), (0x8010, "Exit DeskTuk")])` and map `Choice::Extra(0x8010)` to `crate::app::quit()`. Keep the existing menu for right-clicks on empty space. Copy the item path into a local **before** calling `show` (RefCell rule).
 
 - [ ] **Step 4: Verify manually and record results in the commit body.**
   * Right-click a `.txt` item: shows Open / Open with / Properties / Send to ... ; "Properties" opens the Properties dialog; Esc dismisses without crash.
@@ -407,7 +407,7 @@ WM_APP_SHELL_CHANGE => {
   * `private commit` and `modules` immediately after first use vs. Step 1 baseline. If idle (before first use) numbers regressed, the crate is being initialised at start-up: fix.
   * Known limitation to accept: sub-menus that need owner-draw (`IContextMenu2/3`, e.g. some "Send to" icons) may render without icons. Do not forward `WM_INITMENUPOPUP` in this plan.
 
-- [ ] **Step 5: Commit** (`Task A3`)
+- [x] **Step 5: Commit** (`Task A3`)
 
 ---
 
