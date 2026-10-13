@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Threading::CreateMutexW;
@@ -24,6 +25,11 @@ const TIMER_RECREATE: usize = 1;
 const TIMER_EXIT: usize = 2;
 const TIMER_IDLE_METRICS: usize = 3;
 pub const TIMER_SELFTEST: usize = 4;
+const TIMER_HEALTH: usize = 5;
+const TIMER_REPAINT: usize = 6;
+
+/// How often experimental hosts verify that their Explorer parent/owner still exists.
+const HEALTH_INTERVAL_MS: u32 = 2000;
 
 /// Give up on an experimental host after this long without a desktop to attach to.
 const RECREATE_FALLBACK_MS: f64 = 30_000.0;
@@ -237,6 +243,9 @@ pub fn run() -> i32 {
 
     unsafe {
         SetTimer(controller, TIMER_IDLE_METRICS, 2000, None);
+        if a.host().kind() != HostKind::Window {
+            SetTimer(controller, TIMER_HEALTH, HEALTH_INTERVAL_MS, None);
+        }
         if let Some(ms) = a.args.exit_after_ms {
             SetTimer(controller, TIMER_EXIT, ms, None);
         }
@@ -311,14 +320,53 @@ fn create_controller() -> HWND {
     }
 }
 
+/// The node window, or null. Clears a handle that became invalid without our window
+/// procedure seeing WM_DESTROY (observed when the parent's process is killed).
+fn live_node() -> HWND {
+    let a = app();
+    let n = a.node.get();
+    if !n.is_null() && unsafe { IsWindow(n) } == 0 {
+        dlog!("node handle {n:?} became invalid without WM_DESTROY");
+        a.node.set(std::ptr::null_mut());
+        a.drag.set(None);
+        a.tracking_leave.set(false);
+        return std::ptr::null_mut();
+    }
+    n
+}
+
+/// Periodic check for experimental hosts: re-create the node if Explorer took it down
+/// or left it orphaned, without depending only on the TaskbarCreated broadcast.
+fn health_check() {
+    let a = app();
+    if a.quitting.get() || a.host().kind() == HostKind::Window {
+        return;
+    }
+    let n = live_node();
+    if n.is_null() {
+        if a.lost_at.get().is_none() {
+            on_node_lost();
+        }
+    } else if !a.host().is_healthy(n) {
+        dlog!("node {n:?} lost its Explorer parent/owner; re-creating");
+        if a.lost_at.get().is_none() {
+            a.lost_at.set(Some(diag::since_start_ms()));
+        }
+        unsafe { DestroyWindow(n) };
+    }
+}
+
 fn try_recreate_node() -> bool {
     let a = app();
-    if !a.node.get().is_null() {
+    if !live_node().is_null() {
         return true;
     }
     match node::create() {
         Ok(_) => {
             a.node_recreated_count.set(a.node_recreated_count.get() + 1);
+            // A freshly started Explorer paints its desktop asynchronously and can draw
+            // over a just-attached node; repaint once it has settled.
+            unsafe { SetTimer(a.controller.get(), TIMER_REPAINT, 1000, None) };
             if let Some(t) = a.lost_at.take() {
                 dlog!("METRIC node_recreated host={} after_ms={:.1}", a.host().kind().name(), diag::since_start_ms() - t);
             }
@@ -338,7 +386,7 @@ fn try_recreate_node() -> bool {
 
 fn on_node_lost() {
     let a = app();
-    if a.quitting.get() || !a.node.get().is_null() {
+    if a.quitting.get() || !live_node().is_null() {
         return;
     }
     dlog!("node lost (host={}); re-creating when the desktop is available", a.host().kind().name());
@@ -353,7 +401,7 @@ fn on_node_lost() {
 fn on_shell_restarted() {
     let a = app();
     a.taskbar_created_count.set(a.taskbar_created_count.get() + 1);
-    let node = a.node.get();
+    let node = live_node();
     dlog!("TaskbarCreated (Explorer started); shell: {}", shell::describe());
     if a.host().shell_restarted(node) {
         if a.lost_at.get().is_none() {
@@ -395,6 +443,14 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
                     diag::log_resources("idle_2s");
                 }
                 TIMER_SELFTEST => selftest::on_timer(),
+                TIMER_HEALTH => health_check(),
+                TIMER_REPAINT => {
+                    KillTimer(hwnd, TIMER_REPAINT);
+                    let n = live_node();
+                    if !n.is_null() {
+                        RedrawWindow(n, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+                    }
+                }
                 _ => {}
             }
             0

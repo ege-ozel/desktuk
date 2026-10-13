@@ -14,8 +14,8 @@
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetParent, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS,
-    WS_EX_NOPARENTNOTIFY,
+    GetParent, IsWindow, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CHILD, WS_CLIPCHILDREN,
+    WS_CLIPSIBLINGS, WS_EX_NOPARENTNOTIFY,
 };
 
 use super::{CreateSpec, DesktopHost, HostKind};
@@ -49,6 +49,10 @@ impl DesktopHost for ChildHost {
             ScreenToClient(GetParent(node), &mut pt);
             SetWindowPos(node, std::ptr::null_mut(), pt.x, pt.y, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE);
         }
+    }
+
+    fn is_healthy(&self, node: HWND) -> bool {
+        unsafe { IsWindow(GetParent(node)) != 0 }
     }
 
     fn shell_restarted(&self, node: HWND) -> bool {

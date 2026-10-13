@@ -12,7 +12,8 @@ use windows_sys::Win32::Foundation::{HWND, LPARAM};
 use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ};
 use windows_sys::Win32::UI::Shell::{SHGetSetSettings, SHELLSTATEA, SSF_HIDEICONS};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, FindWindowExW, FindWindowW, GetAncestor, GetParent, GetWindowThreadProcessId, IsWindowVisible, GA_ROOT,
+    EnumWindows, FindWindowExW, FindWindowW, GetAncestor, GetParent, GetWindowLongW, GetWindowThreadProcessId, IsWindowVisible, GA_ROOT,
+    GWL_STYLE, WS_CLIPSIBLINGS,
 };
 
 use crate::win::{class_name, wide};
@@ -157,9 +158,12 @@ pub fn describe() -> String {
     }
     match desktop_windows() {
         Some(d) => {
+            // WS_CLIPSIBLINGS on the def view decides whether it can paint over a sibling node.
+            let style = unsafe { GetWindowLongW(d.defview, GWL_STYLE) } as u32;
             s += &format!(
-                " defview={:?} defview_parent={:?}({}) listview={:?}",
+                " defview={:?} defview_style=0x{style:08x} defview_clipsiblings={} defview_parent={:?}({}) listview={:?}",
                 d.defview,
+                style & WS_CLIPSIBLINGS != 0,
                 d.defview_parent,
                 class_name(d.defview_parent),
                 d.listview

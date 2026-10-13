@@ -8,7 +8,7 @@
 
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetWindow, SetWindowPos, GW_OWNER, SWP_NOACTIVATE, SWP_NOZORDER, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
+    GetWindow, IsWindow, SetWindowPos, GW_OWNER, SWP_NOACTIVATE, SWP_NOZORDER, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
 use super::{CreateSpec, DesktopHost, HostKind};
@@ -35,6 +35,10 @@ impl DesktopHost for OwnedHost {
         unsafe {
             SetWindowPos(node, std::ptr::null_mut(), r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE);
         }
+    }
+
+    fn is_healthy(&self, node: HWND) -> bool {
+        unsafe { IsWindow(GetWindow(node, GW_OWNER)) != 0 }
     }
 
     fn shell_restarted(&self, node: HWND) -> bool {

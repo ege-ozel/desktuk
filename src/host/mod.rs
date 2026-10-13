@@ -93,6 +93,11 @@ pub trait DesktopHost {
     /// The foreground window changed (from a WinEvent hook). `fg` may be any window.
     fn foreground_changed(&self, _node: HWND, _fg: HWND) {}
 
+    /// Whether the node is still attached to a live desktop (parent/owner exists).
+    fn is_healthy(&self, _node: HWND) -> bool {
+        true
+    }
+
     /// Explorer (re)started - the `TaskbarCreated` broadcast was received.
     /// Return `true` if the node (null if it was already destroyed) must be re-created.
     fn shell_restarted(&self, node: HWND) -> bool;
