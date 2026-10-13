@@ -331,7 +331,33 @@ pub fn launch(hwnd: HWND, i: usize) {
     }
 }
 
+/// Extra entries appended to the shell's own menu for an item (ids must be >= 0x8000).
+const IDM_SHELL_LOCATION: usize = 0x8003;
+const IDM_SHELL_EXIT: usize = 0x8010;
+
+/// Item right-click: the real shell menu plus DeskTuk's own entries. Returns `false` when the item
+/// has no path or the shell menu could not be built, so the caller falls back to the plain menu.
+fn item_context_menu(screen: POINT, i: usize) -> bool {
+    // Copy the path out before the (message-pumping) menu runs: no RefCell borrow is held across it.
+    let Some(path) = item_path(i) else { return false };
+    let ctl = app().controller.get();
+    let choice =
+        crate::shell_menu::show(ctl, &path, screen, &[(IDM_SHELL_LOCATION, "Open file &location"), (IDM_SHELL_EXIT, "E&xit DeskTuk")]);
+    match choice {
+        crate::shell_menu::Choice::Extra(IDM_SHELL_LOCATION) => items::open_location(&path),
+        crate::shell_menu::Choice::Extra(IDM_SHELL_EXIT) => crate::app::quit(),
+        crate::shell_menu::Choice::Failed => return false,
+        _ => {}
+    }
+    true
+}
+
 fn context_menu(hwnd: HWND, screen: POINT, item: Option<usize>) {
+    if let Some(i) = item {
+        if item_context_menu(screen, i) {
+            return;
+        }
+    }
     let a = app();
     let ctl = a.controller.get();
     unsafe {

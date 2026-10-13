@@ -14,6 +14,8 @@ mod items;
 mod node;
 mod selftest;
 mod shell;
+mod shell_menu;
+mod watch;
 mod win;
 
 fn main() {

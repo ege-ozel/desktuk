@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
+use windows_sys::Win32::Graphics::Gdi::{InvalidateRect, RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet as EmptyWorkingSet;
@@ -18,9 +18,13 @@ use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use crate::config::{self, Args, Config};
 use crate::host::{self, DesktopHost, HostKind};
 use crate::items::{self, Item};
-use crate::{diag, dlog, node, selftest, shell, win};
+use crate::{diag, dlog, node, selftest, shell, watch, win};
 
 pub const WM_APP_NODE_LOST: u32 = WM_APP + 1;
+/// Posted by the item loader thread; lparam is a raw Box<Vec<(PathBuf, items::Meta)>>.
+pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;
+/// Shell change notification (SHChangeNotifyRegister, new delivery).
+pub const WM_APP_SHELL_CHANGE: u32 = WM_APP + 3;
 
 const TIMER_RECREATE: usize = 1;
 const TIMER_EXIT: usize = 2;
@@ -65,6 +69,8 @@ pub struct App {
     /// `diag::since_start_ms()` when the node was lost, while it is being re-created.
     lost_at: Cell<Option<f64>>,
     hook: Cell<HWINEVENTHOOK>,
+    /// SHChangeNotifyRegister registration id (0 = none).
+    notify_id: Cell<u32>,
 }
 
 thread_local! {
@@ -185,8 +191,9 @@ pub fn run() -> i32 {
         items::default_items()
     };
     let t_items = diag::since_start_ms();
-    let loaded: Vec<Item> = paths.into_iter().map(Item::load).collect();
-    dlog!("METRIC items_loaded count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
+    let loaded: Vec<Item> = paths.iter().cloned().map(Item::placeholder).collect();
+    let load_paths = paths;
+    dlog!("METRIC items_placeholder count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
     let pos = args.pos.or(saved.as_ref().and_then(|c| c.pos)).unwrap_or_else(|| default_pos(loaded.len()));
     let first_run = saved.is_none();
 
@@ -208,6 +215,7 @@ pub fn run() -> i32 {
         node_recreated_count: Cell::new(0),
         lost_at: Cell::new(None),
         hook: Cell::new(std::ptr::null_mut()),
+        notify_id: Cell::new(0),
         args,
     }));
     APP.with(|a| a.set(Some(state)));
@@ -215,6 +223,8 @@ pub fn run() -> i32 {
 
     let controller = create_controller();
     a.controller.set(controller);
+    items::spawn_loader(controller, load_paths);
+    a.notify_id.set(watch::register(controller));
     node::register_class();
 
     if let Err(e) = node::create() {
@@ -430,6 +440,23 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
             on_node_lost();
             0
         }
+        WM_APP_ITEMS_LOADED => {
+            let metas = *Box::from_raw(lparam as *mut Vec<(PathBuf, items::Meta)>);
+            {
+                let mut items = a.items.borrow_mut();
+                for (p, m) in metas {
+                    if let Some(it) = items.iter_mut().find(|i| i.path == p) {
+                        it.apply(m);
+                    }
+                }
+            } // borrow ends before any window call
+            let n = a.node.get();
+            if !n.is_null() {
+                InvalidateRect(n, std::ptr::null(), 0);
+            }
+            dlog!("METRIC items_loaded_async ms={:.1}", diag::since_start_ms());
+            0
+        }
         WM_TIMER => {
             match wparam {
                 TIMER_RECREATE => {
@@ -471,7 +498,29 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
             }
             DefWindowProcW(hwnd, msg, wparam, lparam)
         }
+        WM_APP_SHELL_CHANGE => {
+            if let Some(change) = watch::decode(wparam, lparam) {
+                // Copy paths out, compute, write back: no borrow is held across a window call.
+                let mut paths: Vec<PathBuf> = a.items.borrow().iter().map(|i| i.path.clone()).collect();
+                let before = paths.clone();
+                let requery = watch::apply_change(&mut paths, &change);
+                if !requery.is_empty() {
+                    {
+                        let mut items = a.items.borrow_mut();
+                        for (it, p) in items.iter_mut().zip(paths.iter()) {
+                            it.path = p.clone();
+                        }
+                    }
+                    if paths != before {
+                        a.save_config();
+                    }
+                    items::spawn_loader(a.controller.get(), requery);
+                }
+            }
+            0
+        }
         WM_DESTROY => {
+            watch::deregister(a.notify_id.get());
             PostQuitMessage(0);
             0
         }

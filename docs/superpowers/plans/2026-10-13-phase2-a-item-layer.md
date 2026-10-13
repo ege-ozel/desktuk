@@ -52,7 +52,7 @@
   `pub fn spawn_loader(controller: HWND, paths: Vec<PathBuf>)`
 - Produces (`app.rs`): `pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;` whose `lparam` is `Box<Vec<(PathBuf, Meta)>>` raw pointer.
 
-- [ ] **Step 1: Write the failing tests** (append to `src/items.rs`)
+- [x] **Step 1: Write the failing tests** (append to `src/items.rs`)
 
 ```rust
 #[cfg(test)]
@@ -76,12 +76,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cargo test --release --locked items::tests`
 Expected: FAIL to compile (`Meta`, `placeholder`, `apply` not defined).
 
-- [ ] **Step 3: Implement.** In `src/items.rs`:
+- [x] **Step 3: Implement.** In `src/items.rs`:
 
 ```rust
 /// Shell metadata for one path. Plain data so it can be produced on a worker thread.
@@ -171,13 +171,13 @@ WM_APP_ITEMS_LOADED => {
 ```
 Remove the old synchronous `METRIC items_loaded` line (it measured the blocking load) or keep it as `items_placeholder`.
 
-- [ ] **Step 4: Run tests and a smoke run**
+- [x] **Step 4: Run tests and a smoke run**
 
 Run: `cargo test --release --locked` -> PASS.
 Run: `cargo build --release; .\target\release\DeskTuk.exe --no-save --allow-multiple --exit-after 1500 --log $env:TEMP\a1.log C:\Windows\notepad.exe`
 Expected: log contains `METRIC items_loaded_async` and an `item loaded`-equivalent; process exits 0.
 
-- [ ] **Step 5: Commit** (`Plan: ...phase2-a-item-layer.md Task A1`)
+- [x] **Step 5: Commit** (`Plan: ...phase2-a-item-layer.md Task A1`)
 
 ---
 
@@ -195,7 +195,7 @@ Expected: log contains `METRIC items_loaded_async` and an `item loaded`-equivale
   `pub fn register(controller: HWND) -> u32`, `pub fn deregister(id: u32)`, `pub fn decode(wparam: usize, lparam: isize) -> Option<Change>`
   `pub const WM_APP_SHELL_CHANGE: u32 = WM_APP + 3;` (in `app.rs`)
 
-- [ ] **Step 1: Write the failing tests** (`src/watch.rs`, `#[cfg(test)]`)
+- [x] **Step 1: Write the failing tests** (`src/watch.rs`, `#[cfg(test)]`)
 
 ```rust
 #[cfg(test)]
@@ -237,9 +237,9 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run:** `cargo test --release --locked watch::tests` -> FAIL (module missing).
+- [x] **Step 2: Run:** `cargo test --release --locked watch::tests` -> FAIL (module missing).
 
-- [ ] **Step 3: Implement `apply_change`**
+- [x] **Step 3: Implement `apply_change`**
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -369,9 +369,9 @@ WM_APP_SHELL_CHANGE => {
 ```
 (`Item::path` is already `pub`.)
 
-- [ ] **Step 4: Run** `cargo test --release --locked` -> PASS. Manual: start DeskTuk with a file on the Desktop as item, rename it in Explorer -> node shows the new name within ~1 s (log line `METRIC items_loaded_async`).
+- [x] **Step 4: Run** `cargo test --release --locked` -> PASS. Manual: start DeskTuk with a file on the Desktop as item, rename it in Explorer -> node shows the new name within ~1 s (log line `METRIC items_loaded_async`).
 
-- [ ] **Step 5: Commit** (`Task A2`)
+- [x] **Step 5: Commit** (`Task A2`)
 
 ---
 
@@ -388,9 +388,9 @@ WM_APP_SHELL_CHANGE => {
 
 **Why the `windows` crate:** `windows-sys` has no COM interface wrappers (`IContextMenu`, `IShellFolder`). Add `windows` (latest 0.6x release; `cargo add windows --features Win32_UI_Shell,Win32_UI_Shell_Common,Win32_System_Com,Win32_UI_WindowsAndMessaging,Win32_Foundation`). It is only used in this module.
 
-- [ ] **Step 1: Measure the baseline** with the module count/commit script (`scripts/memmap.ps1 -Exe target\release\DeskTuk.exe`) and record `private commit` and `modules` in the commit body.
+- [x] **Step 1: Measure the baseline** with the module count/commit script (`scripts/memmap.ps1 -Exe target\release\DeskTuk.exe`) and record `private commit` and `modules` in the commit body.
 
-- [ ] **Step 2: Implement `shell_menu::show`** with this call sequence (all errors -> `Choice::None`, never panic):
+- [x] **Step 2: Implement `shell_menu::show`** with this call sequence (all errors -> `Choice::None`, never panic):
   1. `SHParseDisplayName(path)` -> absolute PIDL; `SHBindToParent` -> `IShellFolder` + child PIDL.
   2. `folder.GetUIObjectOf(owner, &[child], &IContextMenu::IID)`.
   3. `CreatePopupMenu`; `ctx.QueryContextMenu(hmenu, 0, 1, 0x7FFF, flags)` where `flags = CMF_NORMAL`, plus `CMF_EXTENDEDVERBS` when Shift is held.
@@ -399,7 +399,7 @@ WM_APP_SHELL_CHANGE => {
   6. If the result is `1..=0x7FFF`: `InvokeCommand` with `CMINVOKECOMMANDINFO { lpVerb: MAKEINTRESOURCE(id - 1), nShow: SW_SHOWNORMAL, hwnd: owner }`.
   7. Free PIDLs (`CoTaskMemFree`), `DestroyMenu`.
 
-- [ ] **Step 3: Wire into `node.rs::context_menu`.** Replace the hand-built menu for item right-clicks: call `shell_menu::show(ctl, &path, screen, &[(0x8001, "Remove from DeskTuk"), (0x8002, "Host: window"), (0x8010, "Exit DeskTuk")])` and map `Choice::Extra(0x8010)` to `crate::app::quit()`. Keep the existing menu for right-clicks on empty space. Copy the item path into a local **before** calling `show` (RefCell rule).
+- [x] **Step 3: Wire into `node.rs::context_menu`.** Replace the hand-built menu for item right-clicks: call `shell_menu::show(ctl, &path, screen, &[(0x8001, "Remove from DeskTuk"), (0x8002, "Host: window"), (0x8010, "Exit DeskTuk")])` and map `Choice::Extra(0x8010)` to `crate::app::quit()`. Keep the existing menu for right-clicks on empty space. Copy the item path into a local **before** calling `show` (RefCell rule).
 
 - [ ] **Step 4: Verify manually and record results in the commit body.**
   * Right-click a `.txt` item: shows Open / Open with / Properties / Send to ... ; "Properties" opens the Properties dialog; Esc dismisses without crash.
@@ -407,7 +407,7 @@ WM_APP_SHELL_CHANGE => {
   * `private commit` and `modules` immediately after first use vs. Step 1 baseline. If idle (before first use) numbers regressed, the crate is being initialised at start-up: fix.
   * Known limitation to accept: sub-menus that need owner-draw (`IContextMenu2/3`, e.g. some "Send to" icons) may render without icons. Do not forward `WM_INITMENUPOPUP` in this plan.
 
-- [ ] **Step 5: Commit** (`Task A3`)
+- [x] **Step 5: Commit** (`Task A3`)
 
 ---
 
