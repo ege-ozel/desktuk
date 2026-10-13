@@ -838,7 +838,7 @@ Expected: clippy clean; 19 tests PASS (Plan A's 10 + 7 model + 2 new config test
 
 Why these numbers: slots are squares of 54 px (96 DPI) on radii 90 and 150. `outer_r - inner_r >= slot`, and adjacent outer slots are 55 px apart on both axes at 30 degrees, so no two slot squares overlap at any DPI (the test checks 96/120/144/192).
 
-- [ ] **Step 1: Write the failing tests.** Add `pub mod geom;` to `src/circles/mod.rs` and create `src/circles/geom.rs` with only:
+- [x] **Step 1: Write the failing tests.** Add `pub mod geom;` to `src/circles/mod.rs` and create `src/circles/geom.rs` with only:
 
 ```rust
 #[cfg(test)]
@@ -942,12 +942,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify failure.**
+- [x] **Step 2: Run to verify failure.**
 
 Run: `cargo test --release --locked circles::geom`
 Expected: FAIL to compile (`metrics`, `slot_center`, ... not found).
 
-- [ ] **Step 3: Implement.** Insert above the test module:
+- [x] **Step 3: Implement.** Insert above the test module:
 
 ```rust
 //! Pure geometry for circles and rings: slot positions, hit testing, paging, the
@@ -1128,12 +1128,12 @@ pub fn anim_radius(from: f32, to: f32, elapsed_ms: f64, dur_ms: f64) -> (f32, bo
 }
 ```
 
-- [ ] **Step 4: Run.**
+- [x] **Step 4: Run.**
 
 Run: `cargo test --release --locked circles::geom`
 Expected: PASS (8 tests).
 
-- [ ] **Step 5: Pre-commit checks and commit** (`Add ring geometry, paging and the disc mask`, last line `... Task D2`).
+- [x] **Step 5: Pre-commit checks and commit** (`Add ring geometry, paging and the disc mask`, last line `... Task D2`).
 
 ---
 
