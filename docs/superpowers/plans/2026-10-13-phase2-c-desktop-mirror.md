@@ -1,3 +1,6 @@
+> **Status (2026-10-13): on hold.** The owner chose circles (Plan D) instead of mirroring the
+> whole Desktop. Do not execute.
+
 # Phase 2 / Plan C - Desktop mirror ("DeskTuk manages the desktop")
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax. Read `AGENTS.md` first.

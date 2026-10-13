@@ -1,5 +1,10 @@
 # DeskTuk Phase 2 - design / decomposition
 
+> **Update 2026-10-13 (owner decision):** DeskTuk is a *visual Desktop organiser* built from
+> round circles. See `2026-10-13-circles-design.md` and Plan D. Plan A stays; Plan B1/B2 are
+> replaced by Plan D, B3 (tray, autostart) is postponed, Plan C is on hold. v1 = Phase 1 (commit
+> `39ef8a9`) is the memory baseline; v2 must not use more.
+
 Status: **draft, written without a stated product purpose** (the owner skipped the
 "what is DeskTuk for?" question). Ordering below is chosen to be useful under every
 reading; see "Open question".

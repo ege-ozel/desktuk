@@ -1,3 +1,6 @@
+> **Status (2026-10-13): on hold.** B1 (drop to add) and B2 (remove) are replaced by Plan D
+> (circles). B3 (tray icon, autostart) is postponed until after Plan D. Do not execute.
+
 # Phase 2 / Plan B - Node management
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax. Read `AGENTS.md` first.
