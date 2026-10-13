@@ -2,3 +2,7 @@
 /dist
 *.log
 !docs/results/**/*.log
+*.exe
+*.bundle
+/test-results/
+/test-results-explorer/
