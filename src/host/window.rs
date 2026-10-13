@@ -15,7 +15,7 @@ use std::cell::Cell;
 
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+    GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
     SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
@@ -48,6 +48,11 @@ impl DesktopHost for WindowHost {
     fn attached(&self, node: HWND) {
         self.raised.set(false);
         Self::to_bottom(node);
+        // The foreground event only fires on a *change*. If the desktop is already the
+        // foreground window (login auto-start, started right after Win+D, Explorer restart)
+        // the node would stay below it, invisible, until the next focus change.
+        let fg = unsafe { GetForegroundWindow() };
+        self.foreground_changed(node, fg);
     }
 
     fn place(&self, node: HWND, r: &RECT) {
