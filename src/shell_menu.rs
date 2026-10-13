@@ -79,7 +79,12 @@ unsafe fn show_impl(owner: HWND, path: &Path, at: POINT, extra: &[(usize, &str)]
             for (id, label) in extra {
                 debug_assert!(*id >= EXTRA_FIRST);
                 let w: Vec<u16> = label.encode_utf16().chain(std::iter::once(0)).collect();
-                AppendMenuW(menu, MF_STRING, *id, PCWSTR(w.as_ptr()))?;
+                let flags = if *id == crate::desktop_view::MENU_ID {
+                    windows::Win32::UI::WindowsAndMessaging::MENU_ITEM_FLAGS(crate::desktop_view::menu_flags())
+                } else {
+                    MF_STRING
+                };
+                AppendMenuW(menu, flags, *id, PCWSTR(w.as_ptr()))?;
             }
         }
         // The controller owns the menu so the node never needs activation (as node.rs did before).

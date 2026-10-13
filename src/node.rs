@@ -341,11 +341,20 @@ fn item_context_menu(screen: POINT, i: usize) -> bool {
     // Copy the path out before the (message-pumping) menu runs: no RefCell borrow is held across it.
     let Some(path) = item_path(i) else { return false };
     let ctl = app().controller.get();
-    let choice =
-        crate::shell_menu::show(ctl, &path, screen, &[(IDM_SHELL_LOCATION, "Open file &location"), (IDM_SHELL_EXIT, "E&xit DeskTuk")]);
+    let choice = crate::shell_menu::show(
+        ctl,
+        &path,
+        screen,
+        &[
+            (IDM_SHELL_LOCATION, "Open file &location"),
+            (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL),
+            (IDM_SHELL_EXIT, "E&xit DeskTuk"),
+        ],
+    );
     match choice {
         crate::shell_menu::Choice::Extra(IDM_SHELL_LOCATION) => items::open_location(&path),
         crate::shell_menu::Choice::Extra(IDM_SHELL_EXIT) => crate::app::quit(),
+        crate::shell_menu::Choice::Extra(crate::desktop_view::MENU_ID) => crate::desktop_view::toggle_from_menu(),
         crate::shell_menu::Choice::Failed => return false,
         _ => {}
     }
@@ -370,6 +379,12 @@ fn context_menu(hwnd: HWND, screen: POINT, item: Option<usize>) {
         let host = a.host().kind();
         let label = format!("Host: {}{}", host.name(), if host.experimental() { " (experimental)" } else { "" });
         AppendMenuW(m, MF_STRING | MF_GRAYED, 0, win::wide(&label).as_ptr());
+        AppendMenuW(
+            m,
+            crate::desktop_view::menu_flags(),
+            crate::desktop_view::MENU_ID,
+            win::wide(crate::desktop_view::MENU_LABEL).as_ptr(),
+        );
         AppendMenuW(m, MF_STRING, IDM_EXIT, win::wide("E&xit DeskTuk").as_ptr());
         // The menu is owned by the hidden controller window so the node never needs activation.
         SetForegroundWindow(ctl);
@@ -384,6 +399,7 @@ fn context_menu(hwnd: HWND, screen: POINT, item: Option<usize>) {
                 }
             }
             (IDM_EXIT, _) => crate::app::quit(),
+            (crate::desktop_view::MENU_ID, _) => crate::desktop_view::toggle_from_menu(),
             _ => {}
         }
     }

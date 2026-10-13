@@ -735,19 +735,25 @@ fn on_right_up(lparam: LPARAM) {
 
 fn item_menu(target: Target, path: &std::path::Path, at: POINT) {
     let removable = target != Target::Recent;
-    let extras: &[(usize, &str)] = if removable { &[(IDM_REMOVE, "Remove from circle")] } else { &[] };
-    match shell_menu::show(app().controller.get(), path, at, extras) {
+    let mut extras = vec![(crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL)];
+    if removable {
+        extras.insert(0, (IDM_REMOVE, "Remove from circle"));
+    }
+    match shell_menu::show(app().controller.get(), path, at, &extras) {
         shell_menu::Choice::Extra(IDM_REMOVE) => super::assign(&[path.to_path_buf()], None),
+        shell_menu::Choice::Extra(crate::desktop_view::MENU_ID) => crate::desktop_view::toggle_from_menu(),
         shell_menu::Choice::Failed => {
             let mut entries = vec![(IDM_OPEN, "&Open")];
             if removable {
                 entries.push((IDM_REMOVE_PLAIN, "&Remove from circle"));
             }
+            entries.extend([(0, ""), (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL)]);
             match super::popup(&entries, at) {
                 IDM_OPEN => {
                     let _ = items::open(path, app().controller.get());
                 }
                 IDM_REMOVE_PLAIN => super::assign(&[path.to_path_buf()], None),
+                crate::desktop_view::MENU_ID => crate::desktop_view::toggle_from_menu(),
                 _ => {}
             }
         }

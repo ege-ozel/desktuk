@@ -4243,11 +4243,11 @@ No dependencies are added; only features of the existing Windows bindings are en
 
 ### Task D8: Toggle Windows desktop icons from the app context menu
 
-- [ ] Add a checked Show desktop items entry to circle/Recent menus and the panel menu.
+- [x] Add a checked Masaüstü öğelerini göster entry to circle/Recent, file and panel menus.
       Read Explorer's current visibility whenever the menu is opened.
-- [ ] Change only the desktop view's visibility flag on explicit selection; show an error
+- [x] Change only desktop icon visibility (view flag and Explorer preference) on explicit selection; show an error
       if Explorer is unavailable. Do not change it at startup or shutdown.
-- [ ] Update the design/README; run the AGENTS pre-commit checks and release build,
+- [x] Update the design/README; run the AGENTS pre-commit checks and release build,
       commit and push. Human menu/show/hide check: **not verified**.
 
 
@@ -4257,3 +4257,42 @@ with --target-dir target/desktop-update because the owner has the original relea
 executable running; the default build could not replace that locked executable.
 Visual parity, alternate desktop icon sizes/DPI, and large-icon paging at the desktop:
 **not verified**. No desktop settings were changed and no integration script was run.
+
+
+D8 evidence: cargo fmt, cargo clippy --release --locked -- -D warnings and
+cargo test --release --locked passed (38 passed, one ignored). Release build passed
+with --target-dir target/desktop-update; the owner's original running executable
+was left open. No integration script was run locally and no desktop visibility
+setting was changed during verification.
+
+The desktop lookup now passes an explicit VT_I4 CSIDL_DESKTOP location to
+FindWindowSW. The menu is available in file shell menus and their fallback menus,
+as well as the circle/Recent/panel menus. Only FWF_NOICONS and Explorer's fHideIcons
+preference change on selection; no config preference or startup/exit action is added.
+
+Manual checks:
+* Windows menu and DeskTuk checkmarks agree: **not verified**.
+* Hide and show Windows desktop icons through the new option: **not verified**.
+* DeskTuk circles stay visible and files stay in place: **not verified**.
+* Windows keeps the choice across app/Explorer restarts: **not verified**.
+* Desktop icon visual parity, alternate sizes/DPI and large-icon paging: **not verified**.
+
+Final follow-up benchmark, three-run medians, 15 s idle, synthetic TEMP fixtures:
+
+| Scenario | UI | Commit KB | Private WS KB | Modules | Handles | Start CPU ms | Idle CPU ms / 15 s |
+|---|---|---:|---:|---:|---:|---:|---:|
+| panel, default items | panel | 4708.00 | 120.00 | 45 | 267 | 94.00 | 0.00 |
+| panel, 50 items | panel | 4592.00 | 124.00 | 43 | 247 | 172.00 | 0.00 |
+| circles, Recent only | circles | 2020.00 | 140.00 | 30 | 149 | 31.00 | 0.00 |
+| circles, 5 x 60 items | circles | 2136.00 | 144.00 | 30 | 149 | 62.00 | 0.00 |
+| circles, ring open (20) | circles | 7220.00 | 3892.00 | 46 | 307 | 750.00 | - |
+
+Gate: **PASS**. Compare the closed-circle rows with the v1 baseline measured in D6
+(4632 KB commit, 46 modules, 0 ms idle CPU). This run reused that baseline; it did not
+rebuild/re-measure v1. The open-ring figure is reported separately and is not the
+closed-circle gate. Benchmark launches used separate TEMP configs with no-save.
+
+API references: [icon size](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifolderview2-getviewmodeandiconsize),
+[worker image extraction](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellitemimagefactory-getimage),
+[view flag](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifolderview2-setcurrentfolderflags),
+[Explorer preference](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetsetsettings).

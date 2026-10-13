@@ -87,12 +87,15 @@ DeskTuk.exe [options] [item paths...]
 
 By default DeskTuk shows **circles** instead of the panel. *Recent* (blue) holds every Desktop
 file that is in no circle, newest first. Right-click a circle for *New circle*, *New group*,
-*Rename*, *Delete circle*. Hover a circle to open its ring of files (20 per page; the wheel or
+*Rename*, *Delete circle*. Hover a circle to open its ring of files (up to 20 per page; the wheel or
 a click on the centre turns the page). Drop files from Explorer onto a circle to add them, drag
 a file out of a ring onto another circle or group to move it, right-click a file for the real
 shell menu and *Remove from circle*. Ring icons follow the current Windows desktop icon size
 and use the desktop label font. The ring grows as needed; large icons or small screens show
 fewer items per page. Reopen a ring after changing the desktop icon size.
+The checked **Masaüstü öğelerini göster** (Show desktop items) menu entry shows or hides
+Windows' own desktop icons. It is available on circles, Recent, file menus and the panel.
+DeskTuk circles remain visible; the choice is saved by Windows.
 Files are never moved or changed; circles only reference
 them. `--ui panel` (saved) brings back the Phase 1 panel. Design:
 [`docs/superpowers/specs/2026-10-13-circles-design.md`](docs/superpowers/specs/2026-10-13-circles-design.md).

@@ -43,6 +43,12 @@ only - it is not a file browser for `C:\`.
 * Hover 250 ms or click: opens the ring. Drag: moves the circle (position saved).
 * Right-click: New circle, New group, Rename..., Delete circle (confirmation; items go back to
   Recent), Exit. On Recent: New circle, Exit.
+  **Owner follow-up (2026-10-13):** all circle/Recent and file menus, plus the panel menu,
+  include the checked **Masaüstü öğelerini göster** option. It toggles Windows' desktop
+  icons via the desktop view's visibility flag and persists Explorer's own preference.
+  DeskTuk circles stay visible; no file paths or attributes change. The checkmark is read
+  from Explorer whenever the menu opens. If the desktop view cannot be reached the entry
+  is disabled; a failed change reports an error. Startup and exit never change visibility.
 * Files dropped from Explorer onto a circle are assigned to it; dropped onto Recent they are
   unassigned.
 
@@ -138,8 +144,8 @@ panel; idle CPU must be 0. The ring-open number is reported next to v1 showing 2
 
 ## Out of scope
 
-Notes; tray icon and autostart (Plan B3, later); hiding Explorer's own desktop icons
-(Plan C, on hold); a "generic icons" mode that would avoid loading per-file icon handlers
+Notes; tray icon and autostart (Plan B3, later); the remaining Plan C work (on hold);
+a "generic icons" mode that would avoid loading per-file icon handlers
 (possible follow-up if the owner wants even lower memory after browsing rings).
 
 ## Risks

@@ -306,7 +306,8 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
             if id == 0 {
                 AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
             } else {
-                AppendMenuW(m, MF_STRING, id, win::wide(label).as_ptr());
+                let flags = if id == crate::desktop_view::MENU_ID { crate::desktop_view::menu_flags() } else { MF_STRING };
+                AppendMenuW(m, flags, id, win::wide(label).as_ptr());
             }
         }
         SetForegroundWindow(ctl);
@@ -322,13 +323,14 @@ pub fn circle_menu(which: Which, at: POINT) {
     if let Which::User(_) = which {
         entries.extend([(IDM_NEW_GROUP, "New &group"), (IDM_RENAME, "&Rename\u{2026}"), (IDM_DELETE, "&Delete circle")]);
     }
-    entries.extend([(0, ""), (IDM_EXIT, "E&xit DeskTuk")]);
+    entries.extend([(0, ""), (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL), (IDM_EXIT, "E&xit DeskTuk")]);
     match (popup(&entries, at), which) {
         (IDM_NEW_CIRCLE, _) => new_circle(which),
         (IDM_NEW_GROUP, Which::User(ci)) => new_group(ci),
         (IDM_RENAME, Which::User(ci)) => begin_rename(rename::RenameTarget::Circle(ci)),
         (IDM_DELETE, Which::User(ci)) => delete_circle(ci),
         (IDM_EXIT, _) => crate::app::quit(),
+        (crate::desktop_view::MENU_ID, _) => crate::desktop_view::toggle_from_menu(),
         _ => {}
     }
 }
