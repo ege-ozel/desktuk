@@ -13,10 +13,10 @@ use windows_sys::Win32::System::Com::CoTaskMemFree;
 use windows_sys::Win32::System::Threading::GetProcessId;
 use windows_sys::Win32::UI::Controls::{ImageList_GetIcon, HIMAGELIST, ILD_TRANSPARENT};
 use windows_sys::Win32::UI::Shell::{
-    FOLDERID_Desktop, FOLDERID_Documents, FOLDERID_PublicDesktop, ILCreateFromPathW, ILFree, SHGetFileInfoW, SHGetImageList,
-    SHGetKnownFolderPath, SHOpenFolderAndSelectItems, ShellExecuteExW, SEE_MASK_FLAG_LOG_USAGE, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
-    SHFILEINFOW, SHGFI_DISPLAYNAME, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_OVERLAYINDEX, SHGFI_SYSICONINDEX, SHGFI_USEFILEATTRIBUTES,
-    SHIL_EXTRALARGE, SHIL_JUMBO,
+    FOLDERID_Desktop, FOLDERID_Documents, FOLDERID_PublicDesktop, ILCreateFromPathW, ILFree, SHGetFileInfoW, SHGetIconOverlayIndexW,
+    SHGetImageList, SHGetKnownFolderPath, SHOpenFolderAndSelectItems, ShellExecuteExW, IDO_SHGIOI_LINK, SEE_MASK_FLAG_LOG_USAGE,
+    SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, SHFILEINFOW, SHGFI_DISPLAYNAME, SHGFI_LARGEICON, SHGFI_SYSICONINDEX,
+    SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE, SHIL_JUMBO,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON, SW_SHOWNORMAL};
 
@@ -42,16 +42,15 @@ impl Item {
         let missing = !path.exists();
         let w = wide_path(&path);
         let mut sfi: SHFILEINFOW = unsafe { std::mem::zeroed() };
-        let mut flags = SHGFI_SYSICONINDEX | SHGFI_DISPLAYNAME | SHGFI_ICON | SHGFI_LARGEICON | SHGFI_OVERLAYINDEX;
+        // Deliberately no SHGFI_ICON / SHGFI_OVERLAYINDEX: those make the shell load every
+        // registered icon-overlay handler (cloud-sync clients, thumbcache, ...), which pulled
+        // ~60 extra DLLs and several MB into the process. The shortcut arrow is added below.
+        let mut flags = SHGFI_SYSICONINDEX | SHGFI_DISPLAYNAME | SHGFI_LARGEICON;
         if missing {
             flags |= SHGFI_USEFILEATTRIBUTES;
         }
         let ok =
             unsafe { SHGetFileInfoW(w.as_ptr(), FILE_ATTRIBUTE_NORMAL, &mut sfi, std::mem::size_of::<SHFILEINFOW>() as u32, flags) } != 0;
-        if !sfi.hIcon.is_null() {
-            // Only requested because SHGFI_OVERLAYINDEX requires SHGFI_ICON.
-            unsafe { DestroyIcon(sfi.hIcon) };
-        }
         let mut name = crate::win::from_wide(&sfi.szDisplayName);
         if name.is_empty() {
             name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.display().to_string());
@@ -59,7 +58,14 @@ impl Item {
         if missing {
             name = format!("{name} (missing)");
         }
-        let (sys_index, overlay) = if ok { (sfi.iIcon & 0x00ff_ffff, ((sfi.iIcon as u32) >> 24) & 0xff) } else { (0, 0) };
+        let sys_index = if ok { sfi.iIcon & 0x00ff_ffff } else { 0 };
+        let is_link = path.extension().map(|e| e.eq_ignore_ascii_case("lnk")).unwrap_or(false);
+        // System "shortcut" overlay only; no third-party handlers are consulted.
+        let overlay = if is_link {
+            u32::try_from(unsafe { SHGetIconOverlayIndexW(std::ptr::null(), IDO_SHGIOI_LINK as i32) }).unwrap_or(0)
+        } else {
+            0
+        };
         dlog!("item loaded path={} name={name:?} icon_index={sys_index} overlay={overlay} missing={missing}", path.display());
         Item { path, name, missing, sys_index, overlay, icon: std::ptr::null_mut(), icon_px: 0 }
     }
