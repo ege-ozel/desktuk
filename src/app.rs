@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
+use windows_sys::Win32::Graphics::Gdi::{InvalidateRect, RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW};
 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet as EmptyWorkingSet;
@@ -21,6 +21,8 @@ use crate::items::{self, Item};
 use crate::{diag, dlog, node, selftest, shell, win};
 
 pub const WM_APP_NODE_LOST: u32 = WM_APP + 1;
+/// Posted by the item loader thread; lparam is a raw Box<Vec<(PathBuf, items::Meta)>>.
+pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;
 
 const TIMER_RECREATE: usize = 1;
 const TIMER_EXIT: usize = 2;
@@ -185,8 +187,9 @@ pub fn run() -> i32 {
         items::default_items()
     };
     let t_items = diag::since_start_ms();
-    let loaded: Vec<Item> = paths.into_iter().map(Item::load).collect();
-    dlog!("METRIC items_loaded count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
+    let loaded: Vec<Item> = paths.iter().cloned().map(Item::placeholder).collect();
+    let load_paths = paths;
+    dlog!("METRIC items_placeholder count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
     let pos = args.pos.or(saved.as_ref().and_then(|c| c.pos)).unwrap_or_else(|| default_pos(loaded.len()));
     let first_run = saved.is_none();
 
@@ -215,6 +218,7 @@ pub fn run() -> i32 {
 
     let controller = create_controller();
     a.controller.set(controller);
+    items::spawn_loader(controller, load_paths);
     node::register_class();
 
     if let Err(e) = node::create() {
@@ -428,6 +432,23 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
     match msg {
         WM_APP_NODE_LOST => {
             on_node_lost();
+            0
+        }
+        WM_APP_ITEMS_LOADED => {
+            let metas = *Box::from_raw(lparam as *mut Vec<(PathBuf, items::Meta)>);
+            {
+                let mut items = a.items.borrow_mut();
+                for (p, m) in metas {
+                    if let Some(it) = items.iter_mut().find(|i| i.path == p) {
+                        it.apply(m);
+                    }
+                }
+            } // borrow ends before any window call
+            let n = a.node.get();
+            if !n.is_null() {
+                InvalidateRect(n, std::ptr::null(), 0);
+            }
+            dlog!("METRIC items_loaded_async ms={:.1}", diag::since_start_ms());
             0
         }
         WM_TIMER => {

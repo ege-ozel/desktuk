@@ -52,7 +52,7 @@
   `pub fn spawn_loader(controller: HWND, paths: Vec<PathBuf>)`
 - Produces (`app.rs`): `pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;` whose `lparam` is `Box<Vec<(PathBuf, Meta)>>` raw pointer.
 
-- [ ] **Step 1: Write the failing tests** (append to `src/items.rs`)
+- [x] **Step 1: Write the failing tests** (append to `src/items.rs`)
 
 ```rust
 #[cfg(test)]
@@ -76,12 +76,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cargo test --release --locked items::tests`
 Expected: FAIL to compile (`Meta`, `placeholder`, `apply` not defined).
 
-- [ ] **Step 3: Implement.** In `src/items.rs`:
+- [x] **Step 3: Implement.** In `src/items.rs`:
 
 ```rust
 /// Shell metadata for one path. Plain data so it can be produced on a worker thread.
@@ -171,13 +171,13 @@ WM_APP_ITEMS_LOADED => {
 ```
 Remove the old synchronous `METRIC items_loaded` line (it measured the blocking load) or keep it as `items_placeholder`.
 
-- [ ] **Step 4: Run tests and a smoke run**
+- [x] **Step 4: Run tests and a smoke run**
 
 Run: `cargo test --release --locked` -> PASS.
 Run: `cargo build --release; .\target\release\DeskTuk.exe --no-save --allow-multiple --exit-after 1500 --log $env:TEMP\a1.log C:\Windows\notepad.exe`
 Expected: log contains `METRIC items_loaded_async` and an `item loaded`-equivalent; process exits 0.
 
-- [ ] **Step 5: Commit** (`Plan: ...phase2-a-item-layer.md Task A1`)
+- [x] **Step 5: Commit** (`Plan: ...phase2-a-item-layer.md Task A1`)
 
 ---
 
