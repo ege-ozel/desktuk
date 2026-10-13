@@ -94,6 +94,9 @@ impl App {
             host: self.host().kind(),
             pos: Some(self.pos.get()),
             items: self.items.borrow().iter().map(|i| i.path.clone()).collect(),
+            // Task D5 replaces these with the running UI and real board.
+            ui: None,
+            board: Default::default(),
         };
         if let Err(e) = config::save(&c) {
             dlog!("config save failed: {e}");

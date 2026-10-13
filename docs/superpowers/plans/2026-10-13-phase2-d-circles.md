@@ -68,7 +68,7 @@
 - Produces (`config`): `pub enum Ui { Panel, Circles }` with `parse`/`name`; `Config { host, pos, items, ui: Option<Ui>, board: Board }`; `Args.ui: Option<Ui>`; `pub fn parse_config(&str) -> Config`; `pub fn render_config(&Config) -> String`.
 - Consumes: `watch::{Change, apply_change}` (Plan A).
 
-- [ ] **Step 1: Declare the module and write the failing model tests.**
+- [x] **Step 1: Declare the module and write the failing model tests.**
 
 In `src/main.rs` add `mod circles;` directly after `mod app;`.
 
@@ -205,12 +205,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify failure.**
+- [x] **Step 2: Run to verify failure.**
 
 Run: `cargo test --release --locked circles::model`
 Expected: FAIL to compile (`Board`, `Place`, `clean_name`, `MAX_NAME` not found).
 
-- [ ] **Step 3: Implement the model.** Insert this **above** the test module in `src/circles/model.rs`:
+- [x] **Step 3: Implement the model.** Insert this **above** the test module in `src/circles/model.rs`:
 
 ```rust
 //! The circle board: pure data and operations, no Win32.
@@ -518,12 +518,12 @@ impl Board {
 }
 ```
 
-- [ ] **Step 4: Run the model tests.**
+- [x] **Step 4: Run the model tests.**
 
 Run: `cargo test --release --locked circles::model`
 Expected: PASS (7 tests).
 
-- [ ] **Step 5: Write the failing config tests.** Append inside `mod tests` of `src/config.rs`:
+- [x] **Step 5: Write the failing config tests.** Append inside `mod tests` of `src/config.rs`:
 
 ```rust
     #[test]
@@ -551,7 +551,7 @@ Expected: PASS (7 tests).
 Run: `cargo test --release --locked config::tests`
 Expected: FAIL to compile (`parse_config`, `render_config`, `Ui` not found).
 
-- [ ] **Step 6: Implement the config split.** Replace `src/config.rs` with:
+- [x] **Step 6: Implement the config split.** Replace `src/config.rs` with:
 
 ```rust
 //! Command line and the persisted node configuration (%APPDATA%\DeskTuk\desktuk.cfg).
@@ -817,12 +817,12 @@ mod tests {
 
 (Nothing writes circle lines before D5, so this intermediate state cannot lose data.)
 
-- [ ] **Step 7: Run everything.**
+- [x] **Step 7: Run everything.**
 
 Run: `cargo fmt`, `cargo clippy --release --locked -- -D warnings`, `cargo test --release --locked`
 Expected: clippy clean; 19 tests PASS (Plan A's 10 + 7 model + 2 new config tests).
 
-- [ ] **Step 8: Commit** (`Add the circle board model and split config parsing`, last line `... Task D1`).
+- [x] **Step 8: Commit** (`Add the circle board model and split config parsing`, last line `... Task D1`).
 
 ---
 

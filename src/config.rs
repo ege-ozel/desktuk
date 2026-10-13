@@ -12,18 +12,49 @@
 
 use std::path::PathBuf;
 
+use crate::circles::model::Board;
 use crate::host::HostKind;
 
-#[derive(Clone, Debug)]
+/// Which user interface runs: the Phase 1 panel or the Phase 2 circles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ui {
+    Panel,
+    Circles,
+}
+
+impl Ui {
+    pub fn parse(s: &str) -> Option<Ui> {
+        match s.to_ascii_lowercase().as_str() {
+            "panel" => Some(Ui::Panel),
+            "circles" => Some(Ui::Circles),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ui::Panel => "panel",
+            Ui::Circles => "circles",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     pub host: HostKind,
     pub pos: Option<(i32, i32)>,
+    /// Panel items (`item=` lines). Kept untouched while the circles UI runs.
     pub items: Vec<PathBuf>,
+    /// None when the file has no ui= line (a Phase 1 file).
+    pub ui: Option<Ui>,
+    /// Circles (`circle=`, `group=`, `citem=`, `recent=` lines). Kept untouched while the panel runs.
+    pub board: Board,
 }
 
 #[derive(Debug, Default)]
 pub struct Args {
     pub host: Option<HostKind>,
+    pub ui: Option<Ui>,
     pub pos: Option<(i32, i32)>,
     pub items: Vec<PathBuf>,
     pub log: Option<PathBuf>,
@@ -41,6 +72,7 @@ pub const USAGE: &str = "DeskTuk.exe [options] [item paths...]
 
   --host <window|owned|child>  Desktop hosting strategy (default: window).
                                owned/child are EXPERIMENTAL (undocumented Explorer windows).
+  --ui <circles|panel>         User interface (default: circles; the self-test always uses panel).
   --pos <x,y>                  Node position in screen pixels.
   --log <file>                 Write a diagnostic log.
   --exit-after <ms>            Quit after the given time (measurements).
@@ -63,6 +95,10 @@ pub fn parse_args() -> Result<Args, String> {
             "--host" => {
                 let v = value("--host")?;
                 a.host = Some(HostKind::parse(&v).ok_or(format!("unknown host '{v}'"))?);
+            }
+            "--ui" => {
+                let v = value("--ui")?;
+                a.ui = Some(Ui::parse(&v).ok_or(format!("unknown ui '{v}'"))?);
             }
             "--pos" => {
                 let v = value("--pos")?;
@@ -105,7 +141,12 @@ pub fn config_path() -> Option<PathBuf> {
 
 pub fn load() -> Option<Config> {
     let text = std::fs::read_to_string(config_path()?).ok()?;
-    let mut c = Config { host: HostKind::Window, pos: None, items: Vec::new() };
+    Some(parse_config(&text))
+}
+
+/// Parses the configuration text. Unknown keys and malformed lines are ignored.
+pub fn parse_config(text: &str) -> Config {
+    let mut c = Config { host: HostKind::Window, pos: None, items: Vec::new(), ui: None, board: Board::default() };
     let (mut x, mut y) = (None, None);
     for line in text.lines() {
         let line = line.trim();
@@ -113,9 +154,13 @@ pub fn load() -> Option<Config> {
             continue;
         }
         let Some((k, v)) = line.split_once('=') else { continue };
-        let v = v.trim();
-        match k.trim() {
+        let (k, v) = (k.trim(), v.trim());
+        if c.board.parse_line(k, v) {
+            continue;
+        }
+        match k {
             "host" => c.host = HostKind::parse(v).unwrap_or(HostKind::Window),
+            "ui" => c.ui = Ui::parse(v),
             "x" => x = v.parse().ok(),
             "y" => y = v.parse().ok(),
             "item" if !v.is_empty() => c.items.push(PathBuf::from(v)),
@@ -125,7 +170,23 @@ pub fn load() -> Option<Config> {
     if let (Some(x), Some(y)) = (x, y) {
         c.pos = Some((x, y));
     }
-    Some(c)
+    c
+}
+
+pub fn render_config(c: &Config) -> String {
+    let mut s = String::from("# DeskTuk configuration. Items are references; the files themselves are never moved or changed.\n");
+    s += &format!("host={}\n", c.host.name());
+    if let Some(ui) = c.ui {
+        s += &format!("ui={}\n", ui.name());
+    }
+    if let Some((x, y)) = c.pos {
+        s += &format!("x={x}\ny={y}\n");
+    }
+    for p in &c.items {
+        s += &format!("item={}\n", p.display());
+    }
+    s += &c.board.render();
+    s
 }
 
 pub fn save(c: &Config) -> std::io::Result<()> {
@@ -133,20 +194,11 @@ pub fn save(c: &Config) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let mut s = String::from("# DeskTuk configuration. Items are references; the files themselves are never moved or changed.\n");
-    s += &format!("host={}\n", c.host.name());
-    if let Some((x, y)) = c.pos {
-        s += &format!("x={x}\ny={y}\n");
-    }
-    for p in &c.items {
-        s += &format!("item={}\n", p.display());
-    }
     // Write-then-rename so a crash never leaves a truncated file.
     let tmp = path.with_extension("cfg.tmp");
-    std::fs::write(&tmp, s)?;
+    std::fs::write(&tmp, render_config(c))?;
     std::fs::rename(&tmp, &path)
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,5 +221,26 @@ mod tests {
         assert_eq!(HostKind::parse("workerw"), None);
         assert!(!HostKind::Window.experimental());
         assert!(HostKind::Child.experimental());
+    }
+
+    #[test]
+    fn config_round_trips_panel_and_circle_lines_together() {
+        let text = "host=window\nui=circles\nx=10\ny=20\nitem=C:\\a.txt\ncircle=Music|1|2\ncitem=Music||C:\\b.wav\n";
+        let c = parse_config(text);
+        assert_eq!(c.ui, Some(Ui::Circles));
+        assert_eq!(c.items, vec![PathBuf::from(r"C:\a.txt")]);
+        assert_eq!(c.board.circles.len(), 1);
+        assert_eq!(c.pos, Some((10, 20)));
+        assert_eq!(parse_config(&render_config(&c)), c);
+    }
+
+    #[test]
+    fn a_phase_one_file_has_no_ui_and_no_circles() {
+        let c = parse_config("host=owned\nitem=C:\\a.txt\n");
+        assert_eq!(c.ui, None);
+        assert!(c.board.circles.is_empty());
+        assert!(!render_config(&c).contains("ui="), "rendering does not invent a ui line");
+        assert_eq!(Ui::parse("CIRCLES"), Some(Ui::Circles));
+        assert_eq!(Ui::parse("rings"), None);
     }
 }
