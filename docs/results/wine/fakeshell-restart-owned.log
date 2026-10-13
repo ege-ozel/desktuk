@@ -1,0 +1,20 @@
+[      2.6 ms] DeskTuk 0.1.0 starting; args=["Z:\\tmp\\claude-0\\wt\\DeskTuk.exe", "--host", "owned", "--no-save", "--allow-multiple", "--exit-after", "12000", "--log", "Z:\\tmp\\claude-0\\wt\\r-fs-owned.log", "--pos", "700,100", "C:\\users\\root\\Desktop\\hello.txt", "C:\\windows\\system32\\notepad.exe"]
+[      3.0 ms] windows: Windows 10 Pro  build 19043
+[      4.0 ms] display: primary=1280x800 virtual=1280x800 system_dpi=96
+[      5.1 ms] shell: progman=0x20046 progman_pid=368 progman_visible=true tray=0x40024 defview=0x210050 defview_style=0x50000000 defview_clipsiblings=false defview_parent=0x20046(Progman) listview=0x20004a toplevel_workerw=0 progman_child_workerw=false
+[      5.3 ms] desktop icons hidden (SHELLSTATE.fHideIcons)=false registry HideIcons=None
+[     57.1 ms] item loaded path=C:\users\root\Desktop\hello.txt name="hello.txt" icon_index=0 overlay=0 missing=false
+[     84.7 ms] item loaded path=C:\windows\system32\notepad.exe name="notepad.exe" icon_index=2 overlay=0 missing=false
+[     84.8 ms] METRIC items_loaded count=2 ms=79.4
+[    108.2 ms] node created hwnd=0x50082 host=owned parent=0x20046(Progman) rect=(700, 100, 892, 237)
+[    113.7 ms] METRIC startup first_paint_since_main_ms=113.7 first_paint_since_process_creation_ms=197.3
+[   2108.8 ms] METRIC resources[idle_2s] working_set_kb=26492 peak_working_set_kb=26840 private_kb=0 gdi_objects=0 user_objects=0
+[   4109.2 ms] node 0x50082 lost its Explorer parent/owner; re-creating
+[   4111.4 ms] node destroyed hwnd=0x50082 quitting=false
+[   4111.8 ms] node lost (host=owned); re-creating when the desktop is available
+[   5120.3 ms] node created hwnd=0x220058 host=owned parent=0x160098(Progman) rect=(700, 100, 892, 237)
+[   5120.3 ms] METRIC node_recreated host=owned after_ms=1011.1
+[   5121.4 ms] TaskbarCreated (Explorer started); shell: progman=0x160098 progman_pid=420 progman_visible=true tray=0x40024 defview=0xa0054 defview_style=0x50000000 defview_clipsiblings=false defview_parent=0x160098(Progman) listview=0x30046 toplevel_workerw=0 progman_child_workerw=false
+[  12111.8 ms] node destroyed hwnd=0x220058 quitting=true
+[  12113.1 ms] METRIC resources[exit] working_set_kb=26468 peak_working_set_kb=26840 private_kb=0 gdi_objects=0 user_objects=0
+[  12113.1 ms] exit code=0

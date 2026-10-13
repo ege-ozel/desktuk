@@ -1,0 +1,14 @@
+[      3.0 ms] DeskTuk 0.1.0 starting; args=["Z:\\tmp\\claude-0\\wt\\DeskTuk.exe", "--no-save", "--allow-multiple", "--exit-after", "3000", "--log", "Z:\\tmp\\claude-0\\wt\\r-perf1.log", "C:\\users\\root\\Desktop\\hello.txt", "C:\\windows\\system32\\notepad.exe"]
+[      3.4 ms] windows: Windows 10 Pro  build 19043
+[      4.1 ms] display: primary=1280x800 virtual=1280x800 system_dpi=96
+[      4.6 ms] shell: progman=0x0 defview=<not found> toplevel_workerw=0 progman_child_workerw=false
+[      4.8 ms] desktop icons hidden (SHELLSTATE.fHideIcons)=false registry HideIcons=None
+[     63.4 ms] item loaded path=C:\users\root\Desktop\hello.txt name="hello.txt" icon_index=0 overlay=0 missing=false
+[     90.9 ms] item loaded path=C:\windows\system32\notepad.exe name="notepad.exe" icon_index=2 overlay=0 missing=false
+[     90.9 ms] METRIC items_loaded count=2 ms=86.0
+[    118.0 ms] node created hwnd=0x3005c host=window parent=0x0() rect=(1048, 40, 1240, 177)
+[    122.8 ms] METRIC startup first_paint_since_main_ms=122.8 first_paint_since_process_creation_ms=200.9
+[   2119.2 ms] METRIC resources[idle_2s] working_set_kb=26532 peak_working_set_kb=26876 private_kb=0 gdi_objects=0 user_objects=0
+[   3121.3 ms] node destroyed hwnd=0x3005c quitting=true
+[   3122.6 ms] METRIC resources[exit] working_set_kb=26508 peak_working_set_kb=26876 private_kb=0 gdi_objects=0 user_objects=0
+[   3122.6 ms] exit code=0

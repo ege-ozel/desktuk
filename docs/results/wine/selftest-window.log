@@ -1,0 +1,35 @@
+[      2.6 ms] DeskTuk 0.1.0 starting; args=["Z:\\tmp\\claude-0\\wt\\DeskTuk.exe", "--selftest", "--log", "Z:\\tmp\\claude-0\\wt\\r-selftest.log", "--pos", "700,100", "C:\\users\\root\\Desktop\\hello.txt", "C:\\windows\\system32\\notepad.exe"]
+[      2.9 ms] windows: Windows 10 Pro  build 19043
+[      3.5 ms] display: primary=1280x800 virtual=1280x800 system_dpi=96
+[      3.9 ms] shell: progman=0x0 defview=<not found> toplevel_workerw=0 progman_child_workerw=false
+[      4.0 ms] desktop icons hidden (SHELLSTATE.fHideIcons)=false registry HideIcons=None
+[     69.0 ms] item loaded path=C:\users\root\Desktop\hello.txt name="hello.txt" icon_index=0 overlay=0 missing=false
+[     98.7 ms] item loaded path=C:\windows\system32\notepad.exe name="notepad.exe" icon_index=2 overlay=0 missing=false
+[     98.8 ms] METRIC items_loaded count=2 ms=94.7
+[    130.1 ms] node created hwnd=0x3004e host=window parent=0x0() rect=(700, 100, 892, 237)
+[    130.2 ms] SELFTEST start host=window
+[    135.4 ms] METRIC startup first_paint_since_main_ms=135.3 first_paint_since_process_creation_ms=226.2
+[   1633.9 ms] METRIC resources[selftest_start] working_set_kb=26548 peak_working_set_kb=26604 private_kb=0 gdi_objects=0 user_objects=0
+[   1634.6 ms] TEST host=window foreground_at_start INFO 0x10020/#32769/""/pid68
+[   1634.6 ms] TEST host=window initially_visible PASS hit=0x3004e/DeskTuk.Node/"DeskTuk Node"/pid32 pixel@(844,101)=#d27d2d
+[   1634.7 ms] TEST host=window desktop_outside_node INFO hit@(640,297)=0x10020/#32769/""/pid68 desktop_tree=false
+[   2131.3 ms] METRIC resources[idle_2s] working_set_kb=26548 peak_working_set_kb=26604 private_kb=0 gdi_objects=0 user_objects=0
+[   2290.7 ms] node moved to (580, 180)
+[   2591.6 ms] TEST host=window drag_moves_node PASS moved by (-120,80), expected (-120,80)
+[   2896.6 ms] double-click on item 0
+[   2912.7 ms] LAUNCH ok path=C:\users\root\Desktop\hello.txt pid=260
+[   5897.3 ms] TEST host=window double_click_launch PASS path=C:\users\root\Desktop\hello.txt pid=260 foreground=0x10088/Notepad/"hello.txt - Notepad"/pid260
+[   5897.3 ms] TEST host=window original_file_untouched PASS exists_after_launch=true
+[   7429.6 ms] activate 0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32 SetForegroundWindow=true
+[   8231.1 ms] TEST host=window app_window_covers_node PASS hit=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32
+[   9032.4 ms] TEST host=window click_does_not_raise_node PASS hit=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32 foreground=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32
+[  11534.7 ms] TEST host=window visible_after_show_desktop FAIL hit=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32 pixel@(844,101)=#d27d2d foreground=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32 test_window[exists=true visible=true iconic=false cloaked=0]
+[  14036.3 ms] TEST host=window below_apps_after_show_desktop_toggle PASS hit=0x200a4/DeskTuk.SelfTestWindow/"DeskTuk self-test window"/pid32 test_window[exists=true visible=true iconic=false cloaked=0]
+[  16860.7 ms] activate 0x300a4/DeskTuk.SelfTestWindow/"DeskTuk self-test fullscreen"/pid32 SetForegroundWindow=true
+[  18062.7 ms] TEST host=window fullscreen_covers_node PASS hit=0x300a4/DeskTuk.SelfTestWindow/"DeskTuk self-test fullscreen"/pid32 pixel@(844,101)=#3c46be
+[  21270.5 ms] TEST host=window visible_after_fullscreen_closes PASS hit=0x3004e/DeskTuk.Node/"DeskTuk Node"/pid32 pixel@(844,101)=#d27d2d
+[  21473.3 ms] METRIC resources[selftest_end] working_set_kb=30696 peak_working_set_kb=30696 private_kb=0 gdi_objects=0 user_objects=0
+[  21473.4 ms] SELFTEST done host=window pass=9 fail=1
+[  21476.8 ms] node destroyed hwnd=0x3004e quitting=true
+[  21479.2 ms] METRIC resources[exit] working_set_kb=30672 peak_working_set_kb=30672 private_kb=0 gdi_objects=0 user_objects=0
+[  21479.2 ms] exit code=1

@@ -1,0 +1,19 @@
+[      3.2 ms] DeskTuk 0.1.0 starting; args=["Z:\\tmp\\claude-0\\wt\\DeskTuk.exe", "--host", "child", "--no-save", "--allow-multiple", "--exit-after", "12000", "--log", "Z:\\tmp\\claude-0\\wt\\r-fs-child.log", "--pos", "700,100", "C:\\users\\root\\Desktop\\hello.txt", "C:\\windows\\system32\\notepad.exe"]
+[      3.6 ms] windows: Windows 10 Pro  build 19043
+[      4.4 ms] display: primary=1280x800 virtual=1280x800 system_dpi=96
+[      5.7 ms] shell: progman=0x70064 progman_pid=308 progman_visible=true tray=0x30034 defview=0x1e004a defview_style=0x50000000 defview_clipsiblings=false defview_parent=0x70064(Progman) listview=0x1e005a toplevel_workerw=0 progman_child_workerw=false
+[      5.9 ms] desktop icons hidden (SHELLSTATE.fHideIcons)=false registry HideIcons=None
+[     75.5 ms] item loaded path=C:\users\root\Desktop\hello.txt name="hello.txt" icon_index=0 overlay=0 missing=false
+[    111.2 ms] item loaded path=C:\windows\system32\notepad.exe name="notepad.exe" icon_index=2 overlay=0 missing=false
+[    111.3 ms] METRIC items_loaded count=2 ms=105.3
+[    132.4 ms] node created hwnd=0x30084 host=child parent=0x70064(Progman) rect=(700, 100, 892, 237)
+[    138.6 ms] METRIC startup first_paint_since_main_ms=138.6 first_paint_since_process_creation_ms=252.2
+[   2133.8 ms] METRIC resources[idle_2s] working_set_kb=26320 peak_working_set_kb=26792 private_kb=0 gdi_objects=0 user_objects=0
+[   4133.6 ms] node handle 0x30084 became invalid without WM_DESTROY
+[   4133.7 ms] node lost (host=child); re-creating when the desktop is available
+[   5132.3 ms] TaskbarCreated (Explorer started); shell: progman=0x9008a progman_pid=340 progman_visible=true tray=0x30034 defview=0x90052 defview_style=0x50000000 defview_clipsiblings=false defview_parent=0x9008a(Progman) listview=0x1f004a toplevel_workerw=0 progman_child_workerw=false
+[   5138.8 ms] node created hwnd=0x1f005a host=child parent=0x9008a(Progman) rect=(700, 100, 892, 237)
+[   5138.9 ms] METRIC node_recreated host=child after_ms=1005.2
+[  12135.0 ms] node destroyed hwnd=0x1f005a quitting=true
+[  12136.6 ms] METRIC resources[exit] working_set_kb=26296 peak_working_set_kb=26792 private_kb=0 gdi_objects=0 user_objects=0
+[  12136.7 ms] exit code=0
