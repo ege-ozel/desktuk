@@ -1,6 +1,6 @@
 <# Read-only for user files: all fixtures and configuration live in a unique TEMP directory.
    No mouse movement, keyboard input, Explorer restart or Desktop writes. #>
-param([string]$Exe = 'target\release\DeskTuk.exe')
+param([string]$Exe = 'target\release\DeskTuk.exe', [switch]$CheckDragCapture)
 $ErrorActionPreference = 'Stop'
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
@@ -21,6 +21,19 @@ public static class CirclesRegressionWin {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [StructLayout(LayoutKind.Sequential)] public struct GuiThreadInfo {
+        public uint size, flags;
+        public IntPtr active, focus, capture, menuOwner, moveSize, caret;
+        public Rect caretRect;
+    }
+    [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint thread, ref GuiThreadInfo info);
+    public static IntPtr CaptureOf(IntPtr h) {
+        uint pid; uint thread = GetWindowThreadProcessId(h, out pid);
+        var info = new GuiThreadInfo(); info.size = (uint)Marshal.SizeOf(info);
+        return GetGUIThreadInfo(thread, ref info) ? info.capture : IntPtr.Zero;
+    }
     [DllImport("shell32.dll", CharSet=CharSet.Unicode)] public static extern void SHChangeNotify(uint ev, uint flags, string path, IntPtr second);
     public static IntPtr FindCircle(uint pid, int x) {
         IntPtr found = IntPtr.Zero;
@@ -64,6 +77,27 @@ try {
     Start-Sleep -Milliseconds 1500
     $h = [CirclesRegressionWin]::FindCircle([uint32]$p.Id, 300)
     if ($h -eq [IntPtr]::Zero) { throw 'fixture circle was not created' }
+    if ($CheckDragCapture) {
+        # Synthetic messages do not grant foreground rights. This opt-in probe requires
+        # a desktop that permits activation; it does not replace the manual drag checks.
+        $foreground = [CirclesRegressionWin]::GetForegroundWindow()
+        [void][CirclesRegressionWin]::PostMessage($h, 0x0201, [IntPtr]1, [IntPtr]0x002c002c)
+        Start-Sleep -Milliseconds 150
+        $capturedForeground = [CirclesRegressionWin]::GetForegroundWindow()
+        $capturedWindow = [CirclesRegressionWin]::CaptureOf($h)
+        $captureReady = $capturedForeground -eq $h -and $capturedWindow -eq $h
+        [void][CirclesRegressionWin]::SendMessage($h, 0x0202, [IntPtr]::Zero, [IntPtr]0x002c002c)
+        Start-Sleep -Milliseconds 150
+        $captureRestored = [CirclesRegressionWin]::GetForegroundWindow() -eq $foreground
+        Write-Host "Full drag capture acquired and foreground restored: $($captureReady -and $captureRestored)"
+        if (-not $captureReady -or -not $captureRestored) {
+            Write-Host "capture diagnostics: previous=$foreground target=$h foreground=$capturedForeground capture=$capturedWindow restored=$captureRestored"
+            Get-Content -LiteralPath $ringLog -Tail 8 | Write-Host
+            throw 'foreground capture was not verified; requires a desktop permitting activation'
+        }
+    } else {
+        Write-Host 'Actual drag capture: not verified (desktop check required)'
+    }
     [void][CirclesRegressionWin]::PostMessage($h, 0x02A1, [IntPtr]::Zero, [IntPtr]::Zero)
     Start-Sleep -Milliseconds 1500
     $before = Get-Content -LiteralPath $ringLog -Raw

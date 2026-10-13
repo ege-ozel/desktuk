@@ -15,9 +15,7 @@ use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetCapture, ReleaseCapture, SetCapture, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
-};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -220,6 +218,7 @@ pub fn close_now() {
     if let Some(r) = taken {
         let h = r.hwnd;
         drop(r); // releases icons and the surface
+        super::drag_capture::end(h);
         unsafe {
             KillTimer(h, TIMER_ANIM);
             DestroyWindow(h);
@@ -514,6 +513,7 @@ enum Action {
 }
 
 fn on_left_down(lparam: LPARAM) {
+    super::rename::commit_active();
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let capture = with(|r| {
         if closing(r) {
@@ -529,16 +529,17 @@ fn on_left_down(lparam: LPARAM) {
     })
     .flatten();
     if let Some(h) = capture {
-        unsafe { SetCapture(h) };
+        if !super::drag_capture::begin(h) {
+            with(|r| r.press = None);
+            dlog!("ring drag foreground capture unavailable");
+        }
     }
 }
 
 fn on_left_up(lparam: LPARAM) {
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
-    if !hwnd.is_null() && unsafe { GetCapture() } == hwnd {
-        unsafe { ReleaseCapture() };
-    }
+    super::drag_capture::end(hwnd);
     let action = match press {
         Some(p) if p.active => Action::Drop { path: p.path, at: cursor_pos() },
         _ => with(|r| {
@@ -615,6 +616,7 @@ fn with_menu(f: impl FnOnce()) {
 }
 
 fn on_right_up(lparam: LPARAM) {
+    super::rename::commit_active();
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let info = with(|r| {
         if closing(r) {
@@ -748,6 +750,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             // Capture taken away mid-drag (e.g. Alt+Tab): forget the drag.
             if lparam as HWND != hwnd {
                 with(|r| r.press = None);
+                super::drag_capture::end(hwnd);
             }
             0
         }

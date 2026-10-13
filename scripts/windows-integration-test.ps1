@@ -92,18 +92,21 @@ foreach ($h in $Hosts) {
 Ensure-Explorer
 
 # --- RAM and startup ---------------------------------------------------------------------
-Write-Host "`n== performance (host=window, $PerfRuns runs)"
+Write-Host "`n== performance (host=window, $PerfRuns runs per UI)"
+foreach ($ui in @('panel', 'circles')) {
 for ($i = 1; $i -le $PerfRuns; $i++) {
-    $log = Join-Path $Out "perf-$i.log"
-    $quoted = @('--no-save', '--allow-multiple', '--exit-after', '6000', '--log', $log, $lnk, $txt) |
+    $log = Join-Path $Out "perf-$ui-$i.log"
+    # circles: the runner has no config, so this measures the Recent circle only.
+    $quoted = @('--ui', $ui, '--no-save', '--allow-multiple', '--exit-after', '6000', '--log', $log, $lnk, $txt) |
         ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }
     $p = Start-Process -FilePath $Exe -ArgumentList $quoted -PassThru
     Start-Sleep -Seconds 4
     $p.Refresh()
-    Write-Host ("METRIC perf run={0} working_set_kb={1} private_kb={2} peak_working_set_kb={3} handles={4}" -f `
+    Write-Host ("METRIC perf ui=$ui run={0} working_set_kb={1} private_kb={2} peak_working_set_kb={3} handles={4}" -f `
         $i, [int]($p.WorkingSet64 / 1KB), [int]($p.PrivateMemorySize64 / 1KB), [int]($p.PeakWorkingSet64 / 1KB), $p.HandleCount)
     $null = $p.WaitForExit(15000)
     Select-String -Path $log -Pattern 'METRIC' | ForEach-Object { Write-Host $_.Line }
+}
 }
 
 # --- Files must be untouched ---------------------------------------------------------------

@@ -14,9 +14,7 @@ use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromRect, MONITO
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::{WM_MOUSEHOVER, WM_MOUSELEAVE};
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetCapture, ReleaseCapture, SetCapture, TrackMouseEvent, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT,
-};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, DragFinish, DragQueryFileW, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -216,9 +214,7 @@ fn on_move(hwnd: HWND) {
 /// otherwise capture was lost and nothing is opened.
 fn end_press(hwnd: HWND, released: bool) {
     let Some(p) = PRESS.take() else { return };
-    if unsafe { GetCapture() } == hwnd {
-        unsafe { ReleaseCapture() }; // sends WM_CAPTURECHANGED; PRESS is already empty
-    }
+    super::drag_capture::end(hwnd); // PRESS is already empty before message-pumping calls
     let Some(which) = super::which_of(hwnd) else { return };
     if p.moving {
         let r = win::window_rect(hwnd);
@@ -233,8 +229,12 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
         // Never take activation: a circle must not jump above application windows.
         WM_MOUSEACTIVATE => MA_NOACTIVATE as LRESULT,
         WM_WINDOWPOSCHANGING => {
-            if let Some(h) = super::host_of(hwnd) {
-                h.window_pos_changing(hwnd, &mut *(lparam as *mut WINDOWPOS));
+            // A drag needs foreground capture. Pinning activation's position request to
+            // HWND_BOTTOM prevents activation; the capture helper restores it at release.
+            if !super::drag_capture::is_active() {
+                if let Some(h) = super::host_of(hwnd) {
+                    h.window_pos_changing(hwnd, &mut *(lparam as *mut WINDOWPOS));
+                }
             }
             0
         }
@@ -258,9 +258,12 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_LBUTTONDOWN => {
+            super::rename::commit_active();
             let r = win::window_rect(hwnd);
             PRESS.set(Some(Press { hwnd, cursor: cursor_pos(), origin: (r.left, r.top), moving: false }));
-            SetCapture(hwnd);
+            if !super::drag_capture::begin(hwnd) {
+                dlog!("circle drag foreground capture unavailable");
+            }
             0
         }
         WM_LBUTTONUP => {
@@ -274,6 +277,7 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_RBUTTONUP => {
+            super::rename::commit_active();
             if let Some(w) = super::which_of(hwnd) {
                 super::circle_menu(w, cursor_pos());
             }

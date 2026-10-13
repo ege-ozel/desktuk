@@ -136,16 +136,27 @@ fn window_text(h: HWND) -> String {
     }
 }
 
-fn finish(popup: HWND, commit: bool) {
-    let Some((p, edit, target)) = ACTIVE.get() else { return };
-    if p != popup {
-        return;
-    }
-    ACTIVE.set(None);
+fn take_active() -> Option<(RenameTarget, String)> {
+    let (popup, edit, target) = ACTIVE.take()?;
     let text = window_text(edit);
     unsafe { DestroyWindow(popup) };
-    if commit {
+    Some((target, text))
+}
+
+/// Non-activating circles/rings do not cause WM_KILLFOCUS. Commit explicitly on click.
+pub fn commit_active() {
+    if let Some((target, text)) = take_active() {
         super::commit_rename(target, &text);
+    }
+}
+
+fn finish(popup: HWND, commit: bool) {
+    if ACTIVE.get().map(|(p, _, _)| p == popup).unwrap_or(false) {
+        if let Some((target, text)) = take_active() {
+            if commit {
+                super::commit_rename(target, &text);
+            }
+        }
     }
 }
 
@@ -190,5 +201,55 @@ unsafe extern "system" fn popup_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpara
             0
         }
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn click_away_takes_the_name_before_destroying_the_editor() {
+        register_class();
+        let instance = unsafe { GetModuleHandleW(std::ptr::null()) };
+        let popup = unsafe {
+            CreateWindowExW(
+                0,
+                win::wide(CLASS).as_ptr(),
+                win::wide("test").as_ptr(),
+                WS_POPUP,
+                0,
+                0,
+                220,
+                30,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                instance,
+                std::ptr::null(),
+            )
+        };
+        assert!(!popup.is_null());
+        let edit = unsafe {
+            CreateWindowExW(
+                0,
+                win::wide("EDIT").as_ptr(),
+                win::wide("Renamed Music").as_ptr(),
+                WS_CHILD,
+                0,
+                0,
+                220,
+                30,
+                popup,
+                std::ptr::null_mut(),
+                instance,
+                std::ptr::null(),
+            )
+        };
+        assert!(!edit.is_null());
+        ACTIVE.set(Some((popup, edit, RenameTarget::Circle(2))));
+        let result = take_active();
+        assert_eq!(result, Some((RenameTarget::Circle(2), "Renamed Music".to_string())));
+        assert!(ACTIVE.get().is_none());
+        assert_eq!(unsafe { IsWindow(popup) }, 0);
     }
 }

@@ -10,7 +10,7 @@ use std::time::UNIX_EPOCH;
 use windows_sys::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Storage::FileSystem::{
     FindCloseChangeNotification, FindFirstChangeNotificationW, FindNextChangeNotification, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_SYSTEM,
-    FILE_NOTIFY_CHANGE_DIR_NAME, FILE_NOTIFY_CHANGE_FILE_NAME,
+    FILE_NOTIFY_CHANGE_DIR_NAME, FILE_NOTIFY_CHANGE_FILE_NAME, FILE_NOTIFY_CHANGE_LAST_WRITE,
 };
 use windows_sys::Win32::UI::Shell::{FOLDERID_Desktop, FOLDERID_PublicDesktop};
 
@@ -83,7 +83,13 @@ impl Watcher {
         let mut handles = Vec::new();
         for d in dirs {
             let w = win::wide_path(d);
-            let h = unsafe { FindFirstChangeNotificationW(w.as_ptr(), 0, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME) };
+            let h = unsafe {
+                FindFirstChangeNotificationW(
+                    w.as_ptr(),
+                    0,
+                    FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
+                )
+            };
             if h.is_null() || h == INVALID_HANDLE_VALUE {
                 dlog!("desktop watch failed for {}", d.display());
             } else {
@@ -152,5 +158,23 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].path.file_name().unwrap(), "a.txt");
         assert!(entries[0].stamp > 0);
+    }
+
+    #[test]
+    fn watcher_wakes_when_an_existing_file_is_written() {
+        use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+        use windows_sys::Win32::System::Threading::WaitForSingleObject;
+        let nonce = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("desktuk-write-watch-{}-{nonce}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("existing.txt");
+        std::fs::write(&path, "before").unwrap();
+        let watcher = Watcher::new(std::slice::from_ref(&dir));
+        assert_eq!(watcher.handles().len(), 1);
+        std::fs::write(&path, "after the edit").unwrap();
+        let result = unsafe { WaitForSingleObject(watcher.handles()[0], 3000) };
+        drop(watcher);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(result, WAIT_OBJECT_0, "editing an existing file must wake the Recent refresh");
     }
 }

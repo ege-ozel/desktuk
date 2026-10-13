@@ -31,6 +31,10 @@ jobs:
       - name: Unit tests
         run: cargo test --release --locked
 
+      - name: Circles runtime regressions with isolated TEMP fixtures
+        shell: powershell
+        run: ./scripts/circles-regression-test.ps1 -Exe target/release/DeskTuk.exe
+
       - name: Integration self-test on the runner's desktop
         shell: powershell
         run: ./scripts/windows-integration-test.ps1 -Exe target/release/DeskTuk.exe -Out test-results -ExplorerRestart

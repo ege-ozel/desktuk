@@ -3992,7 +3992,7 @@ Execution notes: all nine Step 8 checks are **not verified** (no person performe
 **Interfaces:**
 - Consumes: the `--ui` option and `ui=` key (D1), `ui=` log line and window class `DeskTuk.Circle` (D5).
 
-- [ ] **Step 1: Create `scripts/bench-memory.ps1`:**
+- [x] **Step 1: Create `scripts/bench-memory.ps1`:**
 
 ```powershell
 <#
@@ -4123,7 +4123,7 @@ $rows | Format-Table -AutoSize | Out-String -Width 220
 Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
 ```
 
-- [ ] **Step 2: Measure perf for both UIs in CI.** Apply to `scripts/windows-integration-test.ps1`:
+- [x] **Step 2: Measure perf for both UIs in CI.** Apply to `scripts/windows-integration-test.ps1`:
 
 ```diff
 diff --git a/scripts/windows-integration-test.ps1 b/scripts/windows-integration-test.ps1
@@ -4159,7 +4159,7 @@ index 5b0a7f3..a99ca40 100644
  $after = Get-Snapshot
 ```
 
-- [ ] **Step 3: README.** In `README.md`, add to the options block after the `--host` line:
+- [x] **Step 3: README.** In `README.md`, add to the options block after the `--host` line:
 
 ```text
   --ui <circles|panel>         circles (default) or the Phase 1 panel
@@ -4180,7 +4180,7 @@ them. `--ui panel` (saved) brings back the Phase 1 panel. Design:
 [`docs/superpowers/specs/2026-10-13-circles-design.md`](docs/superpowers/specs/2026-10-13-circles-design.md).
 ```
 
-- [ ] **Step 4: Run the benchmark against v1** (on Windows, nothing else heavy running):
+- [x] **Step 4: Run the benchmark against v1** (on Windows, nothing else heavy running):
 
 ```powershell
 git worktree add --detach $env:TEMP\desktuk-v1 39ef8a9   # v1 = Phase 1
@@ -4192,9 +4192,30 @@ git worktree remove --force $env:TEMP\desktuk-v1
 ```
 Expected (spec gate): "circles, Recent only" and "circles, 5 x 60 items" commit and modules **at or below** v1's "panel, default items"; every IdleCpuMs = 0; "circles, ring open (20)" is reported (it is the cost of real shell icons; compare with v1 showing 20 Desktop files: about 7.8 MB). Paste the table into the commit body. **If the gate fails, do not open the PR**: commit, push, and write in the commit body what failed - the owner decides.
 
-- [ ] **Step 5: Pre-commit checks, commit** (`Add the v1/v2 benchmark and perf runs for both UIs`, last line `... Task D6`), **push, wait for CI to be green, open the PR** into `main` titled `Phase 2 / Plan D: circles` with the benchmark table and the manual-check results from D5.
+- [x] **Step 5: Pre-commit checks, commit** (`Add the v1/v2 benchmark and perf runs for both UIs`, last line `... Task D6`), **push, wait for CI to be green, open the PR** into `main` titled `Phase 2 / Plan D: circles` with the benchmark table and the manual-check results from D5.
+
+Execution deviations and verification notes:
+
+* The benchmark selects the synthetic `Bench 0` circle explicitly and checks that its ring exists; enumerating the first circle could open Recent with a different number of real Desktop files. Background launches use `Hidden`, scratch roots are unique, and recursive cleanup checks the resolved TEMP path.
+* The final independent review ran before the D6 commit so the branch retains one commit per task. Its three runtime corrections are included in D6: temporary foreground ownership during drag capture with focus/style/z-order restoration; `FILE_NOTIFY_CHANGE_LAST_WRITE` for Recent ordering; explicit rename commit before clicks on non-activating circles/rings. `src/circles/drag_capture.rs` is the additional module.
+* The native file-write notification and hidden rename-editor lifecycle tests failed before implementation and passed afterward. The suite now has 38 passing tests and one ignored visual preview. The config/UI and deleted-item fixture regressions pass and run in CI via `scripts/circles-regression-test.ps1`.
+* The foreground capture probe (`-CheckDragCapture`) is opt-in: `SetForegroundWindow` returned 0 in this session, so real drag behavior is **not verified**. All nine D5 manual checks remain **not verified**. No local integration test was run.
 
 ---
+
+D6 measured results (final source, three-run medians):
+
+Benchmark gate: PASS. Three-run medians, 15-second idle CPU samples; v1 is 39ef8a9. Closed circles commit/modules are compared with v1 panel default; all idle CPU medians are 0. Ring uses 20 visible synthetic .txt references.
+
+| Scenario | Build | UI | Commit KB | Private WS KB | Modules | Handles | Start CPU ms | Idle CPU ms / 15 s |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| panel, default items | DeskTuk-v1.exe | panel | 4632 | 120 | 46 | 266 | 94 | 0 |
+| panel, default items | DeskTuk-v2.exe | panel | 4688 | 124 | 45 | 267 | 94 | 0 |
+| panel, 50 items | DeskTuk-v1.exe | panel | 4652 | 124 | 44 | 246 | 125 | 0 |
+| panel, 50 items | DeskTuk-v2.exe | panel | 4728 | 116 | 43 | 247 | 172 | 0 |
+| circles, Recent only | DeskTuk-v2.exe | circles | 2032 | 140 | 30 | 149 | 31 | 0 |
+| circles, 5 x 60 items | DeskTuk-v2.exe | circles | 2160 | 136 | 30 | 149 | 62 | 0 |
+| circles, ring open (20) | DeskTuk-v2.exe | circles | 6240 | 3628 | 43 | 251 | 141 | - |
 
 ## Self-review
 

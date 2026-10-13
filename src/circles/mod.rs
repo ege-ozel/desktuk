@@ -11,6 +11,7 @@
 
 pub mod circle_win;
 pub mod desktop;
+mod drag_capture;
 pub mod draw;
 pub mod geom;
 pub mod model;
@@ -160,6 +161,11 @@ fn window_of(which: Which) -> Option<HWND> {
 
 /// The foreground window changed: each circle's host applies the "Show desktop" policy.
 pub fn foreground_changed(fg: HWND) {
+    // Drag capture and the rename popup temporarily activate our own windows.
+    // They do not represent switching from the Desktop to another application.
+    if crate::shell::window_pid(fg) == unsafe { windows_sys::Win32::System::Threading::GetCurrentProcessId() } {
+        return;
+    }
     let Some(st) = state() else { return };
     let list: Vec<(HWND, Rc<dyn DesktopHost>)> = match st.windows.try_borrow() {
         Ok(w) => w.iter().map(|w| (w.hwnd, w.host.clone())).collect(),

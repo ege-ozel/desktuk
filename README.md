@@ -1,16 +1,17 @@
 # DeskTuk
 
-DeskTuk puts movable **Nodes** on the Windows desktop. A Node is a small panel that shows real
-files, folders and shortcuts with their Explorer icons and names, and opens them on double-click.
+DeskTuk groups Windows Desktop files into movable **circles** that open on hover. Files remain
+where they are; circles hold references to them. The Phase 1 **Node** panel remains available
+with `--ui panel`.
 
-This repository currently holds the **Phase 0/1 proof of concept**: one Node, written in Rust
-against raw Win32 (`windows-sys`). It uses no Electron, Tauri, WebView or GUI framework.
+It is written in Rust against raw Win32 (`windows-sys`). It uses no Electron, Tauri, WebView
+or GUI framework.
 
-> Status: compiled and tested under Wine 9.0 only. It has **not yet been verified on real
-> Windows**. Read [`docs/PHASE-0-1-REPORT.md`](docs/PHASE-0-1-REPORT.md) before relying on any
-> behaviour.
+> Windows MSVC builds, unit tests and fixture checks have been run. The nine manual circles
+> checks remain **not verified**; see [Plan D](docs/superpowers/plans/2026-10-13-phase2-d-circles.md).
+> The original proof-of-concept report is [here](docs/PHASE-0-1-REPORT.md).
 
-## What it does
+## Phase 1 panel (`--ui panel`)
 
 * Shows one Node with 2–4 real items, using the same icons as Explorer (system image list,
   including the shortcut arrow) and the same display names.
@@ -50,24 +51,28 @@ From Linux, add `--target x86_64-pc-windows-gnu` and run the tests with Wine
 
 ## Run
 
-Double-click `DeskTuk.exe`. On first run the Node appears near the top-right of the primary
-monitor. It holds up to 4 entries from your Desktop folder (padded with `notepad.exe` and your
-Documents folder if there are fewer than 2). The configuration is written to
+Double-click `DeskTuk.exe`. The built-in Recent circle appears near the top-right of the primary
+monitor and lists unassigned Desktop entries. The configuration is written to
 `%APPDATA%\DeskTuk\desktuk.cfg`:
 
 ```text
 host=window
-x=1500
-y=40
+ui=circles
+recent=1500|40
+circle=Music|300|300
+group=Music|Live
+citem=Music||C:\Users\me\Desktop\song.wav
 item=C:\Users\me\Desktop\Notes.txt
 item=C:\Users\me\Desktop\Visual Studio Code.lnk
 ```
 
-Edit the `item=` lines to choose what the Node shows. Exit through the right-click menu.
+For the panel, run `DeskTuk.exe --ui panel` and edit `item=` lines to choose its files. Both
+item collections survive saves in either UI. Exit through the right-click menu.
 
 ```text
 DeskTuk.exe [options] [item paths...]
   --host <window|owned|child>  Desktop hosting strategy (default: window)
+  --ui <circles|panel>         circles (default) or the Phase 1 panel
   --pos <x,y>                  Node position in screen pixels
   --log <file>                 Write a diagnostic log (timings, memory, shell structure)
   --exit-after <ms>            Quit after the given time (for measurements)
@@ -77,6 +82,17 @@ DeskTuk.exe [options] [item paths...]
   --shots <dir>                Self-test screenshots
   --no-save, --allow-multiple
 ```
+
+## Circles (Phase 2)
+
+By default DeskTuk shows **circles** instead of the panel. *Recent* (blue) holds every Desktop
+file that is in no circle, newest first. Right-click a circle for *New circle*, *New group*,
+*Rename*, *Delete circle*. Hover a circle to open its ring of files (20 per page; the wheel or
+a click on the centre turns the page). Drop files from Explorer onto a circle to add them, drag
+a file out of a ring onto another circle or group to move it, right-click a file for the real
+shell menu and *Remove from circle*. Files are never moved or changed; circles only reference
+them. `--ui panel` (saved) brings back the Phase 1 panel. Design:
+[`docs/superpowers/specs/2026-10-13-circles-design.md`](docs/superpowers/specs/2026-10-13-circles-design.md).
 
 ## Testing on Windows
 
