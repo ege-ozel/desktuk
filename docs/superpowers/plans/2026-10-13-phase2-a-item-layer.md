@@ -195,7 +195,7 @@ Expected: log contains `METRIC items_loaded_async` and an `item loaded`-equivale
   `pub fn register(controller: HWND) -> u32`, `pub fn deregister(id: u32)`, `pub fn decode(wparam: usize, lparam: isize) -> Option<Change>`
   `pub const WM_APP_SHELL_CHANGE: u32 = WM_APP + 3;` (in `app.rs`)
 
-- [ ] **Step 1: Write the failing tests** (`src/watch.rs`, `#[cfg(test)]`)
+- [x] **Step 1: Write the failing tests** (`src/watch.rs`, `#[cfg(test)]`)
 
 ```rust
 #[cfg(test)]
@@ -237,9 +237,9 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run:** `cargo test --release --locked watch::tests` -> FAIL (module missing).
+- [x] **Step 2: Run:** `cargo test --release --locked watch::tests` -> FAIL (module missing).
 
-- [ ] **Step 3: Implement `apply_change`**
+- [x] **Step 3: Implement `apply_change`**
 
 ```rust
 use std::path::{Path, PathBuf};
@@ -369,9 +369,9 @@ WM_APP_SHELL_CHANGE => {
 ```
 (`Item::path` is already `pub`.)
 
-- [ ] **Step 4: Run** `cargo test --release --locked` -> PASS. Manual: start DeskTuk with a file on the Desktop as item, rename it in Explorer -> node shows the new name within ~1 s (log line `METRIC items_loaded_async`).
+- [x] **Step 4: Run** `cargo test --release --locked` -> PASS. Manual: start DeskTuk with a file on the Desktop as item, rename it in Explorer -> node shows the new name within ~1 s (log line `METRIC items_loaded_async`).
 
-- [ ] **Step 5: Commit** (`Task A2`)
+- [x] **Step 5: Commit** (`Task A2`)
 
 ---
 
