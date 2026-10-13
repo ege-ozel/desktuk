@@ -8,7 +8,9 @@ Communication between agents and the owner happens **through commits and the pla
 * One plan = one branch named `phase2/<letter>-<name>` (e.g. `phase2/a-item-layer`), created from
   the latest `main`. Push after every task so the owner and the reviewing agent see progress.
 * When the plan's last task is done and CI is green, open a pull request into `main`.
-* Plans are executed in order A -> B -> C. Do not start B before A is merged.
+* Plans are executed in order A -> D. Do not start D before A is merged. Plan B (except B3)
+  and Plan C are on hold, replaced by the circles design
+  (`docs/superpowers/specs/2026-10-13-circles-design.md`); do not execute them.
 * Only one agent works on a given plan at a time. Claude reviews the commits/PR; it does not
   push to a plan branch that Codex is working on.
 
