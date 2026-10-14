@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::{WM_MOUSEHOVER, WM_MOUSELEAVE};
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
@@ -58,6 +58,7 @@ struct Press {
     cursor: POINT,
     origin: (i32, i32),
     moving: bool,
+    ring_click: bool,
 }
 
 thread_local! {
@@ -180,22 +181,61 @@ pub fn dropped_paths(h: HDROP) -> Vec<PathBuf> {
     out
 }
 
-fn on_move(hwnd: HWND) {
+/// Mouse coordinates belong to the queued event, not the current cursor position.
+pub fn mouse_point(hwnd: HWND, lparam: LPARAM) -> POINT {
+    let mut at = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
+    if unsafe { ClientToScreen(hwnd, &mut at) } == 0 {
+        return cursor_pos();
+    }
+    at
+}
+
+pub fn is_pressed(hwnd: HWND) -> bool {
+    PRESS.get().map(|p| p.hwnd == hwnd).unwrap_or(false)
+}
+
+/// A press on the open ring's centre belongs to its circle, just like a closed press.
+pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
+    begin_press(hwnd, at, true);
+}
+
+fn begin_press(hwnd: HWND, at: POINT, ring_click: bool) {
+    if let Some(old) = PRESS.take() {
+        super::drag_capture::end(old.hwnd);
+    }
+    let r = win::window_rect(hwnd);
+    PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, ring_click }));
+    let captured = super::drag_capture::begin(hwnd);
+    dlog!("circle press hwnd={hwnd:?} from_ring={ring_click} captured={captured}");
+    if !captured {
+        dlog!("circle drag foreground capture unavailable");
+    }
+}
+
+pub fn move_press(hwnd: HWND, c: POINT) {
     if let Some(mut p) = PRESS.get().filter(|p| p.hwnd == hwnd) {
-        let c = cursor_pos();
         let (dx, dy) = (c.x - p.cursor.x, c.y - p.cursor.y);
         let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
         let beyond = unsafe { dx.abs() > GetSystemMetricsForDpi(SM_CXDRAG, dpi) || dy.abs() > GetSystemMetricsForDpi(SM_CYDRAG, dpi) };
-        if !p.moving && beyond {
+        let started = !p.moving && beyond;
+        if started {
             p.moving = true;
+        }
+        PRESS.set(Some(p));
+        if started {
             ring::close_now();
         }
-        if p.moving {
+        if p.moving && is_pressed(hwnd) {
             unsafe {
                 SetWindowPos(hwnd, std::ptr::null_mut(), p.origin.0 + dx, p.origin.1 + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
             };
         }
-        PRESS.set(Some(p));
+    }
+}
+
+fn on_move(hwnd: HWND, lparam: LPARAM) {
+    if is_pressed(hwnd) {
+        move_press(hwnd, mouse_point(hwnd, lparam));
         return;
     }
     if TRACKING.get() != hwnd {
@@ -212,13 +252,18 @@ fn on_move(hwnd: HWND) {
 
 /// Ends a left-button press. `released`: the button went up (a click opens the ring);
 /// otherwise capture was lost and nothing is opened.
-fn end_press(hwnd: HWND, released: bool) {
+pub fn end_press(hwnd: HWND, released: bool) {
+    if !is_pressed(hwnd) {
+        return;
+    }
     let Some(p) = PRESS.take() else { return };
     super::drag_capture::end(hwnd); // PRESS is already empty before message-pumping calls
     let Some(which) = super::which_of(hwnd) else { return };
     if p.moving {
         let r = win::window_rect(hwnd);
         super::moved(which, (r.left, r.top));
+    } else if released && p.ring_click {
+        ring::center_clicked(hwnd);
     } else if released {
         ring::open(hwnd, which.target());
     }
@@ -239,7 +284,7 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_MOUSEMOVE => {
-            on_move(hwnd);
+            on_move(hwnd, lparam);
             0
         }
         WM_MOUSEHOVER => {
@@ -259,11 +304,7 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
         }
         WM_LBUTTONDOWN => {
             super::rename::commit_active();
-            let r = win::window_rect(hwnd);
-            PRESS.set(Some(Press { hwnd, cursor: cursor_pos(), origin: (r.left, r.top), moving: false }));
-            if !super::drag_capture::begin(hwnd) {
-                dlog!("circle drag foreground capture unavailable");
-            }
+            begin_press(hwnd, mouse_point(hwnd, lparam), false);
             0
         }
         WM_LBUTTONUP => {

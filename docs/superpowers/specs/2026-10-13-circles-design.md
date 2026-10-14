@@ -170,3 +170,14 @@ ordering remains inside the host layer and returns to normal on a foreground cha
 Startup is opt-in, with bounded retries if the taskbar is not ready at login; after
 successful registration there is no retry timer or extra thread. The owner explicitly
 requested enabling startup after deployment to address the empty desktop on login.
+
+
+## Owner fixes: open-centre dragging and taskbar focus (2026-10-14)
+
+The open ring overlays its circle. Centre presses now route to that circle's existing
+drag capture; crossing the Windows drag threshold closes the ring and moves the
+circle. A short click keeps centre paging. Pending centre presses suppress leave
+closing, and event coordinates preserve the grab offset even near screen edges.
+WindowHost treats taskbar, secondary taskbar and overflow roots/descendants as
+desktop interactions, preserving the current ordering. Generic app/UWP/XAML windows
+still trigger normal background ordering. No new polling, threads or dependencies.

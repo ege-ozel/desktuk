@@ -4358,3 +4358,50 @@ locally as NIN_SELECT | NINF_KEY; no dependency/feature addition was needed.
 
 API references: [notification area](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shell_notifyiconw),
 [startup registry key and command limit](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys).
+
+
+### Task D10: Drag a circle while its ring is open (owner, 2026-10-14)
+
+The owner clarified that dragging the circle itself fails while the ring is open.
+The layered ring covers the circle, but previously its centre only handled paging.
+Route centre presses to the circle's existing capture/move/release lifecycle. Keep
+short-click paging; once movement crosses the Windows drag threshold, close the ring
+and move/save its circle. Use event coordinates rather than sampling a later cursor
+position. Keep file-slot dragging and the other existing behaviours.
+
+- [x] Reproduce with an isolated native message fixture for Recent and a user circle.
+- [x] Add shared circle press routing, preserve centre-click paging and leave/cancel
+      handling, and keep all message-pumping calls outside ring/state borrows.
+- [x] Verify MSVC fmt/clippy/tests, open-ring drag/paging/persistence fixtures and the
+      existing regressions. Do not move the user's pointer or restart Explorer.
+- [ ] Commit/push, update the existing PR, rebuild and deploy to the owner's stable
+      D:/CodeSpace/desktuk/DeskTuk.exe. Preserve startup, layout and desktop settings.
+
+
+D10 scope update: the owner also reports disappearing circles when opening the
+Windows notification-area overflow. The installed executable matches D9's SHA256.
+WindowHost currently lowers circles below Explorer for Shell_TrayWnd and the
+overflow XAML window. Preserve the existing desktop ordering for taskbar roots and
+their descendants; continue lowering for real application windows. Add a native
+off-screen host regression; do not broadly ignore generic UWP/XAML app windows.
+
+
+D10 evidence:
+
+* Installed D9 binary SHA256 matched the recorded checked release. Native message
+  fixture failed before the fix: the ring closed during a pending centre drag.
+* The new native host test failed on Shell_TrayWnd before changing focus handling.
+  After the fix taskbar/overflow roots and descendants preserve host ordering; a
+  generic UWP application still lowers the node and clears topmost style.
+* Windows x86_64-pc-windows-msvc: cargo fmt, release locked clippy with -D warnings,
+  cargo test --release --locked (44 passed, one ignored preview), and release build
+  all passed. CARGO_TARGET_DIR=target/open-circle-drag keeps the installed app open.
+* Native routed-message fixtures passed open-centre drag for Recent and Music,
+  exact pointer delta (including an edge-shifted ring), ring close on movement,
+  saved/reloaded positions, retained short-click paging and unchanged reference
+  file hashes. Existing circles regressions passed UI persistence and deleted-item
+  refresh. Physical input/foreground capture is not established by routed messages.
+* No user pointer movement, user file changes, real Explorer restart or local
+  windows-integration-test run. New fixture is included in CI.
+* Source/release are committed as D10; installation is combined with the owner's
+  subsequent D11 tray-menu request so only one final app replacement is needed.

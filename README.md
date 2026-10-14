@@ -185,3 +185,10 @@ that notification. No tray polling runs once registration succeeds.
 `--allow-multiple` measurement/self-test runs do not create competing tray icons.
 The isolated `scripts/tray-regression-test.ps1` checks recovery, second launch and
 tray re-registration without moving the mouse, sending Win+D or restarting Explorer.
+
+
+Drag the centre of an open ring to move its circle: the ring closes after movement
+crosses the Windows drag threshold and the new position is saved on release.
+A short centre click still turns the ring page. Opening the taskbar notification
+area or its overflow preserves the circles' desktop ordering; normal applications
+continue to cover them.

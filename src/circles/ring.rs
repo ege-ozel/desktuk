@@ -539,6 +539,13 @@ fn close_if_outside() {
 }
 
 fn on_mouse_move(lparam: LPARAM) {
+    // Normally capture delivers these events to the circle. Also route events still
+    // delivered to the ring if foreground capture was denied, without holding RING.
+    let circle_drag = with(|r| circle_win::is_pressed(r.anchor).then(|| (r.anchor, circle_win::mouse_point(r.hwnd, lparam)))).flatten();
+    if let Some((anchor, at)) = circle_drag {
+        circle_win::move_press(anchor, at);
+        return;
+    }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     with(|r| {
         if closing(r) {
@@ -588,6 +595,11 @@ enum Action {
     Drop { path: PathBuf, at: POINT },
 }
 
+enum LeftPress {
+    Item(HWND),
+    Circle { anchor: HWND, at: POINT },
+}
+
 fn on_left_down(lparam: LPARAM) {
     super::rename::commit_active();
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
@@ -595,24 +607,53 @@ fn on_left_down(lparam: LPARAM) {
         if closing(r) {
             return None;
         }
-        if let RingHit::Slot(k) = hit(r, x, y) {
-            if let SlotRef::Item(p) = &r.page[k].r {
-                r.press = Some(Press { path: p.clone(), cursor: cursor_pos(), active: false });
-                return Some(r.hwnd);
-            }
+        match hit(r, x, y) {
+            RingHit::Center => Some(LeftPress::Circle { anchor: r.anchor, at: circle_win::mouse_point(r.hwnd, lparam) }),
+            RingHit::Slot(k) => match &r.page[k].r {
+                SlotRef::Item(p) => {
+                    r.press = Some(Press { path: p.clone(), cursor: cursor_pos(), active: false });
+                    Some(LeftPress::Item(r.hwnd))
+                }
+                _ => None,
+            },
+            _ => None,
         }
-        None
     })
     .flatten();
-    if let Some(h) = capture {
-        if !super::drag_capture::begin(h) {
+    match capture {
+        Some(LeftPress::Circle { anchor, at }) => circle_win::begin_ring_drag(anchor, at),
+        Some(LeftPress::Item(h)) if !super::drag_capture::begin(h) => {
             with(|r| r.press = None);
             dlog!("ring drag foreground capture unavailable");
         }
+        Some(LeftPress::Item(_)) | None => {}
+    }
+}
+
+/// A centre click without movement keeps the ring and turns its page.
+pub fn center_clicked(anchor: HWND) {
+    let paths = with(|r| {
+        if r.anchor != anchor || closing(r) || r.refs.len() <= r.metrics.per_page() {
+            return None;
+        }
+        let next = geom::scroll(r.refs.len(), r.start, 1, r.metrics.per_page());
+        r.start = if next == r.start { 0 } else { next };
+        let paths = load_page(r);
+        redraw(r);
+        Some(paths)
+    })
+    .flatten();
+    if let Some(paths) = paths {
+        spawn_loader(paths);
     }
 }
 
 fn on_left_up(lparam: LPARAM) {
+    let anchor = with(|r| circle_win::is_pressed(r.anchor).then_some(r.anchor)).flatten();
+    if let Some(anchor) = anchor {
+        circle_win::end_press(anchor, true);
+        return;
+    }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
     super::drag_capture::end(hwnd);
@@ -812,7 +853,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
         WM_MOUSELEAVE => {
             let close = with(|r| {
                 r.tracking = false;
-                !r.menu_open && r.press.is_none()
+                !r.menu_open && r.press.is_none() && !circle_win::is_pressed(r.anchor)
             })
             .unwrap_or(false);
             if close {

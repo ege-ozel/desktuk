@@ -15,8 +15,8 @@ use std::cell::Cell;
 
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
+    GetAncestor, GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
 use super::{CreateSpec, DesktopHost, HostKind};
@@ -29,6 +29,15 @@ pub struct WindowHost {
 }
 
 impl WindowHost {
+    /// Taskbar/overflow focus is a desktop interaction, not a switch to an app.
+    fn desktop_overlay(hwnd: HWND) -> bool {
+        let root = unsafe { GetAncestor(hwnd, windows_sys::Win32::UI::WindowsAndMessaging::GA_ROOT) };
+        matches!(
+            win::class_name(root).as_str(),
+            "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "TopLevelWindowForOverflowXamlIsland" | "ApplicationManager_DesktopShellWindow"
+        )
+    }
+
     fn to_bottom(node: HWND) {
         unsafe {
             SetWindowPos(node, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
@@ -78,8 +87,9 @@ impl DesktopHost for WindowHost {
     }
 
     fn foreground_changed(&self, node: HWND, fg: HWND) {
-        // Ignore our own node, invisible windows (our controller while a menu is up) and menus.
-        if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" {
+        // Ignore our own node, hidden controllers, menus and the taskbar/overflow surface.
+        if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" || Self::desktop_overlay(fg)
+        {
             return;
         }
         if shell::is_desktop_window(fg) {
@@ -98,5 +108,69 @@ impl DesktopHost for WindowHost {
 
     fn shell_restarted(&self, _node: HWND) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::*;
+
+    struct TestWindow(HWND);
+    impl Drop for TestWindow {
+        fn drop(&mut self) {
+            unsafe {
+                DestroyWindow(self.0);
+            }
+        }
+    }
+    fn window(class: &str, parent: HWND) -> TestWindow {
+        let name = win::wide(class);
+        unsafe {
+            let instance = GetModuleHandleW(std::ptr::null());
+            let wc =
+                WNDCLASSW { lpfnWndProc: Some(DefWindowProcW), hInstance: instance, lpszClassName: name.as_ptr(), ..std::mem::zeroed() };
+            RegisterClassW(&wc);
+            let style = WS_VISIBLE | if parent.is_null() { WS_POPUP } else { WS_CHILD };
+            let hwnd = CreateWindowExW(
+                WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                name.as_ptr(),
+                name.as_ptr(),
+                style,
+                -30000,
+                -30000,
+                1,
+                1,
+                parent,
+                std::ptr::null_mut(),
+                instance,
+                std::ptr::null(),
+            );
+            assert!(!hwnd.is_null(), "native fixture window must be created");
+            TestWindow(hwnd)
+        }
+    }
+
+    #[test]
+    fn taskbar_and_overflow_focus_preserve_desktop_order_but_apps_lower_it() {
+        let node = window("DeskTuk.TestHost", std::ptr::null_mut());
+        let host = WindowHost::default();
+        for class in
+            ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "TopLevelWindowForOverflowXamlIsland", "ApplicationManager_DesktopShellWindow"]
+        {
+            let tray = window(class, std::ptr::null_mut());
+            host.reveal(node.0);
+            host.foreground_changed(node.0, tray.0);
+            assert!(host.raised.get(), "{class} must not bury the node under Explorer");
+            let child = window("DeskTuk.TestTrayChild", tray.0);
+            host.foreground_changed(node.0, child.0);
+            assert!(host.raised.get(), "a taskbar descendant must preserve desktop ordering");
+        }
+        // A generic UWP window is an application, not necessarily the taskbar.
+        let application = window("Windows.UI.Core.CoreWindow", std::ptr::null_mut());
+        host.foreground_changed(node.0, application.0);
+        assert!(!host.raised.get(), "ordinary app focus must return the node behind apps");
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
     }
 }

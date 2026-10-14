@@ -39,6 +39,10 @@ jobs:
         shell: powershell
         run: ./scripts/tray-regression-test.ps1 -Exe target/release/DeskTuk.exe
 
+      - name: Open-circle dragging and click paging with isolated TEMP fixtures
+        shell: powershell
+        run: ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe
+
       - name: Integration self-test on the runner's desktop
         shell: powershell
         run: ./scripts/windows-integration-test.ps1 -Exe target/release/DeskTuk.exe -Out test-results -ExplorerRestart
