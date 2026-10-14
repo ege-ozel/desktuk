@@ -4374,7 +4374,7 @@ position. Keep file-slot dragging and the other existing behaviours.
       handling, and keep all message-pumping calls outside ring/state borrows.
 - [x] Verify MSVC fmt/clippy/tests, open-ring drag/paging/persistence fixtures and the
       existing regressions. Do not move the user's pointer or restart Explorer.
-- [ ] Commit/push, update the existing PR, rebuild and deploy to the owner's stable
+- [x] Commit/push, update the existing PR, rebuild and deploy to the owner's stable
       D:/CodeSpace/desktuk/DeskTuk.exe. Preserve startup, layout and desktop settings.
 
 
@@ -4405,3 +4405,35 @@ D10 evidence:
   windows-integration-test run. New fixture is included in CI.
 * Source/release are committed as D10; installation is combined with the owner's
   subsequent D11 tray-menu request so only one final app replacement is needed.
+
+
+### Task D11: Desktop icon visibility in the tray menu (owner, 2026-10-14)
+
+The owner requests the existing Masaüstü öğelerini göster toggle in the notification
+icon's right-click menu, in addition to the circle/file/panel menus.
+
+- [x] Reuse desktop_view's label, command ID, live checked/disabled flags and toggle.
+      Query outside borrows; changing desktop visibility requires explicit selection.
+- [x] Update documentation; run MSVC fmt/clippy/tests and release build, commit/push,
+      and deploy the checked executable to D:/CodeSpace/desktuk/DeskTuk.exe.
+
+No dependency, startup action or second visibility preference is added. The live
+checkmark and disabled/error states are shared with the existing circle menu.
+
+
+D11 and combined deployment evidence (2026-10-14):
+
+* MSVC cargo fmt, cargo clippy --release --locked -- -D warnings,
+  cargo test --release --locked (44 passed, one ignored preview) and release build
+  passed. Reused desktop_view's live flags and explicit toggle in the tray menu.
+* Final normal-instance tray fixtures passed for both circles and panel, including
+  mouse/keyboard recovery, non-topmost recovery, second launch, TaskbarCreated
+  re-registration and graceful cleanup. No files/config/desktop/startup preference
+  changes occurred during fixtures. Menu clicking/visibility toggling is not verified
+  through physical input; this entry uses the existing checked-menu implementation.
+* D10+D11 deployed to D:/CodeSpace/desktuk/DeskTuk.exe; SHA256 1C42D8A71CA4AB5378A31E1157F14A4131E545908075E7109E466FA7A23879CE.
+  The installed process responded and logged tray initialization. The owner's
+  config hash, Run/DeskTuk value and Explorer HideIcons preference were preserved.
+* Source, tests and execution evidence are on the existing Plan D branch/PR.
+  Hosted CI is tracked through the PR's latest-head checks; no local integration
+  script, pointer movement, Explorer restart or reboot was performed.

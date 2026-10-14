@@ -112,6 +112,8 @@ fn menu(controller: HWND, pos: POINT) {
     }
     let _guard = MenuGuard;
     let startup = autostart::is_enabled();
+    // Query on demand, outside all app/ring borrows; use Explorer's own preference.
+    let desktop_flags = crate::desktop_view::menu_flags();
     let flags = match startup {
         Ok(true) => MF_STRING | MF_CHECKED,
         Ok(false) => MF_STRING,
@@ -127,6 +129,7 @@ fn menu(controller: HWND, pos: POINT) {
         }
         let built = AppendMenuW(menu, MF_STRING, SHOW as usize, win::wide("&Desktuk'u göster").as_ptr()) != 0
             && AppendMenuW(menu, flags, STARTUP as usize, win::wide("&Windows ile başlat").as_ptr()) != 0
+            && AppendMenuW(menu, desktop_flags, crate::desktop_view::MENU_ID, win::wide(crate::desktop_view::MENU_LABEL).as_ptr()) != 0
             && AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null()) != 0
             && AppendMenuW(menu, MF_STRING, EXIT as usize, win::wide("&Çıkış").as_ptr()) != 0;
         let selected = if built {
@@ -159,6 +162,7 @@ fn menu(controller: HWND, pos: POINT) {
                 }
             }
         }
+        id if id as usize == crate::desktop_view::MENU_ID => crate::desktop_view::toggle_from_menu(),
         EXIT => app::quit(),
         _ => {}
     }

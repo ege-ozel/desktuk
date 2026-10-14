@@ -167,7 +167,7 @@ docs/              feasibility report and raw test logs
 
 DeskTuk adds a notification-area icon in normal runs. Click it (or select it with
 the keyboard) to show the circles or panel. Right-click for **Desktuk'u göster**,
-**Windows ile başlat**, and **Çıkış**. If Windows puts the icon in the overflow,
+**Windows ile başlat**, **Masaüstü öğelerini göster**, and **Çıkış**. If Windows puts the icon in the overflow,
 open the taskbar's hidden-icons area. A second launch also shows the running UI.
 Showing the UI restores hidden windows and clamps circles to the monitor work area;
 it preserves the saved layout and Explorer's desktop-icon visibility setting.

@@ -181,3 +181,8 @@ closing, and event coordinates preserve the grab offset even near screen edges.
 WindowHost treats taskbar, secondary taskbar and overflow roots/descendants as
 desktop interactions, preserving the current ordering. Generic app/UWP/XAML windows
 still trigger normal background ordering. No new polling, threads or dependencies.
+
+
+The tray menu also includes Masaüstü öğelerini göster (owner, 2026-10-14). It reuses
+the same desktop_view command, reads Explorer's live visibility when opened, and
+changes it only on explicit selection. Startup and exit do not alter this preference.
