@@ -134,6 +134,27 @@ pub fn rebuild() {
     }
 }
 
+/// Explicit tray recovery: recreate missing windows, clamp positions and reveal the circles.
+pub fn show() {
+    let Some(st) = state() else { return };
+    let missing = match st.windows.try_borrow() {
+        Ok(windows) => windows.is_empty() || windows.iter().any(|w| unsafe { IsWindow(w.hwnd) } == 0),
+        Err(_) => return,
+    };
+    if missing {
+        rebuild();
+    }
+    ring::close_now();
+    let list: Vec<_> = match st.windows.try_borrow() {
+        Ok(windows) => windows.iter().map(|w| (w.hwnd, w.which, w.host.clone())).collect(),
+        Err(_) => return,
+    };
+    for (hwnd, which, host) in list {
+        circle_win::render(hwnd, which);
+        host.reveal(hwnd);
+    }
+}
+
 /// Repaints every circle (names, counts) and the open ring.
 pub fn refresh_all() {
     let Some(st) = state() else { return };

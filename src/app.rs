@@ -19,7 +19,7 @@ use crate::circles::{self, model::Board};
 use crate::config::{self, Args, Config, Ui};
 use crate::host::{self, DesktopHost, HostKind};
 use crate::items::{self, Item};
-use crate::{diag, dlog, node, selftest, shell, watch, win};
+use crate::{diag, dlog, node, selftest, shell, tray, watch, win};
 
 pub const WM_APP_NODE_LOST: u32 = WM_APP + 1;
 /// Posted by the item loader thread; lparam is a raw Box<Vec<(PathBuf, items::Meta)>>.
@@ -27,6 +27,8 @@ pub const WM_APP_ITEMS_LOADED: u32 = WM_APP + 2;
 /// Shell change notification (SHChangeNotifyRegister, new delivery).
 pub const WM_APP_SHELL_CHANGE: u32 = WM_APP + 3;
 pub const WM_APP_RING_LOADED: u32 = WM_APP + 4;
+pub const WM_APP_TRAY: u32 = WM_APP + 5;
+pub const WM_APP_SHOW: u32 = WM_APP + 6;
 
 const TIMER_RECREATE: usize = 1;
 const TIMER_EXIT: usize = 2;
@@ -37,6 +39,7 @@ const TIMER_REPAINT: usize = 6;
 const TIMER_TRIM: usize = 7;
 /// Debounced re-listing of the Desktop folders (circles UI).
 pub const TIMER_DESKTOP: usize = 8;
+const TIMER_TRAY_RETRY: usize = 9;
 
 /// How often experimental hosts verify that their Explorer parent/owner still exists.
 const HEALTH_INTERVAL_MS: u32 = 2000;
@@ -80,6 +83,7 @@ pub struct App {
     hook: Cell<HWINEVENTHOOK>,
     /// SHChangeNotifyRegister registration id (0 = none).
     notify_id: Cell<u32>,
+    tray_attempts: Cell<u32>,
 }
 
 thread_local! {
@@ -119,12 +123,42 @@ pub fn schedule_trim() {
 pub fn quit() {
     let a = app();
     a.quitting.set(true);
+    tray::remove(a.controller.get());
     circles::shutdown();
     let node = a.node.get();
     if !node.is_null() {
         unsafe { DestroyWindow(node) };
     }
     unsafe { DestroyWindow(a.controller.get()) };
+}
+
+/// Bring the chosen UI back without changing desktop icon visibility or saved positions.
+pub fn show() {
+    let a = app();
+    if a.quitting.get() {
+        return;
+    }
+    if a.ui == Ui::Circles {
+        circles::show();
+    } else if try_recreate_node() {
+        let node = a.node.get();
+        node::reposition(node);
+        a.host().reveal(node);
+    }
+    dlog!("app shown ui={}", a.ui.name());
+}
+
+/// Explorer may not have created the taskbar when the Run entry launches us.
+/// Retry briefly, then wait for TaskbarCreated; never keep a polling timer at idle.
+fn install_tray() {
+    let a = app();
+    let attempts = a.tray_attempts.get() + 1;
+    a.tray_attempts.set(attempts);
+    if tray::add(a.controller.get()) || attempts >= 30 {
+        unsafe { KillTimer(a.controller.get(), TIMER_TRAY_RETRY) };
+    } else {
+        unsafe { SetTimer(a.controller.get(), TIMER_TRAY_RETRY, 1000, None) };
+    }
 }
 
 fn message_box(text: &str, error: bool) {
@@ -190,7 +224,11 @@ pub fn run() -> i32 {
         let name = win::wide("Local\\DeskTuk.SingleInstance");
         let m = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
         if !m.is_null() && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
-            dlog!("another instance is running; exiting");
+            let controller = unsafe { FindWindowW(win::wide("DeskTuk.Controller").as_ptr(), std::ptr::null()) };
+            if !controller.is_null() {
+                unsafe { PostMessageW(controller, WM_APP_SHOW, 0, 0) };
+            }
+            dlog!("another instance is running; requested show, exiting");
             return 0;
         }
         // The handle is intentionally kept open for the process lifetime.
@@ -241,6 +279,7 @@ pub fn run() -> i32 {
         lost_at: Cell::new(None),
         hook: Cell::new(std::ptr::null_mut()),
         notify_id: Cell::new(0),
+        tray_attempts: Cell::new(0),
         args,
     }));
     APP.with(|a| a.set(Some(state)));
@@ -263,6 +302,10 @@ pub fn run() -> i32 {
                 return 1;
             }
         }
+    }
+    // Isolated measurement/self-test instances should not add competing real tray icons.
+    if !a.args.allow_multiple {
+        install_tray();
     }
     if first_run || a.args.ui.is_some() {
         a.save_config();
@@ -484,6 +527,14 @@ fn on_node_lost() {
 fn on_shell_restarted() {
     let a = app();
     a.taskbar_created_count.set(a.taskbar_created_count.get() + 1);
+    if !a.args.allow_multiple {
+        a.tray_attempts.set(0);
+        install_tray();
+    }
+    if a.ui == Ui::Circles {
+        circles::refresh_all();
+        circles::foreground_changed(unsafe { GetForegroundWindow() });
+    }
     let node = live_node();
     dlog!("TaskbarCreated (Explorer started); shell: {}", shell::describe());
     if a.host().shell_restarted(node) {
@@ -506,6 +557,18 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
         return 0;
     }
     match msg {
+        WM_APP_TRAY => {
+            tray::on_message(hwnd, wparam, lparam);
+            0
+        }
+        WM_APP_SHOW => {
+            show();
+            0
+        }
+        WM_CLOSE => {
+            quit();
+            0
+        }
         WM_APP_NODE_LOST => {
             on_node_lost();
             0
@@ -560,6 +623,7 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
                     diag::log_resources("idle_2s");
                 }
                 TIMER_SELFTEST => selftest::on_timer(),
+                TIMER_TRAY_RETRY => install_tray(),
                 TIMER_DESKTOP => circles::refresh_desktop(),
                 TIMER_HEALTH => health_check(),
                 TIMER_REPAINT => {

@@ -4296,3 +4296,65 @@ API references: [icon size](https://learn.microsoft.com/en-us/windows/win32/api/
 [worker image extraction](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellitemimagefactory-getimage),
 [view flag](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifolderview2-setcurrentfolderflags),
 [Explorer preference](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetsetsettings).
+
+
+### Task D9: Tray recovery and Windows startup (owner, 2026-10-14)
+
+The owner requested the postponed B3 features after login left the desktop empty:
+Explorer icons were hidden and DeskTuk was not running. Implement B3 in this existing
+circles branch/PR, adapting Show Node to both UIs and using WM_APP + 5 because + 4
+already belongs to ring loading. No new dependencies. Keep B1/B2/C on hold.
+
+- [x] Reproduce missing startup/tray and add failing startup command/registry tests.
+- [x] Implement tray add/remove, mouse/keyboard callbacks, checked startup toggle,
+      bounded startup retry and TaskbarCreated recovery; release resources before exit.
+- [x] Restore circles/panel from the tray and from a second launch without RefCell
+      borrows across Win32 calls; preserve desktop visibility, files and config.
+- [x] Verify with MSVC fmt/clippy/tests, isolated runtime fixtures, idle measurements
+      and release build. Record limits; do not kill Explorer or run local integration tests.
+- [x] Commit/push the validated implementation to the existing PR. Deploy the checked
+      release binary and enable startup for the owner after the login failure. Hosted
+      CI is tracked separately through the PR head checks.
+
+Deviations from B3: UTF-16 startup commands preserve Windows paths and reject the
+documented 260-character limit; registry operations return errors instead of silently
+failing. Tests use an isolated HKCU test key, never the real Run value. Startup remains
+off during tests; deployment enables it for the owner after validation. Measurement
+and self-test instances using --allow-multiple do not register competing tray icons.
+The superpowers execution skills referenced by the original plans are unavailable in
+this session; execution follows AGENTS task order and checks directly.
+
+
+D9 verification (Windows x86_64-pc-windows-msvc, 2026-10-14):
+
+* RED: the new startup tests failed with the implementation functions missing.
+* GREEN: cargo fmt, cargo clippy --release --locked -- -D warnings,
+  cargo test --release --locked (43 passed, one ignored preview), and release build.
+  CARGO_TARGET_DIR=target/startup-update avoided replacing the owner's running binary.
+* tray-regression-test: both circles and panel passed tray registration, mouse and
+  keyboard recovery, on-screen clamping, normal (non-topmost) window band, second launch,
+  synthetic TaskbarCreated re-registration after removing the fixture icon, graceful
+  exit and icon cleanup. Config/file hashes, desktop visibility and real startup value
+  were unchanged. The fixture uses TEMP files only and does not restart Explorer.
+* Existing circles-regression-test passed saved CLI UI and deleted-reference refresh.
+  Actual drag capture remains not verified; its optional probe was not run.
+* Normal instance with the real tray (Recent only, no --allow-multiple): 2108 KB private
+  commit, 30 modules, 0 ms CPU over 15 seconds. Single local sample; comparison uses the
+  earlier D6 v1 baseline (4632 KB, 46 modules), not a fresh v1 measurement. Gate PASS.
+* Deployed the checked binary to D:/CodeSpace/desktuk/DeskTuk.exe; SHA256
+  8C1FC5DDAE83E89F45C19039F3D68A811699CB8AF0A75D5B5FD495C5CF3847FC.
+  The installed process responded and logged circles/tray initialization. Enabled
+  HKCU Run/DeskTuk with exactly "D:\CodeSpace\desktuk\DeskTuk.exe". The owner's
+  configuration hash and desktop visibility preference were preserved.
+* Actual reboot/login, physical tray-menu interaction and killing/restarting Explorer
+  are not verified. No local windows-integration-test was run. Hosted CI results are
+  available in the head checks of https://github.com/ege-ozel/desktuk/pull/3.
+
+Final review correction: reveal uses HWND_NOTOPMOST then HWND_TOP in the host layer,
+so recovering the UI does not leave it permanently topmost over other applications.
+Native regression checks assert that the topmost style is absent after recovery.
+The Windows SDK's NIN_KEYSELECT constant is absent from windows-sys and is defined
+locally as NIN_SELECT | NINF_KEY; no dependency/feature addition was needed.
+
+API references: [notification area](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shell_notifyiconw),
+[startup registry key and command limit](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys).

@@ -15,7 +15,7 @@ use std::cell::Cell;
 
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
+    GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
     SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
@@ -53,6 +53,16 @@ impl DesktopHost for WindowHost {
         // the node would stay below it, invisible, until the next focus change.
         let fg = unsafe { GetForegroundWindow() };
         self.foreground_changed(node, fg);
+    }
+
+    fn reveal(&self, node: HWND) {
+        self.raised.set(true);
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node, windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE);
+            // Explicit reveal raises within the normal band, never permanently above applications.
+            SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SetWindowPos(node, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
     }
 
     fn place(&self, node: HWND, r: &RECT) {

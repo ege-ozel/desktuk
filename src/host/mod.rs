@@ -84,6 +84,13 @@ pub trait DesktopHost {
     /// Called once right after the node window was created, before it is shown.
     fn attached(&self, node: HWND);
 
+    /// Explicit recovery from the tray; ordinary foreground changes restore desktop ordering.
+    fn reveal(&self, node: HWND) {
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node, windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE);
+        }
+    }
+
     /// Moves/resizes the node. `r` is in screen (virtual desktop) coordinates.
     fn place(&self, node: HWND, r: &RECT);
 

@@ -161,3 +161,27 @@ res/               manifest (PerMonitorV2, Common Controls v6), icon, version in
 scripts/           Windows integration test, icon generator
 docs/              feasibility report and raw test logs
 ```
+
+
+## Tray access and Windows startup
+
+DeskTuk adds a notification-area icon in normal runs. Click it (or select it with
+the keyboard) to show the circles or panel. Right-click for **Desktuk'u göster**,
+**Windows ile başlat**, and **Çıkış**. If Windows puts the icon in the overflow,
+open the taskbar's hidden-icons area. A second launch also shows the running UI.
+Showing the UI restores hidden windows and clamps circles to the monitor work area;
+it preserves the saved layout and Explorer's desktop-icon visibility setting.
+
+**Windows ile başlat** is opt-in and its checkmark is read from the registry each
+time the menu opens. It writes only the per-user `DeskTuk` value in
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, using the quoted path to
+the currently running executable. Keep that executable at a stable location; moving
+it requires re-enabling startup from the new location. Registry failures are reported.
+Exit stops the current session and keeps the startup preference for the next login.
+Explorer's `TaskbarCreated` notification restores the tray icon; if login starts
+DeskTuk before the taskbar is ready it retries for up to 30 seconds, then waits for
+that notification. No tray polling runs once registration succeeds.
+
+`--allow-multiple` measurement/self-test runs do not create competing tray icons.
+The isolated `scripts/tray-regression-test.ps1` checks recovery, second launch and
+tray re-registration without moving the mouse, sending Win+D or restarting Explorer.

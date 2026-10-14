@@ -144,7 +144,7 @@ panel; idle CPU must be 0. The ring-open number is reported next to v1 showing 2
 
 ## Out of scope
 
-Notes; tray icon and autostart (Plan B3, later); the remaining Plan C work (on hold);
+Notes; the remaining Plan C work (on hold);
 a "generic icons" mode that would avoid loading per-file icon handlers
 (possible follow-up if the owner wants even lower memory after browsing rings).
 
@@ -154,3 +154,19 @@ a "generic icons" mode that would avoid loading per-file icon handlers
   (Windows default); the centre click is the fallback.
 * Explorer drag & drop into layered windows relies on `WS_EX_ACCEPTFILES`; verified manually.
 * Dropping files from outside the Desktop works and stores those paths as well.
+
+
+## Owner follow-up: tray and startup (2026-10-14)
+
+Plan D9 adapts the postponed B3 task to both UIs on the existing circles branch.
+Normal instances register the resource icon on the hidden controller, re-register
+on TaskbarCreated and remove it before destroying windows. The version-4 callbacks
+use LOWORD(lParam) for events and HIWORD(lParam) for icon IDs; a legacy fallback
+keeps mouse access if setting the callback version fails. Click/keyboard activation
+and a second launch restore the selected UI. The tray menu reads the current startup
+value, toggles the quoted UTF-16 per-user Run command, and reports registry errors.
+Restoration performs no file or desktop visibility changes. Temporary foreground
+ordering remains inside the host layer and returns to normal on a foreground change.
+Startup is opt-in, with bounded retries if the taskbar is not ready at login; after
+successful registration there is no retry timer or extra thread. The owner explicitly
+requested enabling startup after deployment to address the empty desktop on login.
