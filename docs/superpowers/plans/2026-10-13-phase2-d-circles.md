@@ -4437,3 +4437,44 @@ D11 and combined deployment evidence (2026-10-14):
 * Source, tests and execution evidence are on the existing Plan D branch/PR.
   Hosted CI is tracked through the PR's latest-head checks; no local integration
   script, pointer movement, Explorer restart or reboot was performed.
+
+
+D10 hosted-CI follow-up:
+
+The first hosted runs failed the pending-centre fixture despite local success.
+Routed button messages do not update the UI thread's queued input state. Taking
+foreground/capture for such messages allows real current-cursor movement to affect
+the synthetic drag. Request foreground/capture only when GetKeyState reports the
+left button down for the input sequence; routed geometry tests use the existing
+non-capturing message path. Physical capture remains a separate, unverified check.
+This also avoids acquiring drag ownership with no real button held.
+
+The fixture now derives positions/deltas from the work area and DPI, and derives
+its next-page assertion from the ring's actual capacity rather than assuming one
+monitor layout. Failures print filtered event diagnostics before TEMP cleanup.
+API reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeystate
+
+
+Follow-up diagnostics also reproduced this locally with the portable fixture:
+non-button hover/cursor-recalculation messages advanced a pending synthetic drag
+and closed its ring. Circle and ring drags now advance only on WM_MOUSEMOVE packets
+carrying MK_LBUTTON; normal hover handling still runs when no press is pending.
+This prevents unrelated pointer coordinates from moving a pressed circle/item.
+
+
+D10 follow-up final evidence:
+
+* The input-state/capture guard alone did not fix the portable local fixture:
+  its diagnostic log showed captured=false before the Music ring closed. The
+  MK_LBUTTON movement gate resolved the remaining non-button movement problem.
+* The native fixture now explicitly sends non-button movement packets during a
+  centre press and asserts that the circle/ring remain unchanged, then verifies
+  true-button movement, paging and restart persistence for both circles.
+* MSVC fmt, release locked clippy with -D warnings, tests (44 pass, one ignored)
+  and release build pass. Updated open-circle and existing circles fixtures pass.
+* Updated installed binary SHA256: 8BA682276C2E2E7F4A769C3C111BCCD06BFA541BD928A859BC50D497943534C4; responding process, registered
+  tray and unchanged config/startup/desktop preference verified. This replaces the
+  earlier combined D10/D11 deployment hash. Physical input capture is not verified
+  by these message fixtures; the earlier opt-in synthetic capture probe is not used.
+* The revised hosted-CI result is tracked at the PR's latest-head checks. No local
+  integration script or pointer movement was performed.

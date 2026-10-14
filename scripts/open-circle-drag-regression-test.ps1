@@ -18,6 +18,9 @@ public static class OpenCircleDragWin {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action,uint param,out Rect result,uint flags);
+    [DllImport("user32.dll")] public static extern uint GetDpiForSystem();
+    public static Rect WorkArea() { Rect r; if (!SystemParametersInfo(0x30,0,out r,0)) throw new Exception("No work area"); return r; }
     [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     public static IntPtr Find(uint pid, string cls, int x, int y) {
@@ -65,7 +68,17 @@ function Open-Ring($p,[IntPtr]$anchor) {
 
 try {
     $cfg=Join-Path $root 'DeskTuk/desktuk.cfg'
-    $lines=@('host=window','ui=circles','recent=300|300','circle=Music|900|300')
+    $work=[OpenCircleDragWin]::WorkArea()
+    $diameter=[int][Math]::Ceiling(88*[OpenCircleDragWin]::GetDpiForSystem()/96)
+    $recentX=$work.left+20
+    $musicX=$work.left+[int][Math]::Max(40,[Math]::Floor(($work.right-$work.left-$diameter-20)/2))
+    $sourceY=$work.top+20
+    $dx=[int][Math]::Max(1,[Math]::Min(90,[Math]::Floor(($work.right-$work.left-$diameter-40)/4)))
+    $dy=[int][Math]::Max(1,[Math]::Min(35,[Math]::Floor(($work.bottom-$work.top-$diameter-40)/4)))
+    $expectedRecentX=$recentX+$dx
+    $expectedMusicX=$musicX+$dx
+    $expectedY=$sourceY+$dy
+    $lines=@('host=window','ui=circles',"recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
     $files=@()
     for ($i=0;$i -lt 24;$i++) {
         $path=Join-Path $root ("fixture-ref-{0:D2}.txt" -f $i)
@@ -78,49 +91,63 @@ try {
     $log=Join-Path $root 'drag.log'
     $p=Start-Fixture $log
     $processes+=$p
-    Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',900,300) -ne [IntPtr]::Zero } 'Fixture circles created'
-    foreach ($sourceX in @(300,900)) {
-        $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,300)
+    Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY) -ne [IntPtr]::Zero } 'Fixture circles created'
+    foreach ($sourceX in @($recentX,$musicX)) {
+        $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
         $ring=Open-Ring $p $anchor | Select-Object -Last 1
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
         $cy=($rect.bottom-$rect.top)/2
         [OpenCircleDragWin]::Mouse($ring,0x201,$cx,$cy)
+        # Activation/repainting can emit non-button mouse moves. They must not drag.
+        [void][OpenCircleDragWin]::SendMessage($anchor,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point(1000,-1000))
+        [void][OpenCircleDragWin]::SendMessage($ring,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point($cx+100,$cy+100))
+        $unchanged=[OpenCircleDragWin]::Rectangle($anchor)
+        if ($unchanged.left -ne $sourceX -or $unchanged.top -ne $sourceY) { throw 'Non-button movement advanced the centre drag' }
         [void][OpenCircleDragWin]::SendMessage($ring,0x2A3,[IntPtr]::Zero,[IntPtr]::Zero)
         Start-Sleep -Milliseconds 200
         if (-not [OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring closed during a pending centre drag' }
-        $atX=$rect.left+$cx+90-$sourceX
-        $atY=$rect.top+$cy+35-300
+        $atX=$rect.left+$cx+$dx-$sourceX
+        $atY=$rect.top+$cy+$dy-$sourceY
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
-        [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-90,$atY-35)
-        $expectedX=$sourceX+90
-        Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,335) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
+        [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
+        $expectedX=$sourceX+$dx
+        Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }
         $saved=Get-Content -LiteralPath $cfg -Raw
-        $expectedLine=if ($sourceX -eq 300) { 'recent=390|335' } else { 'circle=Music|990|335' }
+        $expectedLine=if ($sourceX -eq $recentX) { "recent=$expectedRecentX|$expectedY" } else { "circle=Music|$expectedMusicX|$expectedY" }
         if (-not $saved.Contains($expectedLine)) { throw 'Moved circle position was not saved' }
         Write-Host "$expectedLine persisted : PASS"
     }
     # A short centre click still turns the existing Music ring page, without reopening it.
-    $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',990,335)
+    $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedMusicX,$expectedY)
     $ring=Open-Ring $p $anchor | Select-Object -Last 1
     $rect=[OpenCircleDragWin]::Rectangle($ring)
     $cx=($rect.right-$rect.left)/2
     $cy=($rect.bottom-$rect.top)/2
+    $opened=[regex]::Matches((Get-Content -LiteralPath $log -Raw),'ring opened target=Circle\(0\).*?per_page=(\d+)')
+    $nextIndex=[int]$opened[$opened.Count-1].Groups[1].Value
+    $nextFilePattern='item loaded path=.*fixture-ref-'+('{0:D2}' -f $nextIndex)+'\.txt'
     [OpenCircleDragWin]::Mouse($ring,0x201,$cx,$cy)
     [OpenCircleDragWin]::Mouse($anchor,0x202,44,44)
-    Wait-Check { (Get-Content -LiteralPath $log -Raw) -match 'item loaded path=.*fixture-ref-23.txt' } 'Centre click loads the next page'
+    Wait-Check { (Get-Content -LiteralPath $log -Raw) -match $nextFilePattern } 'Centre click loads the next page'
     if (-not [OpenCircleDragWin]::IsWindow($ring)) { throw 'Centre click destroyed the existing ring' }
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::PostMessage($controller,0x10,[IntPtr]::Zero,[IntPtr]::Zero)
     if (-not $p.WaitForExit(8000) -or $p.ExitCode -ne 0) { throw 'Fixture did not exit cleanly' }
     $p=Start-Fixture (Join-Path $root 'restart.log')
     $processes+=$p
-    Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',390,335) -ne [IntPtr]::Zero -and [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',990,335) -ne [IntPtr]::Zero } 'Moved positions survive restart'
+    Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedRecentX,$expectedY) -ne [IntPtr]::Zero -and [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedMusicX,$expectedY) -ne [IntPtr]::Zero } 'Moved positions survive restart'
     $hashesAfter=@($files | ForEach-Object { (Get-FileHash -LiteralPath $_).Hash })
     if (@(Compare-Object $hashes $hashesAfter).Count -ne 0) { throw 'Referenced fixture files changed' }
     Write-Host 'All file references preserved : PASS'
     Write-Host 'Mouse movement/clicks were routed messages; the physical cursor was not moved.'
+} catch {
+    if (Test-Path -LiteralPath $log) {
+        Get-Content -LiteralPath $log | Select-String -Pattern 'display:|ring opened|circle press|drag capture|drag foreground|foreground ->' |
+            Select-Object -Last 30 | ForEach-Object { Write-Host $_.Line }
+    }
+    throw
 } finally {
     foreach ($p in $processes) {
         if (-not $p.HasExited) {

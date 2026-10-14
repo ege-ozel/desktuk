@@ -4,7 +4,7 @@
 
 use std::cell::Cell;
 use windows_sys::Win32::Foundation::HWND;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetCapture, ReleaseCapture, SetCapture};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetCapture, GetKeyState, ReleaseCapture, SetCapture, VK_LBUTTON};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 #[derive(Clone, Copy)]
@@ -26,6 +26,13 @@ pub fn is_active() -> bool {
 pub fn begin(hwnd: HWND) -> bool {
     if let Some(old) = ACTIVE.take() {
         finish(old);
+    }
+    // Capture/focus ownership belongs to a real button-down input sequence. A
+    // routed WM_LBUTTONDOWN alone does not update the thread's input key state;
+    // taking capture in that case can inject unrelated current-cursor movement.
+    if unsafe { GetKeyState(VK_LBUTTON as i32) } >= 0 {
+        crate::dlog!("drag capture skipped: no queued left-button-down state");
+        return false;
     }
     let style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) } as u32;
     let capture = Capture {

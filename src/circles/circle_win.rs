@@ -284,7 +284,11 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_MOUSEMOVE => {
-            on_move(hwnd, lparam);
+            // MK_LBUTTON: hover/recalculation messages with no button held must
+            // not advance an outstanding drag using unrelated cursor coordinates.
+            if !is_pressed(hwnd) || wparam & 1 != 0 {
+                on_move(hwnd, lparam);
+            }
             0
         }
         WM_MOUSEHOVER => {

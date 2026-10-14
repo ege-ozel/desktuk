@@ -538,12 +538,14 @@ fn close_if_outside() {
     }
 }
 
-fn on_mouse_move(lparam: LPARAM) {
+fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
     // Normally capture delivers these events to the circle. Also route events still
     // delivered to the ring if foreground capture was denied, without holding RING.
     let circle_drag = with(|r| circle_win::is_pressed(r.anchor).then(|| (r.anchor, circle_win::mouse_point(r.hwnd, lparam)))).flatten();
     if let Some((anchor, at)) = circle_drag {
-        circle_win::move_press(anchor, at);
+        if wparam & 1 != 0 {
+            circle_win::move_press(anchor, at);
+        }
         return;
     }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
@@ -563,6 +565,9 @@ fn on_mouse_move(lparam: LPARAM) {
         }
         let dpi = r.dpi;
         if let Some(p) = r.press.as_mut() {
+            if wparam & 1 == 0 {
+                return;
+            } // MK_LBUTTON
             let c = cursor_pos();
             let (dx, dy) = (c.x - p.cursor.x, c.y - p.cursor.y);
             if !p.active
@@ -847,7 +852,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
     match msg {
         WM_MOUSEACTIVATE => MA_NOACTIVATE as LRESULT,
         WM_MOUSEMOVE => {
-            on_mouse_move(lparam);
+            on_mouse_move(wparam, lparam);
             0
         }
         WM_MOUSELEAVE => {
