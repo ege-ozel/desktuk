@@ -4478,3 +4478,29 @@ D10 follow-up final evidence:
   by these message fixtures; the earlier opt-in synthetic capture probe is not used.
 * The revised hosted-CI result is tracked at the PR's latest-head checks. No local
   integration script or pointer movement was performed.
+
+
+### Task D12: Add a compact repository context (owner, 2026-10-17)
+
+The owner requests lower context/token use and a clear distinction between actual
+issues and unperformed checks. Leave circle appearance unchanged for owner testing.
+Reuse this active plan/branch; no new dependencies or runtime changes.
+
+- [x] Add a short status and file-routing note at plans/CONTEXT.md.
+- [x] Explain targeted reads in AGENTS.md while retaining required design/task reads,
+      safety rules and pre-commit checks.
+- [x] Validate the notes, run the required MSVC fmt/clippy/tests, and record results.
+- [x] Commit/push only these documentation edits; preserve prior local source edits.
+
+The startup checkout is an older, dirty Plan A checkout. Mirror only the new reading
+guidance and compact context there so future sessions can discover the circles
+checkout; retain its other existing changes. The authoritative commit is on Plan D.
+
+D12 evidence (Windows MSVC, 2026-10-17): required cargo fmt, release locked clippy
+with -D warnings, and cargo test --release --locked passed (45 tests, one ignored
+visual preview). The checks ran in the existing dirty circles checkout, including
+its prior capture-cleanup changes; these source changes are NOT part of D12.
+The context note is 84 lines; all mapped source/design/plan paths exist and diff
+whitespace checks pass. No runtime/UI change, deployment, desktop setting change,
+physical input or local integration script was performed for this documentation task.
+The prior PR implementation head had green Windows CI; D12 CI is a separate run.

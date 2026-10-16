@@ -37,3 +37,17 @@ Communication between agents and the owner happens **through commits and the pla
 * `panic = "abort"`: a panic is a crash. No `unwrap()` on Win32/shell results.
 * No new dependencies unless the plan names them.
 * Windows-only code: build/test with the MSVC target on Windows. Wine results are not evidence.
+
+## Reading context without loading the whole repository
+
+* Start with `docs/superpowers/plans/CONTEXT.md` and Git status/branch/worktrees.
+  Use the checkout that owns the requested work; the startup checkout may be older.
+* Status questions need the short context, relevant plan evidence and live Git/CI,
+  not every historical design/code sample.
+* For implementation, read the required design and active task once, then only
+  relevant sections. Workflow step 1 does not require dumping an entire multi-task
+  plan on every turn. Keep the safety and acceptance constraints in context.
+* Use bounded searches/reads as described in CONTEXT.md. Do not read build outputs,
+  test captures or scratch scripts unless the task needs them.
+* Keep CONTEXT.md under 100 lines and update changed facts in the same commit.
+  Label observed defects, proposed fixes and unperformed checks separately.
