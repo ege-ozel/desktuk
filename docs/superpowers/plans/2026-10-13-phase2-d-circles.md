@@ -4480,6 +4480,14 @@ D10 follow-up final evidence:
   integration script or pointer movement was performed.
 
 
+Capture cleanup review: a circle explicitly revealed from the tray is raised in
+the normal band. The old non-topmost => HWND_BOTTOM cleanup could bury it again
+after a physical drag while WindowHost still recorded raised=true. Delegate cleanup
+to the host, preserving desktop/taskbar visibility and normal-band reveal ordering;
+real application focus still lowers it. Rings restore their circle owner's host.
+The new native host regression fails without this override and passes afterward.
+
+
 ### Task D12: Add a compact repository context (owner, 2026-10-17)
 
 The owner requests lower context/token use and a clear distinction between actual
@@ -4504,3 +4512,47 @@ The context note is 84 lines; all mapped source/design/plan paths exist and diff
 whitespace checks pass. No runtime/UI change, deployment, desktop setting change,
 physical input or local integration script was performed for this documentation task.
 The prior PR implementation head had green Windows CI; D12 CI is a separate run.
+
+
+### Task D13: Finish capture cleanup without hiding tray-revealed circles (owner, 2026-10-17)
+
+Continue the pending capture-cleanup correction explicitly identified in the status
+review. Preserve the circle's host ordering after drag release/capture loss; a circle
+shown from the tray must stay visible above the desktop, while real application focus
+still puts it behind applications. Resolve a ring to its owner's host. No drawing,
+file-management, dependency or background-work changes.
+
+- [x] Review the existing local fix and add normal/topmost-band and application-focus
+      regression coverage alongside the existing tray-reveal regression.
+- [x] Run MSVC fmt/clippy/tests, release build and isolated circles/open-ring fixtures;
+      record the local tray-fixture precondition failure and validate tray behavior in CI.
+- [x] Record limits, commit/push the fix, and check the existing PR's head CI.
+- [ ] Deploy the checked binary to the existing stable path with layout, startup and
+      desktop visibility preserved; leave physical mouse/login/Explorer checks open.
+
+
+D13 verification (Windows x86_64-pc-windows-msvc, 2026-10-17):
+
+* Required cargo fmt, cargo clippy --release --locked -- -D warnings and
+  cargo test --release --locked passed: 46 tests, one ignored visual preview.
+* Release build at target/capture-cleanup/release/DeskTuk.exe succeeded.
+  SHA256: 50EAAFD553F87F07CF4E1D7F8C20576FE984F582252917C88356175FFB0BB151.
+* Native host regressions cover normal-band tray reveal, restoring the prior
+  desktop band and lowering/removing topmost when an application takes focus.
+* Isolated circles fixtures passed CLI UI persistence and deleted-reference refresh.
+  Open-ring fixtures passed Recent/user circle movement, exact delta, click paging,
+  restart persistence and unchanged file-reference contents. They route messages;
+  they do not establish physical mouse capture.
+* The local tray fixture failed at registration because the owner's installed normal
+  instance was running and the fixture does not use --allow-multiple. Its first
+  launch is subject to the normal single-instance exit/reveal path. Do not change
+  production instance rules just to bypass this fixture precondition. Run the tray
+  fixture through existing Windows CI, where no installed owner instance is running.
+* Automatic approval review rejected stopping/replacing/restarting the installed app:
+  it requires explicit owner approval for the installed executable mutation and cited
+  the user-file protection rule. No deployment command ran. Installed process 11408
+  at D:/CodeSpace/desktuk/DeskTuk.exe remained responding. Deployment is pending owner
+  approval; the checked release above is ready. Existing configuration and startup/
+  desktop preferences were not changed by this task.
+* Existing PR #3 head CI will validate the committed fix, including the tray fixture.
+  Live checks are authoritative; physical mouse/login/Explorer checks stay open.

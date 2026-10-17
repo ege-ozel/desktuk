@@ -91,6 +91,11 @@ pub trait DesktopHost {
         }
     }
 
+    /// Restore host ordering after temporary foreground/capture ownership.
+    fn capture_finished(&self, node: HWND, foreground: HWND, _was_topmost: bool) {
+        self.foreground_changed(node, foreground);
+    }
+
     /// Moves/resizes the node. `r` is in screen (virtual desktop) coordinates.
     fn place(&self, node: HWND, r: &RECT);
 

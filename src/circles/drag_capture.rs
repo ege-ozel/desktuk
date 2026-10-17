@@ -79,8 +79,14 @@ fn finish(capture: Capture) {
                 let style = GetWindowLongW(capture.hwnd, GWL_EXSTYLE) as u32;
                 SetWindowLongW(capture.hwnd, GWL_EXSTYLE, (style | WS_EX_NOACTIVATE) as i32);
             }
-            if !capture.topmost {
-                SetWindowPos(capture.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            // Restore the host's current desktop/app ordering, including a normal-band
+            // tray reveal. A non-topmost window is not necessarily a bottom window.
+            let host = super::host_of(capture.hwnd).map(|h| (capture.hwnd, h)).or_else(|| {
+                let owner = GetWindow(capture.hwnd, GW_OWNER);
+                super::host_of(owner).map(|h| (owner, h))
+            });
+            if let Some((node, host)) = host {
+                host.capture_finished(node, GetForegroundWindow(), capture.topmost);
             }
         }
     }

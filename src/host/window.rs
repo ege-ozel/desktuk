@@ -74,6 +74,21 @@ impl DesktopHost for WindowHost {
         }
     }
 
+    fn capture_finished(&self, node: HWND, foreground: HWND, was_topmost: bool) {
+        self.foreground_changed(node, foreground);
+        unsafe {
+            let band = if self.raised.get() && was_topmost { HWND_TOPMOST } else { HWND_NOTOPMOST };
+            SetWindowPos(node, band, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            if self.raised.get() {
+                if !was_topmost {
+                    SetWindowPos(node, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            } else {
+                Self::to_bottom(node);
+            }
+        }
+    }
+
     fn place(&self, node: HWND, r: &RECT) {
         unsafe {
             SetWindowPos(node, std::ptr::null_mut(), r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -149,6 +164,54 @@ mod tests {
             );
             assert!(!hwnd.is_null(), "native fixture window must be created");
             TestWindow(hwnd)
+        }
+    }
+
+    #[test]
+    fn capture_finish_keeps_a_tray_revealed_circle_above_the_desktop() {
+        let node = window("DeskTuk.TestCaptureHost", std::ptr::null_mut());
+        let tray = window("Shell_TrayWnd", std::ptr::null_mut());
+        let backdrop = window("DeskTuk.TestBackdrop", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.reveal(node.0);
+        // A reveal uses the normal band. Capture cleanup must not blindly bury it.
+        unsafe {
+            SetWindowPos(node.0, backdrop.0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        assert_eq!(unsafe { GetWindow(node.0, GW_HWNDPREV) }, backdrop.0);
+        host.capture_finished(node.0, tray.0, false);
+        assert!(host.raised.get());
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        assert_ne!(unsafe { GetWindow(node.0, GW_HWNDPREV) }, backdrop.0);
+    }
+
+    #[test]
+    fn capture_finish_restores_desktop_band_but_keeps_apps_above_the_circle() {
+        let node = window("DeskTuk.TestCaptureBands", std::ptr::null_mut());
+        let tray = window("Shell_TrayWnd", std::ptr::null_mut());
+        let application = window("DeskTuk.TestCaptureApplication", std::ptr::null_mut());
+        let host = WindowHost::default();
+        for was_topmost in [false, true] {
+            host.reveal(node.0);
+            if was_topmost {
+                unsafe {
+                    SetWindowPos(node.0, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            }
+            host.capture_finished(node.0, tray.0, was_topmost);
+            assert!(host.raised.get(), "returning to the taskbar keeps the circle visible");
+            assert_eq!(
+                unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST != 0,
+                was_topmost,
+                "capture must preserve the desktop band used before the drag"
+            );
+            host.capture_finished(node.0, application.0, was_topmost);
+            assert!(!host.raised.get(), "switching to an application lowers the circle");
+            assert_eq!(
+                unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST,
+                0,
+                "capture must not leave a circle above applications"
+            );
         }
     }
 

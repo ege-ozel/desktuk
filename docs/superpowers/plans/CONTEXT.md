@@ -18,23 +18,25 @@ Keep this file under 100 lines. Update relevant facts in the same commit as chan
 
 ## Status: distinguish defects from missing verification
 
-- D1-D11 are checked off in the Plan D implementation record.
-- Last checked implementation commit: `47753f0`. PR #3 was open and its two
-  Windows build-and-test checks passed when queried on 2026-10-17.
-- Recorded committed-source tests: 44 passed, one ignored visual preview.
-- Fresh local checks on 2026-10-17: fmt/clippy passed; 45 tests passed, one ignored.
-  These include the existing uncommitted capture-cleanup regression.
-  Re-query CI/PR for current claims; a green commit does not validate local edits.
-- Owner reports a circle that is not smooth. Edge vs animation vs dragging is
-  not confirmed. Outer alpha masking exists, but internal GDI ellipse boundaries
-  lack the same smoothing. This is a possible cause, not a reproduced diagnosis.
-  Owner will test; no drawing fix was applied for this request.
-- Local, uncommitted capture-cleanup fix exists in drag_capture.rs and host code:
-  a tray-revealed circle could be sent behind the desktop after a drag.
-  The Plan D local note records a native regression; do not silently include
-  these existing edits in unrelated commits or call them shipped/CI-validated.
-- Installed DeskTuk.exe exists outside the circles checkout. Do not assume its
-  source revision matches HEAD; deployment records/hashes alone are not a new test.
+- D1-D12 are complete. D13 capture cleanup is implemented; deployment needs approval.
+- Last checked PR head before D13: `5137088`, open with two successful Windows
+  build-and-test checks on 2026-10-17. Query PR #3 for the new fix's live CI.
+- D13 local MSVC fmt/clippy/release build passed: 46 tests passed, one preview ignored.
+  Circles and open-ring fixtures passed; they do not establish physical capture.
+- Capture cleanup now delegates to the circle host (or ring owner's host), preserving
+  a tray-revealed circle's desktop visibility while lowering it behind real apps.
+  Native regressions cover normal/topmost bands and switching to an application.
+- Local tray fixture could not register: the installed normal instance was running,
+  and the fixture uses the normal single-instance path. CI runs it without that owner
+  instance. Do not treat that local setup failure as a newly reproduced tray defect.
+- Checked binary: target/capture-cleanup/release/DeskTuk.exe in the circles checkout.
+  The full SHA256 and validation limits are recorded under Plan D task D13.
+- Stopping/replacing/restarting the installed executable was rejected by automatic
+  approval review for lack of explicit owner approval. Deployment is pending;
+  installed DeskTuk.exe and owner preferences were left unchanged.
+- Owner reports a circle that is not smooth; edge vs animation vs drag is unconfirmed.
+  Outer alpha masking exists; inner GDI ellipse boundaries lack the same smoothing.
+  This is a possible cause, not a diagnosis. Owner will test; drawing is unchanged.
 
 ## Verification still needed (these are not observed failures)
 
