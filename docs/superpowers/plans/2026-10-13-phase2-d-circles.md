@@ -149,14 +149,19 @@ D15 owner-approved deployment (2026-10-17):
       160 ms opening animation, click behavior and drag handling.
 - [x] Update the behavior spec/context; run required MSVC fmt/clippy/release tests
       and release build. No timing-constant-only unit test or new dependency.
-- [ ] Install/restart the checked release with configuration/startup/visibility
+- [x] Install/restart the checked release with configuration/startup/visibility
       preserved; record the result and commit/push directly to main.
 
 D16 validation: MSVC fmt, locked release clippy with -D warnings, 47 passing
 release tests (one ignored preview) and release build passed. Only HOVER_MS changed;
 OPEN_MS remains 160 ms. Ready binary: target/release/DeskTuk.exe, SHA256
 C7AD4AC8AEE34616B417A2990FBDC960DB4F8ADD2CAE218FF7A0F75B8C569FB4.
-Automatic approval review rejected installation because this hover release lacks
-explicit install/restart approval. No deployment command ran; installed D15 still
-uses 250 ms. Ask for this final approval after presenting the ready result.
-For handoff, start at CONTEXT.md; main contains the prepared 150 ms change.
+Automatic approval review initially rejected installation pending explicit approval.
+The owner then explicitly approved this release's installation/restart. Installed
+the checked binary at D:/CodeSpace/desktuk/DeskTuk.exe after normal controller
+WM_CLOSE; process 7140 responded and initialized its tray. Installed SHA256 matches
+the checked release above. Configuration hash, Run/DeskTuk and Explorer HideIcons
+were unchanged. Backup and deployment evidence: target/hover-delay/previous-installed.exe
+and target/hover-delay/deployment.json. No physical cursor or user files were touched.
+For handoff, start at CONTEXT.md; installed runtime source is fae06ba. Owner's
+physical hover/visual assessment remains an unperformed manual check.

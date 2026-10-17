@@ -20,22 +20,21 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Capture cleanup restores the circle host (or ring owner's host) ordering:
   tray-revealed circles stay visible on the desktop; real apps remain above them.
-- Installed runtime source: `bafb842`. Windows main CI passed, including tray,
-  open-ring and runner-only desktop/Explorer checks. Later deployment-record commits
-  change docs only; query live checks for the latest main revision.
+- Installed runtime source: `fae06ba` (D16 hover timing). Drawing release `bafb842`
+  passed Windows main CI, including tray, open-ring and runner-only desktop/Explorer
+  checks. Query live checks for the latest main revision.
 - Drawing checks: 47 passing MSVC tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
-- D16 prepares 150 ms hover dwell (was 250); animation remains 160 ms.
-  Installation was blocked by automatic review pending fresh explicit approval;
-  the running D15 app still uses 250 ms. Ready binary: target/release/DeskTuk.exe.
+- D16 is installed: 150 ms hover dwell (was 250); animation remains 160 ms.
+  Owner explicitly approved installation/restart after automatic review requested
+  fresh approval. Checked binary: target/release/DeskTuk.exe.
 - Closed circles, ring centres and group discs now use centered pixel-coverage
   blending. The outer premultiplied alpha mask remains; text/icons retain native
   rendering. No new dependencies, idle timers, threads or persistent buffers.
-- Owner approved this new drawing release after automatic review requested fresh
-  approval. Installation/restart succeeded; responding process/tray and unchanged
+- Installation/restart succeeded; responding process/tray and unchanged
   configuration, startup command and desktop visibility preference were verified.
 - Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Full release SHA256,
-  before/after preview paths and deployment evidence are recorded under Plan D D15.
+  preview paths and deployment evidence are recorded under Plan D D15/D16.
 - The reported hard inner edge was reproduced in a native regression and fixed;
   the owner's final visual assessment on the running desktop is still pending.
 
