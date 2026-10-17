@@ -6,9 +6,8 @@
 
 use windows_sys::Win32::Foundation::RECT;
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, Ellipse, FillRect, GetStockObject, SelectObject, SetBkMode,
-    SetTextColor, DT_CENTER, DT_EDITCONTROL, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, FW_SEMIBOLD, HDC,
-    HFONT, LOGFONTW, NULL_PEN, TRANSPARENT,
+    CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, SelectObject, SetBkMode, SetTextColor, DT_CENTER,
+    DT_EDITCONTROL, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, FW_SEMIBOLD, HDC, HFONT, LOGFONTW, TRANSPARENT,
 };
 use windows_sys::Win32::UI::HiDpi::SystemParametersInfoForDpi;
 use windows_sys::Win32::UI::WindowsAndMessaging::{DrawIconEx, DI_NORMAL, HICON, SPI_GETICONTITLELOGFONT};
@@ -63,16 +62,23 @@ fn fill_rect(dc: HDC, r: &RECT, color: u32) {
     }
 }
 
-fn fill_ellipse(dc: HDC, r: &RECT, color: u32) {
-    unsafe {
-        let b = CreateSolidBrush(color);
-        let old_b = SelectObject(dc, b);
-        let old_p = SelectObject(dc, GetStockObject(NULL_PEN));
-        // With a null pen the filled area is one pixel smaller; compensate.
-        Ellipse(dc, r.left, r.top, r.right + 1, r.bottom + 1);
-        SelectObject(dc, old_p);
-        SelectObject(dc, old_b);
-        DeleteObject(b);
+fn fill_disc(s: &mut Surface, r: &RECT, color: u32) {
+    let (w, h) = (s.w, s.h);
+    let cx = (r.left + r.right) as f32 / 2.0;
+    let cy = (r.top + r.bottom) as f32 / 2.0;
+    let radius = (r.right - r.left) as f32 / 2.0;
+    // COLORREF is 0x00BBGGRR; DIB pixels are 0xAARRGGBB.
+    let rgb = ((color & 0xff) << 16) | (color & 0xff00) | ((color >> 16) & 0xff);
+    // Flush pending GDI text/fills before accessing the shared DIB.
+    let pixels = s.pixels();
+    for y in r.top.max(0)..r.bottom.min(h) {
+        for x in r.left.max(0)..r.right.min(w) {
+            let a = geom::coverage(x as f32 + 0.5 - cx, y as f32 + 0.5 - cy, radius) as u32;
+            let index = (y * w + x) as usize;
+            let previous = pixels[index];
+            let channel = |shift: u32| ((((rgb >> shift) & 0xff) * a + ((previous >> shift) & 0xff) * (255 - a) + 127) / 255) << shift;
+            pixels[index] = (previous & 0xff00_0000) | channel(16) | channel(8) | channel(0);
+        }
     }
 }
 
@@ -93,13 +99,13 @@ fn square(cx: i32, cy: i32, side: i32) -> RECT {
 }
 
 /// A closed circle: accent rim, name (up to two lines) and the item count.
-pub fn circle(s: &Surface, dpi: u32, name: &str, count: usize, recent: bool) {
+pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, recent: bool) {
     let dc = s.dc();
     let d = s.w;
     let sc = |v| win::scale(v, dpi);
     fill_rect(dc, &win::rect(0, 0, d, d), ACCENT);
     let rim = sc(3).max(2);
-    fill_ellipse(dc, &win::rect(rim, rim, d - rim, d - rim), if recent { RECENT_BG } else { CIRCLE_BG });
+    fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), if recent { RECENT_BG } else { CIRCLE_BG });
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 100);
     let small = Font::new(dpi, false, 90);
@@ -149,7 +155,7 @@ pub struct RingView<'a> {
 }
 
 /// An open ring: rim, centre disc with title/subtitle, and up to `PER_PAGE` slots.
-pub fn ring(s: &Surface, dpi: u32, m: &Metrics, v: &RingView) {
+pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
     let dc = s.dc();
     let size = s.w;
     let c = size / 2;
@@ -157,8 +163,8 @@ pub fn ring(s: &Surface, dpi: u32, m: &Metrics, v: &RingView) {
     let bg = if v.recent { RECENT_BG } else { CIRCLE_BG };
     fill_rect(dc, &win::rect(0, 0, size, size), ACCENT);
     let rim = sc(3).max(2);
-    fill_ellipse(dc, &win::rect(rim, rim, size - rim, size - rim), bg);
-    fill_ellipse(dc, &square(c, c, m.circle_d), CENTER_BG);
+    fill_disc(s, &win::rect(rim, rim, size - rim, size - rim), bg);
+    fill_disc(s, &square(c, c, m.circle_d), CENTER_BG);
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 100);
     let small = Font::new(dpi, false, 100);
@@ -181,8 +187,8 @@ pub fn ring(s: &Surface, dpi: u32, m: &Metrics, v: &RingView) {
         }
         let ix = b.left + (m.slot - m.icon) / 2;
         let iy = b.top + sc(3);
-        let glyph = |color: u32, letter: &str| {
-            fill_ellipse(dc, &win::rect(ix, iy, ix + m.icon, iy + m.icon), color);
+        let mut glyph = |color: u32, letter: &str| {
+            fill_disc(s, &win::rect(ix, iy, ix + m.icon, iy + m.icon), color);
             text(dc, letter, win::rect(ix, iy, ix + m.icon, iy + m.icon), TEXT, &bold, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
         };
         let mut label_color = TEXT;
@@ -239,6 +245,32 @@ mod tests {
         std::fs::write(path, f).unwrap();
     }
 
+    #[test]
+    fn closed_circle_inner_rim_blends_at_desktop_dpis() {
+        for dpi in [96, 120, 144, 192] {
+            let d = geom::metrics(dpi).circle_d;
+            let mut surface = Surface::new(d, d).expect("native test DIB");
+            circle(&mut surface, dpi, "APPS", 4, false);
+            let to_bgra = |c: u32| ((c & 0xff) << 16) | (c & 0xff00) | ((c >> 16) & 0xff);
+            let accent = to_bgra(ACCENT);
+            let background = to_bgra(CIRCLE_BG);
+            // Only the top cap: no text or outer alpha mask can fake an inner-edge blend.
+            let pixels = surface.pixels();
+            for y in 0..d / 5 {
+                for x in 0..d {
+                    assert_eq!(
+                        pixels[(y * d + x) as usize],
+                        pixels[(y * d + d - 1 - x) as usize],
+                        "dpi {dpi}: inner rim must be symmetric around the circle centre"
+                    );
+                }
+            }
+            let blended =
+                pixels[..(d * (d / 5)) as usize].iter().filter(|p| **p & 0x00ff_ffff != accent && **p & 0x00ff_ffff != background).count();
+            assert!(blended > 8, "dpi {dpi}: the inner rim still has a hard aliased edge");
+        }
+    }
+
     /// Visual check, not run by default: `cargo test --release preview -- --ignored`
     /// then open `%TEMP%\desktuk-preview-*.bmp`.
     #[test]
@@ -248,7 +280,7 @@ mod tests {
         let m = geom::metrics(dpi);
         let d = m.circle_d;
         let mut s = Surface::new(d, d).unwrap();
-        circle(&s, dpi, "Kitaplar ve Dergiler", 128, false);
+        circle(&mut s, dpi, "Kitaplar ve Dergiler", 128, false);
         geom::mask_disc(s.pixels(), d as usize, d as usize, d as f32 / 2.0);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-circle.bmp"), s.pixels(), d as usize, d as usize);
 
@@ -260,7 +292,7 @@ mod tests {
         slots[0] = SlotView { label: "Titled Project", look: SlotLook::Group };
         slots[1] = SlotView { label: ".wav \u{2192} Music", look: SlotLook::Suggestion { count: 12 } };
         slots[2] = SlotView { label: "Back", look: SlotLook::Back };
-        ring(&r, dpi, &m, &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false });
+        ring(&mut r, dpi, &m, &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false });
         geom::mask_disc(r.pixels(), size as usize, size as usize, m.ring_r as f32);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-ring.bmp"), r.pixels(), size as usize, size as usize);
     }

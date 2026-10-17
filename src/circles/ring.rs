@@ -455,7 +455,7 @@ fn render(r: &mut Ring) {
     let sub = subtitle(r);
     let views: Vec<SlotView> = labels.iter().zip(looks).map(|(l, look)| SlotView { label: l, look }).collect();
     draw::ring(
-        &r.surface,
+        &mut r.surface,
         r.dpi,
         &m,
         &RingView { title: &title, subtitle: &sub, slots: &views, hover: r.hover, recent: r.target == Target::Recent },

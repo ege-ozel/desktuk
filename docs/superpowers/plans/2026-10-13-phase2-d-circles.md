@@ -84,3 +84,41 @@ matches the original; duplicate report blob IDs match. Archived benchmark is syn
 checked only, not a supported general benchmark (fixed 96 DPI/48-pixel icons,
 geometry and historical source labels). Runtime behavior/dependencies are unchanged.
 Current CI and merge/closure status are live GitHub facts, not promises in this file.
+
+
+## Task D15: Smooth the circle edges (owner screenshot, 2026-10-17)
+
+Preserve round closed circles, native text/icons, dimensions and hit testing.
+Replace GDI's hard inner ellipse boundaries with per-pixel coverage blending;
+use the same centered coverage as the existing premultiplied outer alpha mask.
+Apply it to ring/centre/group discs too, without new DLLs/dependencies, idle timers
+or persistent supersampled surfaces. Keep output opaque until the final disc mask.
+
+- [x] Reproduce the aliased inner rim with a native DIB regression at desktop DPIs.
+- [x] Implement coverage blending and verify centered/symmetric inner boundaries.
+- [x] Run required MSVC checks, render/inspect before-after previews, release build
+      and isolated circle/open-ring fixtures. Use CI for the tray/integration fixture.
+- [x] Commit/push directly to main under the owner's current workflow preference.
+- [ ] Install the checked release and restart the app under the owner's existing
+      update/restart authorization; preserve layout, startup and desktop settings.
+
+
+D15 evidence (Windows MSVC, 2026-10-17):
+
+* RED: the native DIB regression failed at 96 DPI on the original hard GDI ellipse.
+* GREEN: inner-edge intermediate colors and mirror symmetry pass at 96/120/144/192
+  DPI. MSVC fmt, locked release clippy with -D warnings and tests pass: 47 tests,
+  one ignored preview. The ignored native preview was also run explicitly and passed.
+* Before/after circle and ring BMPs were visually inspected. The inner rim is now
+  blended and centered; native text/icons, layout and hit testing are unchanged.
+  No new dependencies, DLL families, threads, idle timers or persistent buffers.
+* Release SHA256: 5E7BC9BE63F2EA12141D4F453FC06FED96AC6D9ED8E73976014EDC42B0D30028.
+  Ready at target/capture-cleanup/release/DeskTuk.exe in the secondary checkout.
+* Isolated circles/open-ring fixtures passed UI persistence, missing-reference
+  refresh, exact Recent/user circle movement, centre-click paging, restart position
+  persistence and unchanged reference files. Physical input is not established.
+* Automatic approval review rejected installation: it judged the prior install
+  approval insufficient for this new runtime drawing change. No install command
+  executed, so the installed app is still the D13 version. New installation needs
+  explicit owner approval; do not retry or alter the installed app before that.
+  Tray/integration are covered by CI without touching the owner's running app.

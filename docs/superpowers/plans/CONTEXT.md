@@ -23,7 +23,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Installed runtime source: `7e8c557`; both Windows CI runs passed, including tray,
   open-ring and runner-only desktop/Explorer checks. Later consolidation is limited
   to docs/search/CI/ignore rules; query live checks for the current main revision.
-- Local MSVC checks: 46 passing tests, one ignored visual preview.
+- Latest drawing MSVC checks: 47 passing tests, one ignored visual preview;
+  the native preview was also run explicitly and inspected.
 - Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe.
   Source SHA256/deployment details: active Plan D and its historical archive.
 - Owner approved installation/restart; responding app/tray and unchanged config,

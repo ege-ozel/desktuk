@@ -134,7 +134,7 @@ pub fn render(hwnd: HWND, which: Which) {
         }
     };
     let Some(mut s) = Surface::new(m.circle_d, m.circle_d) else { return };
-    draw::circle(&s, dpi, &name, count, which == Which::Recent);
+    draw::circle(&mut s, dpi, &name, count, which == Which::Recent);
     let d = m.circle_d as usize;
     geom::mask_disc(s.pixels(), d, d, m.circle_d as f32 / 2.0);
     let (x, y) = clamp_to_work(pos, m.circle_d);
