@@ -98,7 +98,7 @@ try {
     } else {
         Write-Host 'Actual drag capture: not verified (desktop check required)'
     }
-    [void][CirclesRegressionWin]::PostMessage($h, 0x02A1, [IntPtr]::Zero, [IntPtr]::Zero)
+    [void][CirclesRegressionWin]::PostMessage($h, 0x0200, [IntPtr]::Zero, [IntPtr]0x00140014)
     Start-Sleep -Milliseconds 1500
     $before = Get-Content -LiteralPath $ringLog -Raw
     if ($before -notmatch 'ring opened target=Circle\(0\)' -or $before -notmatch 'missing=false') { throw 'ring fixture did not load its reference' }

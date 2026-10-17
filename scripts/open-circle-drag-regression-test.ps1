@@ -60,7 +60,10 @@ function Start-Fixture([string]$log) {
 }
 
 function Open-Ring($p,[IntPtr]$anchor) {
-    [void][OpenCircleDragWin]::SendMessage($anchor,0x2A1,[IntPtr]::Zero,[IntPtr]::Zero)
+    [void][OpenCircleDragWin]::SendMessage($anchor,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point(20,20))
+    if ([OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -eq [IntPtr]::Zero) {
+        throw 'Pointer entry must create the ring synchronously without hover dwell'
+    }
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero } 'Ring opens'
     Start-Sleep -Milliseconds 400
     [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0)

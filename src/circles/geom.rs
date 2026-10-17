@@ -8,8 +8,7 @@ pub const PER_PAGE: usize = 20;
 pub const INNER_SLOTS: usize = 8;
 pub const OUTER_SLOTS: usize = PER_PAGE - INNER_SLOTS;
 
-/// Ring open/close animation lengths.
-pub const OPEN_MS: f64 = 160.0;
+/// Ring closing animation length (opening is immediate).
 pub const CLOSE_MS: f64 = 110.0;
 
 /// Pixel sizes for one DPI. All values are 96-DPI design values scaled by `win::scale`.
@@ -324,10 +323,10 @@ mod tests {
 
     #[test]
     fn animation_eases_and_finishes() {
-        assert_eq!(anim_radius(10.0, 100.0, 0.0, OPEN_MS), (10.0, false));
-        let (mid, done) = anim_radius(10.0, 100.0, OPEN_MS / 2.0, OPEN_MS);
+        assert_eq!(anim_radius(10.0, 100.0, 0.0, CLOSE_MS), (10.0, false));
+        let (mid, done) = anim_radius(10.0, 100.0, CLOSE_MS / 2.0, CLOSE_MS);
         assert!(!done && mid > 55.0, "ease-out is past half way at half time: {mid}");
-        assert_eq!(anim_radius(10.0, 100.0, OPEN_MS + 1.0, OPEN_MS), (100.0, true));
+        assert_eq!(anim_radius(10.0, 100.0, CLOSE_MS + 1.0, CLOSE_MS), (100.0, true));
         assert_eq!(anim_radius(100.0, 10.0, CLOSE_MS, CLOSE_MS), (10.0, true));
     }
 }

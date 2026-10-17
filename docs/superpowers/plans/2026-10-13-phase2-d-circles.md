@@ -165,3 +165,46 @@ were unchanged. Backup and deployment evidence: target/hover-delay/previous-inst
 and target/hover-delay/deployment.json. No physical cursor or user files were touched.
 For handoff, start at CONTEXT.md; installed runtime source is fae06ba. Owner's
 physical hover/visual assessment remains an unperformed manual check.
+
+## Owner interaction follow-up (2026-10-17)
+
+Execute D17-D20 in order, one task per commit. No new dependencies. Keep user files
+as references, idle timers absent, and RefCell borrows outside pumping Win32 calls.
+The owner paused the one-ring-layer idea; do not change ring capacity/layout here.
+
+### D17: Immediate opening
+
+- [x] Open on first pointer movement over a circle, remove hover dwell and opening
+      reveal, preserve drag/click and the 110 ms closing animation.
+- [x] Update native regression stimuli and behavior spec; run required checks and
+      relevant isolated Windows fixtures, then commit/push.
+
+D17 evidence: fmt/clippy and 47 release tests pass (one ignored preview); locked
+release build passes. Open-circle fixture asserts ring creation before the first
+WM_MOUSEMOVE returns; centre drag/page/persistence and circles missing-reference
+fixtures pass. No physical input was generated. Installed runtime remains D16
+until the complete follow-up release is deployed.
+
+### D18: Desktop ordering
+
+- [ ] Replace Win+D topmost promotion with normal-band desktop ordering so restored
+      applications cover circles immediately; preserve tray and capture recovery.
+- [ ] Add native z-order regression, run required checks and commit/push. Physical
+      Win+D/taskbar interaction remains for the owner, without automated input here.
+
+### D19: Visible item drag
+
+- [ ] Show a small icon preview following the captured pointer, using the existing
+      loaded shell icon with a fallback; click-through, no activation or idle work.
+- [ ] Clean up preview on drop, cancel, capture loss and ring destruction; verify
+      native drawing/lifecycle and existing drop behavior, run checks, commit/push.
+
+### D20: Work-area grid snap
+
+- [ ] Add checked right-click grid submenu: Off / 2x2 / 3x3 / 4x4. Owner confirmed
+      snap to cell centres. Persist selection, default Off; positions stay unchanged
+      until a circle is dragged and released.
+- [ ] Snap/clamp the whole circle within the nearest monitor's actual work area
+      (including a right/left/top/bottom taskbar); support negative coordinates/DPI.
+- [ ] Test geometry and config compatibility, run required checks/fixtures and build,
+      then commit/push. Install/restart checked release and record observed evidence.

@@ -40,7 +40,8 @@ only - it is not a file browser for `C:\`.
 
 **Closed circle** (88 px at 96 DPI): name and item count, accent rim. Recent is tinted blue.
 
-* Hover 150 ms or click: opens the ring. Drag: moves the circle (position saved).
+* Pointer entry or click opens the ring immediately, without hover dwell or opening
+  animation. Drag: moves the circle (position saved).
 * Right-click: New circle, New group, Rename..., Delete circle (confirmation; items go back to
   Recent), Exit. On Recent: New circle, Exit.
   **Owner follow-up (2026-10-13):** all circle/Recent and file menus, plus the panel menu,
@@ -71,7 +72,7 @@ near a screen edge):
   group: Rename group, Delete group (files move up to the circle). Right-click a suggestion:
   Add / Not now. Right-click elsewhere: the circle menu.
 * Drag a file slot onto a group slot, the Back slot, another circle or Recent: moves it there.
-* Opens with a 160 ms reveal, closes 110 ms after the pointer leaves the disc. No timer runs
+* Opens immediately, closes over 110 ms after the pointer leaves the disc. No timer runs
   when nothing animates.
 
 **Suggestions:** an extension points at circle *c* when *c* holds at least 2 files with it and

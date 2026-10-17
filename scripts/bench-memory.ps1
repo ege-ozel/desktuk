@@ -105,7 +105,7 @@ $rows = foreach ($sc in $scenarios) {
             if ($sc.Ring -and $ui -eq 'circles') {
                 $h = [BenchWin]::FindOwn([uint32]$p.Id, 'DeskTuk.Circle')
                 if ($h -eq [IntPtr]::Zero) { throw 'benchmark circle was not found' }
-                [void][BenchWin]::PostMessage($h, 0x02A1, [IntPtr]::Zero, [IntPtr]::Zero) # WM_MOUSEHOVER
+                [void][BenchWin]::PostMessage($h, 0x0200, [IntPtr]::Zero, [IntPtr]0x00140014) # WM_MOUSEMOVE
                 Start-Sleep -Milliseconds 1500
                 if ([BenchWin]::FindOwn([uint32]$p.Id, 'DeskTuk.Ring') -eq [IntPtr]::Zero) { throw 'benchmark ring did not open' }
             }

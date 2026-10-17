@@ -54,7 +54,6 @@ struct Anim {
     t0: f64,
     from: f32,
     to: f32,
-    closing: bool,
 }
 
 /// Left button pressed on an item slot; becomes a drag once it moves far enough.
@@ -140,7 +139,7 @@ fn top_left(r: &Ring) -> POINT {
 }
 
 fn closing(r: &Ring) -> bool {
-    r.anim.map(|a| a.closing).unwrap_or(false)
+    r.anim.is_some()
 }
 
 /// Whether a ring (not already closing) is open for the circle window `anchor`.
@@ -200,7 +199,6 @@ pub fn open(anchor: HWND, target: Target) {
     }
     unsafe { DragAcceptFiles(hwnd, 1) };
     let (refs, suggestions) = super::slots_for(target);
-    let r0 = m.circle_d as f32 / 2.0;
     let mut ring = Ring {
         hwnd,
         anchor,
@@ -214,8 +212,8 @@ pub fn open(anchor: HWND, target: Target) {
         dpi,
         metrics: m,
         center,
-        radius: r0,
-        anim: Some(Anim { t0: diag::since_start_ms(), from: r0, to: m.ring_r as f32, closing: false }),
+        radius: m.ring_r as f32,
+        anim: None,
         full: None,
         surface,
         menu_open: false,
@@ -239,7 +237,6 @@ pub fn open(anchor: HWND, target: Target) {
     spawn_loader(to_load);
     unsafe {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-        SetTimer(hwnd, TIMER_ANIM, FRAME_MS, None);
     }
     dlog!("ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size}", m.icon, m.per_page());
 }
@@ -312,7 +309,7 @@ fn begin_close() {
         if r.full.is_none() {
             r.full = Some(r.surface.pixels().to_vec());
         }
-        r.anim = Some(Anim { t0: diag::since_start_ms(), from: r.radius, to: m.circle_d as f32 / 2.0, closing: true });
+        r.anim = Some(Anim { t0: diag::since_start_ms(), from: r.radius, to: m.circle_d as f32 / 2.0 });
         unsafe { SetTimer(r.hwnd, TIMER_ANIM, FRAME_MS, None) };
     });
 }
@@ -484,15 +481,12 @@ fn tick() {
             unsafe { KillTimer(r.hwnd, TIMER_ANIM) };
             return false;
         };
-        let dur = if a.closing { geom::CLOSE_MS } else { geom::OPEN_MS };
-        let (rad, done) = geom::anim_radius(a.from, a.to, now - a.t0, dur);
+        let (rad, done) = geom::anim_radius(a.from, a.to, now - a.t0, geom::CLOSE_MS);
         r.radius = rad;
         if done {
             r.anim = None;
             unsafe { KillTimer(r.hwnd, TIMER_ANIM) };
-            if a.closing {
-                return true;
-            }
+            return true;
         }
         let size = r.surface.w as usize;
         if let Some(full) = r.full.take() {

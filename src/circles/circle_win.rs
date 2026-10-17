@@ -12,9 +12,7 @@ use std::rc::Rc;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows_sys::Win32::UI::Controls::{WM_MOUSEHOVER, WM_MOUSELEAVE};
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, DragFinish, DragQueryFileW, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -26,8 +24,6 @@ use crate::host::{self, DesktopHost, HostKind};
 use crate::{dlog, win};
 
 const CLASS: &str = "DeskTuk.Circle";
-/// How long the pointer must rest on a circle before its ring opens.
-const HOVER_MS: u32 = 150;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Which {
@@ -63,8 +59,6 @@ struct Press {
 
 thread_local! {
     static PRESS: Cell<Option<Press>> = const { Cell::new(None) };
-    /// The circle window that currently has `TrackMouseEvent` hover/leave tracking.
-    static TRACKING: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
 }
 
 pub fn register_class() {
@@ -238,15 +232,10 @@ fn on_move(hwnd: HWND, lparam: LPARAM) {
         move_press(hwnd, mouse_point(hwnd, lparam));
         return;
     }
-    if TRACKING.get() != hwnd {
-        let mut tme = TRACKMOUSEEVENT {
-            cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
-            dwFlags: TME_HOVER | TME_LEAVE,
-            hwndTrack: hwnd,
-            dwHoverTime: HOVER_MS,
-        };
-        unsafe { TrackMouseEvent(&mut tme) };
-        TRACKING.set(hwnd);
+    if !ring::is_open_for(hwnd) {
+        if let Some(w) = super::which_of(hwnd) {
+            ring::open(hwnd, w.target());
+        }
     }
 }
 
@@ -286,23 +275,8 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
         WM_MOUSEMOVE => {
             // MK_LBUTTON: hover/recalculation messages with no button held must
             // not advance an outstanding drag using unrelated cursor coordinates.
-            if !is_pressed(hwnd) || wparam & 1 != 0 {
+            if (is_pressed(hwnd) && wparam & 1 != 0) || (!is_pressed(hwnd) && wparam & 1 == 0) {
                 on_move(hwnd, lparam);
-            }
-            0
-        }
-        WM_MOUSEHOVER => {
-            TRACKING.set(std::ptr::null_mut());
-            if PRESS.get().is_none() && !ring::is_open_for(hwnd) {
-                if let Some(w) = super::which_of(hwnd) {
-                    ring::open(hwnd, w.target());
-                }
-            }
-            0
-        }
-        WM_MOUSELEAVE => {
-            if TRACKING.get() == hwnd {
-                TRACKING.set(std::ptr::null_mut());
             }
             0
         }
