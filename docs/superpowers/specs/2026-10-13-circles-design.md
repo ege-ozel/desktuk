@@ -113,7 +113,8 @@ circle lines are both preserved whichever UI runs.
 * Win32: each circle is a small `WS_EX_LAYERED` tool window painted once with
   `UpdateLayeredWindow` (per-pixel alpha, so the corners are click-through); the painting
   surface is freed right after. Each circle has its own `WindowHost` (bottom of the z-order,
-  raised during "Show desktop"). The ring is one layered window **owned by** its circle, so it
+  raised within the normal band during "Show desktop", never topmost). Stale queued
+  foreground events are ignored. The ring is one layered window **owned by** its circle, so it
   always stays just above it; it is created on open and destroyed on close.
 * Desktop folders are watched with `FindFirstChangeNotificationW`; the main loop waits on
   those handles with `MsgWaitForMultipleObjectsEx` (no extra thread, no polling), and re-lists

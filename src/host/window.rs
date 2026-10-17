@@ -6,9 +6,9 @@
 //!   always cover it, like desktop icons.
 //! * "Show desktop" (Win+D) brings Explorer's desktop window above all normal windows,
 //!   which would cover the node. When the desktop becomes the foreground window the
-//!   node is temporarily raised into the topmost band, and dropped back to the bottom
-//!   as soon as any other window becomes foreground. (The same technique Rainmeter
-//!   uses for its "On desktop" mode.) Only documented APIs are used; the "is this the
+//!   node is raised within the normal band. Restoring an application can cover it
+//!   immediately, without waiting for the foreground hook to lower a topmost window.
+//!   Only documented APIs are used; the "is this the
 //!   desktop?" test relies on Explorer's window class names (see `shell.rs`).
 
 use std::cell::Cell;
@@ -24,7 +24,7 @@ use crate::{dlog, shell, win};
 
 #[derive(Default)]
 pub struct WindowHost {
-    /// True while "Show desktop" is active and the node is in the topmost band.
+    /// True while shown above the desktop in the normal (never topmost) band.
     raised: Cell<bool>,
 }
 
@@ -74,15 +74,12 @@ impl DesktopHost for WindowHost {
         }
     }
 
-    fn capture_finished(&self, node: HWND, foreground: HWND, was_topmost: bool) {
+    fn capture_finished(&self, node: HWND, foreground: HWND, _was_topmost: bool) {
         self.foreground_changed(node, foreground);
         unsafe {
-            let band = if self.raised.get() && was_topmost { HWND_TOPMOST } else { HWND_NOTOPMOST };
-            SetWindowPos(node, band, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             if self.raised.get() {
-                if !was_topmost {
-                    SetWindowPos(node, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                }
+                SetWindowPos(node, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             } else {
                 Self::to_bottom(node);
             }
@@ -98,6 +95,8 @@ impl DesktopHost for WindowHost {
     fn window_pos_changing(&self, _node: HWND, wp: &mut WINDOWPOS) {
         if !self.raised.get() && wp.flags & SWP_NOZORDER == 0 {
             wp.hwndInsertAfter = HWND_BOTTOM;
+        } else if wp.flags & SWP_NOZORDER == 0 && wp.hwndInsertAfter == HWND_TOPMOST {
+            wp.hwndInsertAfter = HWND_TOP;
         }
     }
 
@@ -110,7 +109,7 @@ impl DesktopHost for WindowHost {
         if shell::is_desktop_window(fg) {
             if !self.raised.get() {
                 self.raised.set(true);
-                unsafe { SetWindowPos(node, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                unsafe { SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
                 dlog!("host[window] desktop is foreground -> node raised");
             }
         } else if self.raised.get() {
@@ -168,6 +167,28 @@ mod tests {
     }
 
     #[test]
+    fn show_desktop_never_covers_a_restored_app_while_hook_is_pending() {
+        let node = window("DeskTuk.TestShowDesktop", std::ptr::null_mut());
+        let desktop = window("Progman", std::ptr::null_mut());
+        let application = window("DeskTuk.TestRestoredApplication", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.foreground_changed(node.0, desktop.0);
+        assert!(host.raised.get());
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        // Restore an application before delivering any foreground notification.
+        unsafe { SetWindowPos(application.0, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+        let mut above = unsafe { GetWindow(node.0, GW_HWNDPREV) };
+        while !above.is_null() && above != application.0 {
+            above = unsafe { GetWindow(above, GW_HWNDPREV) };
+        }
+        assert_eq!(above, application.0, "restored apps must cover circles without waiting for a hook callback");
+        let mut wp: WINDOWPOS = unsafe { std::mem::zeroed() };
+        wp.hwndInsertAfter = HWND_TOPMOST;
+        host.window_pos_changing(node.0, &mut wp);
+        assert_eq!(wp.hwndInsertAfter, HWND_TOP, "desktop z-order requests must not promote to topmost");
+    }
+
+    #[test]
     fn capture_finish_keeps_a_tray_revealed_circle_above_the_desktop() {
         let node = window("DeskTuk.TestCaptureHost", std::ptr::null_mut());
         let tray = window("Shell_TrayWnd", std::ptr::null_mut());
@@ -202,8 +223,8 @@ mod tests {
             assert!(host.raised.get(), "returning to the taskbar keeps the circle visible");
             assert_eq!(
                 unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST != 0,
-                was_topmost,
-                "capture must preserve the desktop band used before the drag"
+                false,
+                "capture must return to the normal band, even after legacy topmost state"
             );
             host.capture_finished(node.0, application.0, was_topmost);
             assert!(!host.raised.get(), "switching to an application lowers the circle");

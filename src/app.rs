@@ -396,6 +396,12 @@ unsafe extern "system" fn win_event(_h: HWINEVENTHOOK, event: u32, hwnd: HWND, i
     if event != EVENT_SYSTEM_FOREGROUND || id_object != OBJID_WINDOW {
         return;
     }
+    // Out-of-context WinEvents are queued: Win+D can already have restored an app
+    // by the time its earlier desktop event arrives. Apply current focus only.
+    let current = GetForegroundWindow();
+    if hwnd != current {
+        return;
+    }
     let a = app();
     let node = a.node.get();
     dlog!("foreground -> {hwnd:?} class={:?}", win::class_name(hwnd));

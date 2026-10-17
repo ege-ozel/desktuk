@@ -187,10 +187,16 @@ until the complete follow-up release is deployed.
 
 ### D18: Desktop ordering
 
-- [ ] Replace Win+D topmost promotion with normal-band desktop ordering so restored
+- [x] Replace Win+D topmost promotion with normal-band desktop ordering so restored
       applications cover circles immediately; preserve tray and capture recovery.
-- [ ] Add native z-order regression, run required checks and commit/push. Physical
+- [x] Add native z-order regression, run required checks and commit/push. Physical
       Win+D/taskbar interaction remains for the owner, without automated input here.
+
+D18 evidence: fmt/clippy and 48 release tests pass (one ignored preview). The native
+test raises a circle for a desktop fixture, restores an app before delivering its
+foreground hook, and verifies the app is already above the circle. Capture cleanup
+also removes legacy topmost state. Queued stale foreground notifications are ignored.
+Actual Win+D animation on the owner's Explorer remains a manual check.
 
 ### D19: Visible item drag
 

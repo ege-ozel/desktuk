@@ -12,7 +12,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
 - A and initial D are complete; active owner follow-ups are D17-D20 in Plan D.
-  D17 immediate opening is implemented; D18 ordering, D19 drag preview, D20 grid follow.
+  D17 immediate opening and D18 normal-band desktop ordering are implemented;
+  D19 drag preview and D20 grid follow. These changes are not installed yet.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
 
