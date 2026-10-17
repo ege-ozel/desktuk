@@ -4527,7 +4527,7 @@ file-management, dependency or background-work changes.
 - [x] Run MSVC fmt/clippy/tests, release build and isolated circles/open-ring fixtures;
       record the local tray-fixture precondition failure and validate tray behavior in CI.
 - [x] Record limits, commit/push the fix, and check the existing PR's head CI.
-- [ ] Deploy the checked binary to the existing stable path with layout, startup and
+- [x] Deploy the checked binary to the existing stable path with layout, startup and
       desktop visibility preserved; leave physical mouse/login/Explorer checks open.
 
 
@@ -4556,3 +4556,22 @@ D13 verification (Windows x86_64-pc-windows-msvc, 2026-10-17):
   desktop preferences were not changed by this task.
 * Existing PR #3 head CI will validate the committed fix, including the tray fixture.
   Live checks are authoritative; physical mouse/login/Explorer checks stay open.
+
+
+D13 owner-approved deployment and PR closure (2026-10-17):
+
+* Owner explicitly requested closing PR #3 and approved the installation/restart.
+  PR #3 was closed without merging; do not reopen it automatically. Keep the branch
+  and worktree. Both Windows CI runs on source commit 7e8c557 passed, including the
+  tray fixture, open-ring regressions and runner-only desktop/Explorer integration.
+* Rechecked release SHA256 before installation, closed only the stable installed
+  process through its controller's WM_CLOSE, retained the prior executable under
+  target/capture-cleanup/previous-installed.exe, and installed the checked release.
+* D:/CodeSpace/desktuk/DeskTuk.exe SHA256:
+  50EAAFD553F87F07CF4E1D7F8C20576FE984F582252917C88356175FFB0BB151.
+  New process 23564 responded and logged tray initialization. Configuration hash,
+  Run/DeskTuk and Explorer HideIcons preference were unchanged across installation.
+  Machine-readable local evidence: target/capture-cleanup/deployment.json.
+* The owner's real physical mouse/login/Explorer and visual checks remain open.
+  The circle drawing was not changed. This follow-up changes documentation only;
+  the installed runtime source is 7e8c557.

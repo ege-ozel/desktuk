@@ -6,7 +6,7 @@ Keep this file under 100 lines. Update relevant facts in the same commit as chan
 ## Locate the right checkout
 
 - Run `git status --short`, `git branch --show-current`, `git worktree list`.
-- Current feature work: `phase2/d-circles`, PR #3:
+- Circles branch: `phase2/d-circles`; PR #3 is closed without merge:
   https://github.com/ege-ozel/desktuk/pull/3
 - At this snapshot the circles checkout is
   `C:/Users/4D/.codex/worktrees/circles/desktuk`.
@@ -18,22 +18,24 @@ Keep this file under 100 lines. Update relevant facts in the same commit as chan
 
 ## Status: distinguish defects from missing verification
 
-- D1-D12 are complete. D13 capture cleanup is implemented; deployment needs approval.
-- Last checked PR head before D13: `5137088`, open with two successful Windows
-  build-and-test checks on 2026-10-17. Query PR #3 for the new fix's live CI.
-- D13 local MSVC fmt/clippy/release build passed: 46 tests passed, one preview ignored.
-  Circles and open-ring fixtures passed; they do not establish physical capture.
+- D1-D13 are complete, including the owner-approved capture-cleanup deployment.
+- PR #3 was CLOSED WITHOUT MERGE at the owner's explicit request on 2026-10-17.
+  Do not reopen it automatically. The branch/worktree remain for further work.
+- Installed runtime source: `7e8c557`; both Windows CI runs passed, including tray,
+  open-ring and runner-only desktop/Explorer integration. Later docs commits do not
+  change the installed code. Query GitHub for live branch/PR information.
+- Local MSVC fmt/clippy/release build passed: 46 tests passed, one preview ignored.
+  Circles/open-ring fixtures passed; routed messages do not establish physical capture.
 - Capture cleanup now delegates to the circle host (or ring owner's host), preserving
   a tray-revealed circle's desktop visibility while lowering it behind real apps.
   Native regressions cover normal/topmost bands and switching to an application.
-- Local tray fixture could not register: the installed normal instance was running,
-  and the fixture uses the normal single-instance path. CI runs it without that owner
-  instance. Do not treat that local setup failure as a newly reproduced tray defect.
-- Checked binary: target/capture-cleanup/release/DeskTuk.exe in the circles checkout.
-  The full SHA256 and validation limits are recorded under Plan D task D13.
-- Stopping/replacing/restarting the installed executable was rejected by automatic
-  approval review for lack of explicit owner approval. Deployment is pending;
-  installed DeskTuk.exe and owner preferences were left unchanged.
+- Local tray fixture needs the installed normal instance absent; its registration
+  setup failure was resolved by validating the tray fixture in clean Windows CI.
+- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Checked release and backup:
+  target/capture-cleanup/ in the circles checkout. SHA256/evidence are in Plan D D13.
+- Owner approved installation/restart after the earlier automatic-review rejection.
+  Deployment succeeded: responding process and tray initialization; configuration,
+  startup command and desktop visibility preference preserved.
 - Owner reports a circle that is not smooth; edge vs animation vs drag is unconfirmed.
   Outer alpha masking exists; inner GDI ellipse boundaries lack the same smoothing.
   This is a possible cause, not a diagnosis. Owner will test; drawing is unchanged.
