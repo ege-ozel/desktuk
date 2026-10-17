@@ -4,10 +4,12 @@ Communication between agents and the owner happens **through commits and the pla
 `docs/superpowers/plans/`**. There is no other channel.
 
 ## Branches (who works where)
-* `main` is protected by convention: **never push to it directly.**
-* One plan = one branch named `phase2/<letter>-<name>` (e.g. `phase2/a-item-layer`), created from
-  the latest `main`. Push after every task so the owner and the reviewing agent see progress.
-* When the plan's last task is done and CI is green, open a pull request into `main`.
+* Owner update (2026-10-17): direct commits/pushes to `main` are allowed; PRs are
+  not required. Do not open or reopen a PR unless the owner requests it.
+* Use a plan branch from latest `main` when isolation helps; otherwise work on
+  `main`. Preserve task-by-task commits, required checks and push completed work.
+* Integrate completed branches only after checking their changes/tests; retire only
+  branches whose commits are confirmed ancestors of `origin/main`.
 * Plans are executed in order A -> D. Do not start D before A is merged. Plan B (except B3)
   and Plan C are on hold, replaced by the circles design
   (`docs/superpowers/specs/2026-10-13-circles-design.md`); do not execute them.

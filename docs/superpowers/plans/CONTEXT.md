@@ -1,88 +1,80 @@
-# Repository context (read this before the long plans)
+# Repository context
 
-Snapshot: 2026-10-17. This is a routing note, not live CI or deployment evidence.
-Keep this file under 100 lines. Update relevant facts in the same commit as changes.
+Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshots.
 
-## Locate the right checkout
+## Start here
 
-- Run `git status --short`, `git branch --show-current`, `git worktree list`.
-- Circles branch: `phase2/d-circles`; PR #3 is closed without merge:
-  https://github.com/ege-ozel/desktuk/pull/3
-- At this snapshot the circles checkout is
-  `C:/Users/4D/.codex/worktrees/circles/desktuk`.
-  Discover its current location with Git; do not hard-code it in tools.
-- `D:/CodeSpace/desktuk` is still on the older Plan A branch and contains local
-  changes. Do not mistake it for the circles source or reset/switch a dirty checkout.
-- Plan A is merged. B1/B2 and C are on hold; circles replaced that direction.
-  Tray/startup (B3) was delivered through D9. Continue Plan D in its own checkout.
+- Use `git status --short`, `git branch --show-current`, `git worktree list`.
+- Main is the integration baseline. Owner requested merging completed branches;
+  direct main commits are allowed and PRs are not required. PR #3 is historical.
+  Do not reopen it or create a PR unless the owner requests one.
+- Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
+- Do not rely on hard-coded checkout paths. The normal startup workspace is
+  D:/CodeSpace/desktuk; keep it synchronized with main after merging.
+- A and D implementation are complete. B1/B2 and C were superseded by circles;
+  tray/startup (B3) was delivered through D9. Do not start postponed plans.
 
-## Status: distinguish defects from missing verification
+## Delivered behavior and evidence
 
-- D1-D13 are complete, including the owner-approved capture-cleanup deployment.
-- PR #3 was CLOSED WITHOUT MERGE at the owner's explicit request on 2026-10-17.
-  Do not reopen it automatically. The branch/worktree remain for further work.
+- Circles group Desktop file references; Recent, groups, suggestions, hover rings,
+  paging, native-sized shell icons, menus, persistence, tray and startup are present.
+- Capture cleanup restores the circle host (or ring owner's host) ordering:
+  tray-revealed circles stay visible on the desktop; real apps remain above them.
 - Installed runtime source: `7e8c557`; both Windows CI runs passed, including tray,
-  open-ring and runner-only desktop/Explorer integration. Later docs commits do not
-  change the installed code. Query GitHub for live branch/PR information.
-- Local MSVC fmt/clippy/release build passed: 46 tests passed, one preview ignored.
-  Circles/open-ring fixtures passed; routed messages do not establish physical capture.
-- Capture cleanup now delegates to the circle host (or ring owner's host), preserving
-  a tray-revealed circle's desktop visibility while lowering it behind real apps.
-  Native regressions cover normal/topmost bands and switching to an application.
-- Local tray fixture needs the installed normal instance absent; its registration
-  setup failure was resolved by validating the tray fixture in clean Windows CI.
-- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Checked release and backup:
-  target/capture-cleanup/ in the circles checkout. SHA256/evidence are in Plan D D13.
-- Owner approved installation/restart after the earlier automatic-review rejection.
-  Deployment succeeded: responding process and tray initialization; configuration,
-  startup command and desktop visibility preference preserved.
-- Owner reports a circle that is not smooth; edge vs animation vs drag is unconfirmed.
+  open-ring and runner-only desktop/Explorer checks. Later consolidation is limited
+  to docs/search/CI/ignore rules; query live checks for the current main revision.
+- Local MSVC checks: 46 passing tests, one ignored visual preview.
+- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe.
+  Source SHA256/deployment details: active Plan D and its historical archive.
+- Owner approved installation/restart; responding app/tray and unchanged config,
+  startup command and desktop visibility preference were verified.
+- Circle smoothness is owner-reported; edge vs animation vs dragging is unconfirmed.
   Outer alpha masking exists; inner GDI ellipse boundaries lack the same smoothing.
-  This is a possible cause, not a diagnosis. Owner will test; drawing is unchanged.
+  This is a possible cause, not a diagnosis. Owner will test; appearance is unchanged.
 
-## Verification still needed (these are not observed failures)
+## Unperformed manual checks (not observed failures)
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.
-- Real Explorer restart and tray/window recovery (synthetic TaskbarCreated passed).
-- Physical menu/show-hide interaction and checkmark agreement with Explorer.
-- Visual icon parity at alternate sizes/DPI, paging, and circle edge quality.
-- D5 manual interaction checks: shell menus while open, rename/delete ordering,
-  live Desktop updates, drag/drop and persistence. Read the D5 manual checklist
-  when doing that validation. Native/synthetic fixtures do not replace it.
+- Real Explorer restart and tray/window recovery on the owner's machine.
+- Physical menu/show-hide interaction, alternate sizes/DPI and visual quality.
+- D5 menu/rename/delete/live-update/drag-drop/persistence interaction checklist.
+- Local tray fixture needs the normal installed instance absent; it passed in CI.
+  Do not alter production single-instance behavior to bypass that precondition.
 
-## Read only the relevant source
+## Source routing
 
-| Topic | Start here |
+| Topic | Files |
 |---|---|
-| Circle/ring drawing | src/circles/draw.rs, geom.rs, surface.rs |
-| Hover, opening, paging, animation | src/circles/circle_win.rs, ring.rs |
-| Drag capture and desktop ordering | src/circles/drag_capture.rs, src/host/window.rs |
-| File references, assignment, persistence | src/circles/model.rs, view.rs, src/config.rs |
-| Desktop changes, Recent, suggestions | src/circles/desktop.rs, suggest.rs, src/watch.rs |
-| Shell icons/context menus | src/items.rs, shell.rs, shell_menu.rs |
-| Tray, startup, desktop visibility | src/tray.rs, autostart.rs, desktop_view.rs |
-| Startup/message loop | src/app.rs |
-| Runtime regression fixtures | scripts/*regression-test.ps1 |
+| Drawing/alpha/geometry | src/circles/draw.rs, surface.rs, geom.rs |
+| Hover, paging, animation | src/circles/circle_win.rs, ring.rs |
+| Capture and desktop ordering | src/circles/drag_capture.rs, src/host/window.rs |
+| References and config | src/circles/model.rs, view.rs, src/config.rs |
+| Desktop updates/Recent/suggestions | src/circles/desktop.rs, suggest.rs, src/watch.rs |
+| Shell icons/menus | src/items.rs, shell.rs, shell_menu.rs |
+| Tray/startup/desktop visibility | src/tray.rs, autostart.rs, desktop_view.rs |
+| Bootstrap/message loop | src/app.rs |
+| Isolated runtime fixtures | scripts/*regression-test.ps1 |
 
-The short names in a row share the preceding directory unless prefixed with src/.
-Pure geometry/model tests live alongside the implementation.
+Short names share the preceding directory. Tests live with their Rust module.
+The largest runtime module is ring.rs (about 900 lines); search symbols and read
+the affected functions. Do not split stable code solely to reduce whole-file reads.
 
-## Plans, design and bounded reading
+## Bounded reading
 
-- Product decisions: docs/superpowers/specs/2026-10-13-circles-design.md.
-- Active plan: docs/superpowers/plans/2026-10-13-phase2-d-circles.md.
-  It contains thousands of lines of historical code samples; do not dump it.
-- First inspect headings/checklists with `rg -n '^### Task|^- \[[ x]\]'`
-  on the specific plan. Then read the chosen heading through the next task.
-- If rg is unavailable, use `Select-String -LiteralPath <plan> -Pattern
-  '^### Task','^- \[[ x]\]'` or `git grep -n -e '^### Task' -- <plan>`.
-- Read bounded source ranges with
+- Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
+- Product decisions: ../specs/2026-10-13-circles-design.md.
+- Original implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
+  This archive contains historical code, not current implementation instructions.
+- Read the relevant design/task once for implementation; retain safety constraints.
+- Search src/ first, then scripts/ and the active plan. .rgignore skips historical
+  archives/captures/generated output. Use explicit paths for history when needed.
+- Example: `rg -n 'capture_finished|fn finish' src`.
+- rg fallback: `git grep -n -e capture_finished -e 'fn finish' -- src`.
+- Bounded PowerShell read:
   `Get-Content -LiteralPath <file> | Select-Object -Skip <start> -First <count>`.
-- Search tracked source/docs first. Exclude target, dist, .git, executables,
-  bundles, test-results* and local capture/deployment scratch files.
-- Before implementation, read the relevant design and complete active task once.
-  Retain their constraints; reread only changed/needed sections.
-- AGENTS.md contains the mandatory safety, branch, commit and check rules.
-  This summary never overrides them. Add future evidence to the plan and keep
-  this summary short; never turn missing verification into a claim of a bug.
+- Root config.rs and .capture-* are ignored local scratch copies; src/config.rs is
+  authoritative. target/, dist/, test-results*, logs, executables and bundles are
+  generated/local artifacts, not default reading targets.
+- AGENTS.md is authoritative for safety, branches, commits and required MSVC checks.
+  Update only changed facts here; keep long evidence in the archive/plan.

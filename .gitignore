@@ -2,3 +2,18 @@
 /dist
 *.log
 !docs/results/**/*.log
+*.exe
+*.bundle
+/test-results/
+/test-results-explorer/
+
+# Local investigation/deployment artifacts; retained on disk, not source.
+/.capture-*
+/.drag-button-fix.py
+/.hover-case-test.py
+/.redeploy-final.ps1
+/config.rs
+/scripts/bench-partitions.ps1
+
+# Byte-identical historical root report; canonical copy lives under docs/.
+/PHASE-0-1-REPORT.md

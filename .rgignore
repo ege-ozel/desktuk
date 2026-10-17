@@ -1,0 +1,16 @@
+# Default content searches: use an explicit path / --no-ignore for historical evidence.
+/target/
+/dist/
+/.git/
+/test-results*/
+/docs/results/
+/docs/superpowers/archive/
+*.log
+*.exe
+*.bundle
+/.capture-*
+/.drag-button-fix.py
+/.hover-case-test.py
+/.redeploy-final.ps1
+/config.rs
+/scripts/bench-partitions.ps1
