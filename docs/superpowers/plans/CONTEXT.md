@@ -25,6 +25,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   change docs only; query live checks for the latest main revision.
 - Drawing checks: 47 passing MSVC tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
+- D16 prepares 150 ms hover dwell (was 250); animation remains 160 ms.
+  Installation was blocked by automatic review pending fresh explicit approval;
+  the running D15 app still uses 250 ms. Ready binary: target/release/DeskTuk.exe.
 - Closed circles, ring centres and group discs now use centered pixel-coverage
   blending. The outer premultiplied alpha mask remains; text/icons retain native
   rendering. No new dependencies, idle timers, threads or persistent buffers.

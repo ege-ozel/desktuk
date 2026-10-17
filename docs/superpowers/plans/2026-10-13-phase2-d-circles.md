@@ -141,3 +141,22 @@ D15 owner-approved deployment (2026-10-17):
   file change occurred. The owner's final visual assessment remains a manual check.
 * Refresh CONTEXT.md to remove superseded pre-D15 drawing/deployment statements.
   This follow-up changes records only; the installed runtime source remains bafb842.
+
+
+## Task D16: Reduce hover dwell (owner, 2026-10-17)
+
+- [x] Reduce closed-circle hover dwell from 250 ms to 150 ms; retain the separate
+      160 ms opening animation, click behavior and drag handling.
+- [x] Update the behavior spec/context; run required MSVC fmt/clippy/release tests
+      and release build. No timing-constant-only unit test or new dependency.
+- [ ] Install/restart the checked release with configuration/startup/visibility
+      preserved; record the result and commit/push directly to main.
+
+D16 validation: MSVC fmt, locked release clippy with -D warnings, 47 passing
+release tests (one ignored preview) and release build passed. Only HOVER_MS changed;
+OPEN_MS remains 160 ms. Ready binary: target/release/DeskTuk.exe, SHA256
+C7AD4AC8AEE34616B417A2990FBDC960DB4F8ADD2CAE218FF7A0F75B8C569FB4.
+Automatic approval review rejected installation because this hover release lacks
+explicit install/restart approval. No deployment command ran; installed D15 still
+uses 250 ms. Ask for this final approval after presenting the ready result.
+For handoff, start at CONTEXT.md; main contains the prepared 150 ms change.

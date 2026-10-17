@@ -40,7 +40,7 @@ only - it is not a file browser for `C:\`.
 
 **Closed circle** (88 px at 96 DPI): name and item count, accent rim. Recent is tinted blue.
 
-* Hover 250 ms or click: opens the ring. Drag: moves the circle (position saved).
+* Hover 150 ms or click: opens the ring. Drag: moves the circle (position saved).
 * Right-click: New circle, New group, Rename..., Delete circle (confirmation; items go back to
   Recent), Exit. On Recent: New circle, Exit.
   **Owner follow-up (2026-10-13):** all circle/Recent and file menus, plus the panel menu,

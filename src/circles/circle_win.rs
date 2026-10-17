@@ -27,7 +27,7 @@ use crate::{dlog, win};
 
 const CLASS: &str = "DeskTuk.Circle";
 /// How long the pointer must rest on a circle before its ring opens.
-const HOVER_MS: u32 = 250;
+const HOVER_MS: u32 = 150;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Which {
