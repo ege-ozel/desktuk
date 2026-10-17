@@ -11,9 +11,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and initial D are complete; active owner follow-ups are D17-D20 in Plan D.
-  D17-D20 immediate opening, normal-band ordering, drag preview and grid are ready.
-  Not installed yet; checked build/evidence and pending deployment are in D20.
+- A and D through D20 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
 
@@ -23,21 +21,22 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Capture cleanup restores the circle host (or ring owner's host) ordering:
   tray-revealed circles stay visible on the desktop; real apps remain above them.
-- Installed runtime source: `fae06ba` (D16 hover timing). Drawing release `bafb842`
-  passed Windows main CI, including tray, open-ring and runner-only desktop/Explorer
-  checks. Query live checks for the latest main revision.
-- Drawing checks: 47 passing MSVC tests, one ignored preview; the preview was also
+- Installed runtime source: `d1e1174` (D17-D20 interactions). Query live Windows CI;
+  local tray/open-centre/grid/missing-reference runtime fixtures passed.
+- Required MSVC checks: 52 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
-- D16 is installed: 150 ms hover dwell (was 250); animation remains 160 ms.
-  Owner explicitly approved installation/restart after automatic review requested
-  fresh approval. Checked binary: target/release/DeskTuk.exe.
+- Pointer entry opens immediately: no hover dwell or opening animation. Closing
+  remains 110 ms. Win+D uses the normal band, never topmost; stale focus events skip.
+- Internal item drag shows a click-through icon. Right-click Izgara selects Off /
+  2x2 / 3x3 / 4x4; release snaps to cell centres in that monitor's taskbar-free work
+  area. Grid defaults Off and persists; selecting it does not move existing circles.
 - Closed circles, ring centres and group discs now use centered pixel-coverage
   blending. The outer premultiplied alpha mask remains; text/icons retain native
   rendering. No new dependencies, idle timers, threads or persistent buffers.
 - Installation/restart succeeded; responding process/tray and unchanged
   configuration, startup command and desktop visibility preference were verified.
 - Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Full release SHA256,
-  preview paths and deployment evidence are recorded under Plan D D15/D16.
+  preview paths and deployment evidence are recorded under Plan D D15/D16/D20.
 - The reported hard inner edge was reproduced in a native regression and fixed;
   the owner's final visual assessment on the running desktop is still pending.
 

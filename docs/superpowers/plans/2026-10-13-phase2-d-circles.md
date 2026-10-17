@@ -223,7 +223,7 @@ Actual physical cross-circle dragging remains an owner check.
       (including a right/left/top/bottom taskbar); support negative coordinates/DPI.
 - [x] Test geometry and config compatibility, run required checks/fixtures and build,
       then commit/push.
-- [ ] Install/restart checked release and record observed evidence.
+- [x] Install/restart checked release and record observed evidence.
 
 D20 evidence: fmt/clippy, 52 release tests (one ignored preview), release build and
 isolated circles/open-centre fixtures pass. The latter also ran with grid=3:
@@ -234,3 +234,13 @@ circles, clamping, legacy config/default Off and malformed grid values. No physi
 cursor movement or Desktop writes. Physical menus/cross-circle drag/Win+D remain
 unperformed checks. Ready target/release/DeskTuk.exe SHA256:
 B984059EB9EDF1C197F141763F865DC0DB8974C4D7ED2E73CE805AF8ACE0F8BB.
+
+D20 deployment: normal WM_CLOSE shutdown, previous executable backed up under
+target/interaction-followup/previous-installed.exe. While the normal app was absent,
+isolated tray/second-launch/TaskbarCreated fixtures passed for circles and panel,
+including normal-band reveal and preserved references/preferences. Installed the
+checked release at D:/CodeSpace/desktuk/DeskTuk.exe, same SHA256 as above, runtime
+source d1e1174. Restarted process 8140 responds and initialized its tray. Config hash,
+Run/DeskTuk and Explorer HideIcons were unchanged. Evidence is local at
+target/interaction-followup/deployment.json. No physical input or Desktop writes.
+Owner should assess actual Win+D transitions, drag feel/preview and right-click grid.
