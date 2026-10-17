@@ -99,7 +99,7 @@ or persistent supersampled surfaces. Keep output opaque until the final disc mas
 - [x] Run required MSVC checks, render/inspect before-after previews, release build
       and isolated circle/open-ring fixtures. Use CI for the tray/integration fixture.
 - [x] Commit/push directly to main under the owner's current workflow preference.
-- [ ] Install the checked release and restart the app under the owner's existing
+- [x] Install the checked release and restart the app under the owner's explicit
       update/restart authorization; preserve layout, startup and desktop settings.
 
 
@@ -122,3 +122,22 @@ D15 evidence (Windows MSVC, 2026-10-17):
   executed, so the installed app is still the D13 version. New installation needs
   explicit owner approval; do not retry or alter the installed app before that.
   Tray/integration are covered by CI without touching the owner's running app.
+
+
+D15 owner-approved deployment (2026-10-17):
+
+* The owner approved installing the newly smoothed drawing release after the prior
+  automatic-review block. Revalidated main runtime source bafb842 and its successful
+  Windows CI before installation; source SHA256 matched the checked D15 release.
+* Closed the stable installed app through normal controller WM_CLOSE; backed up its
+  prior executable under target/capture-cleanup/previous-installed.exe; installed
+  the checked release and restarted it with its stable D:/CodeSpace/desktuk path.
+* Installed SHA256: 5E7BC9BE63F2EA12141D4F453FC06FED96AC6D9ED8E73976014EDC42B0D30028.
+  Process 7588 responded and logged tray initialization. Configuration hash,
+  Run/DeskTuk and Explorer HideIcons preference were unchanged.
+* Local deployment evidence: target/capture-cleanup/deployment.json in the secondary
+  checkout. Preview artifacts there: circle-before.bmp, circle-after.bmp, ring-after.bmp.
+  No physical cursor movement, Explorer restart, desktop preference change or user
+  file change occurred. The owner's final visual assessment remains a manual check.
+* Refresh CONTEXT.md to remove superseded pre-D15 drawing/deployment statements.
+  This follow-up changes records only; the installed runtime source remains bafb842.

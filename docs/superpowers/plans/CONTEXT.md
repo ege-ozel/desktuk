@@ -20,18 +20,21 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Capture cleanup restores the circle host (or ring owner's host) ordering:
   tray-revealed circles stay visible on the desktop; real apps remain above them.
-- Installed runtime source: `7e8c557`; both Windows CI runs passed, including tray,
-  open-ring and runner-only desktop/Explorer checks. Later consolidation is limited
-  to docs/search/CI/ignore rules; query live checks for the current main revision.
-- Latest drawing MSVC checks: 47 passing tests, one ignored visual preview;
-  the native preview was also run explicitly and inspected.
-- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe.
-  Source SHA256/deployment details: active Plan D and its historical archive.
-- Owner approved installation/restart; responding app/tray and unchanged config,
-  startup command and desktop visibility preference were verified.
-- Circle smoothness is owner-reported; edge vs animation vs dragging is unconfirmed.
-  Outer alpha masking exists; inner GDI ellipse boundaries lack the same smoothing.
-  This is a possible cause, not a diagnosis. Owner will test; appearance is unchanged.
+- Installed runtime source: `bafb842`. Windows main CI passed, including tray,
+  open-ring and runner-only desktop/Explorer checks. Later deployment-record commits
+  change docs only; query live checks for the latest main revision.
+- Drawing checks: 47 passing MSVC tests, one ignored preview; the preview was also
+  run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
+- Closed circles, ring centres and group discs now use centered pixel-coverage
+  blending. The outer premultiplied alpha mask remains; text/icons retain native
+  rendering. No new dependencies, idle timers, threads or persistent buffers.
+- Owner approved this new drawing release after automatic review requested fresh
+  approval. Installation/restart succeeded; responding process/tray and unchanged
+  configuration, startup command and desktop visibility preference were verified.
+- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Full release SHA256,
+  before/after preview paths and deployment evidence are recorded under Plan D D15.
+- The reported hard inner edge was reproduced in a native regression and fixed;
+  the owner's final visual assessment on the running desktop is still pending.
 
 ## Unperformed manual checks (not observed failures)
 
