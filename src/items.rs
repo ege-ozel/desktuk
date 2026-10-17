@@ -121,6 +121,11 @@ impl Item {
         self.icon
     }
 
+    /// Already loaded icon, without shell calls while preparing a drag preview.
+    pub fn cached_icon(&self) -> HICON {
+        self.icon
+    }
+
     pub fn release_icon(&mut self) {
         if !self.icon.is_null() {
             unsafe { DestroyIcon(self.icon) };

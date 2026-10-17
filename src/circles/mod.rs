@@ -12,6 +12,7 @@
 pub mod circle_win;
 pub mod desktop;
 mod drag_capture;
+mod drag_preview;
 pub mod draw;
 pub mod geom;
 pub mod model;

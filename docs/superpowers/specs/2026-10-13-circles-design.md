@@ -72,6 +72,9 @@ near a screen edge):
   group: Rename group, Delete group (files move up to the circle). Right-click a suggestion:
   Add / Not now. Right-click elsewhere: the circle menu.
 * Drag a file slot onto a group slot, the Back slot, another circle or Recent: moves it there.
+  While dragging, a translucent icon follows the pointer. It uses the cached shell
+  icon (native fallback if not loaded), accepts no input, and disappears on release,
+  Escape, capture loss or ring destruction. File paths remain references.
 * Opens immediately, closes over 110 ms after the pointer leaves the disc. No timer runs
   when nothing animates.
 

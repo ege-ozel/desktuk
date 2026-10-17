@@ -16,7 +16,7 @@ use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONI
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -108,6 +108,7 @@ fn with<R>(f: impl FnOnce(&mut Ring) -> R) -> Option<R> {
 }
 
 pub fn register_class() {
+    super::drag_preview::register_class();
     let name = win::wide(CLASS);
     let wc = WNDCLASSEXW {
         cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -289,6 +290,7 @@ pub fn close_now() {
     if let Some(r) = taken {
         let h = r.hwnd;
         drop(r); // releases icons and the surface
+        super::drag_preview::close();
         super::drag_capture::end(h);
         unsafe {
             KillTimer(h, TIMER_ANIM);
@@ -543,9 +545,9 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
         return;
     }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
-    with(|r| {
+    let preview = with(|r| {
         if closing(r) {
-            return;
+            return None;
         }
         if !r.tracking {
             let mut tme = TRACKMOUSEEVENT {
@@ -560,19 +562,28 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
         let dpi = r.dpi;
         if let Some(p) = r.press.as_mut() {
             if wparam & 1 == 0 {
-                return;
+                return None;
             } // MK_LBUTTON
-            let c = cursor_pos();
+            let c = circle_win::mouse_point(r.hwnd, lparam);
             let (dx, dy) = (c.x - p.cursor.x, c.y - p.cursor.y);
-            if !p.active
-                && unsafe { dx.abs() > GetSystemMetricsForDpi(SM_CXDRAG, dpi) || dy.abs() > GetSystemMetricsForDpi(SM_CYDRAG, dpi) }
-            {
+            let started = !p.active
+                && unsafe { dx.abs() > GetSystemMetricsForDpi(SM_CXDRAG, dpi) || dy.abs() > GetSystemMetricsForDpi(SM_CYDRAG, dpi) };
+            if started {
                 p.active = true;
             }
             if p.active {
                 unsafe { SetCursor(LoadCursorW(std::ptr::null_mut(), IDC_SIZEALL)) };
             }
-            return;
+            if p.active {
+                let surface = if started {
+                    let icon = r.page.iter().filter_map(|s| s.item.as_ref()).find(|it| it.path == p.path).map(|it| it.cached_icon());
+                    draw::drag_icon(icon.unwrap_or(std::ptr::null_mut()), dpi)
+                } else {
+                    None
+                };
+                return Some((r.hwnd, c, dpi, surface));
+            }
+            return None;
         }
         let hover = match hit(r, x, y) {
             RingHit::Slot(k) => Some(k),
@@ -582,7 +593,17 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
             r.hover = hover;
             redraw(r);
         }
-    });
+        None
+    })
+    .flatten();
+    // Creating/moving/destroying the preview can pump messages: RING is released.
+    if let Some((owner, at, dpi, surface)) = preview {
+        if let Some(surface) = surface {
+            super::drag_preview::show(surface, owner, at, dpi);
+        } else {
+            super::drag_preview::move_to(at);
+        }
+    }
 }
 
 /// Something the ring must do after its state borrow has ended.
@@ -610,7 +631,7 @@ fn on_left_down(lparam: LPARAM) {
             RingHit::Center => Some(LeftPress::Circle { anchor: r.anchor, at: circle_win::mouse_point(r.hwnd, lparam) }),
             RingHit::Slot(k) => match &r.page[k].r {
                 SlotRef::Item(p) => {
-                    r.press = Some(Press { path: p.clone(), cursor: cursor_pos(), active: false });
+                    r.press = Some(Press { path: p.clone(), cursor: circle_win::mouse_point(r.hwnd, lparam), active: false });
                     Some(LeftPress::Item(r.hwnd))
                 }
                 _ => None,
@@ -655,9 +676,10 @@ fn on_left_up(lparam: LPARAM) {
     }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
+    super::drag_preview::close();
     super::drag_capture::end(hwnd);
     let action = match press {
-        Some(p) if p.active => Action::Drop { path: p.path, at: cursor_pos() },
+        Some(p) if p.active => Action::Drop { path: p.path, at: circle_win::mouse_point(hwnd, lparam) },
         _ => with(|r| {
             if closing(r) {
                 return Action::None;
@@ -872,8 +894,16 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             // Capture taken away mid-drag (e.g. Alt+Tab): forget the drag.
             if lparam as HWND != hwnd {
                 with(|r| r.press = None);
+                super::drag_preview::close();
                 super::drag_capture::end(hwnd);
             }
+            0
+        }
+        WM_CANCELMODE | WM_KEYDOWN if msg == WM_CANCELMODE || wparam == VK_ESCAPE as usize => {
+            with(|r| r.press = None);
+            super::drag_preview::close();
+            super::drag_capture::end(hwnd);
+            close_if_outside();
             0
         }
         WM_RBUTTONUP => {
@@ -901,6 +931,8 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
                     }
                 }
             });
+            super::drag_preview::close();
+            super::drag_capture::end(hwnd);
             0
         }
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),

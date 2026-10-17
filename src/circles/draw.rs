@@ -10,7 +10,7 @@ use windows_sys::Win32::Graphics::Gdi::{
     DT_EDITCONTROL, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, FW_SEMIBOLD, HDC, HFONT, LOGFONTW, TRANSPARENT,
 };
 use windows_sys::Win32::UI::HiDpi::SystemParametersInfoForDpi;
-use windows_sys::Win32::UI::WindowsAndMessaging::{DrawIconEx, DI_NORMAL, HICON, SPI_GETICONTITLELOGFONT};
+use windows_sys::Win32::UI::WindowsAndMessaging::{DrawIconEx, LoadIconW, DI_NORMAL, HICON, IDI_APPLICATION, SPI_GETICONTITLELOGFONT};
 
 use super::geom::{self, Metrics};
 use super::surface::Surface;
@@ -24,6 +24,26 @@ pub const HOVER: u32 = win::rgb(56, 60, 72);
 pub const GROUP: u32 = win::rgb(70, 90, 130);
 pub const TEXT: u32 = win::rgb(240, 240, 240);
 pub const SUBTEXT: u32 = win::rgb(170, 175, 185);
+
+/// A small translucent disc carrying the loaded icon (or a shared native fallback).
+pub fn drag_icon(icon: HICON, dpi: u32) -> Option<Surface> {
+    let px = win::scale(32, dpi);
+    let pad = win::scale(8, dpi);
+    let d = px + 2 * pad;
+    let mut s = Surface::new(d, d)?;
+    fill_rect(s.dc(), &win::rect(0, 0, d, d), ACCENT);
+    let rim = win::scale(2, dpi);
+    fill_disc(&mut s, &win::rect(rim, rim, d - rim, d - rim), CIRCLE_BG);
+    let icon = if icon.is_null() { unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) } } else { icon };
+    unsafe { DrawIconEx(s.dc(), pad, pad, icon, px, px, 0, std::ptr::null_mut(), DI_NORMAL) };
+    geom::mask_disc(s.pixels(), d as usize, d as usize, d as f32 / 2.0);
+    // Fade all premultiplied channels together, including alpha.
+    for p in s.pixels() {
+        let fade = |shift: u32| (((*p >> shift) & 255) * 210 / 255) << shift;
+        *p = fade(24) | fade(16) | fade(8) | fade(0);
+    }
+    Some(s)
+}
 
 /// The icon-title font scaled to `pct` percent, deleted on drop.
 struct Font(HFONT);
@@ -277,6 +297,9 @@ mod tests {
     #[ignore]
     fn preview() {
         let dpi = 144;
+        let mut drag = drag_icon(std::ptr::null_mut(), dpi).unwrap();
+        let drag_size = drag.w as usize;
+        save_bmp(&std::env::temp_dir().join("desktuk-preview-drag.bmp"), drag.pixels(), drag_size, drag_size);
         let m = geom::metrics(dpi);
         let d = m.circle_d;
         let mut s = Surface::new(d, d).unwrap();

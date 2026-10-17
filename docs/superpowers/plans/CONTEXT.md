@@ -13,7 +13,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
 - A and initial D are complete; active owner follow-ups are D17-D20 in Plan D.
   D17 immediate opening and D18 normal-band desktop ordering are implemented;
-  D19 drag preview and D20 grid follow. These changes are not installed yet.
+  D19 drag preview is implemented; D20 grid follows. Not installed yet.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
 
@@ -58,6 +58,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 | Drawing/alpha/geometry | src/circles/draw.rs, surface.rs, geom.rs |
 | Hover, paging, animation | src/circles/circle_win.rs, ring.rs |
 | Capture and desktop ordering | src/circles/drag_capture.rs, src/host/window.rs |
+| Drag icon preview | src/circles/drag_preview.rs, draw.rs |
 | References and config | src/circles/model.rs, view.rs, src/config.rs |
 | Desktop updates/Recent/suggestions | src/circles/desktop.rs, suggest.rs, src/watch.rs |
 | Shell icons/menus | src/items.rs, shell.rs, shell_menu.rs |

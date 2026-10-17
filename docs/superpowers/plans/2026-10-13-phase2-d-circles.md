@@ -200,10 +200,19 @@ Actual Win+D animation on the owner's Explorer remains a manual check.
 
 ### D19: Visible item drag
 
-- [ ] Show a small icon preview following the captured pointer, using the existing
+- [x] Show a small icon preview following the captured pointer, using the existing
       loaded shell icon with a fallback; click-through, no activation or idle work.
-- [ ] Clean up preview on drop, cancel, capture loss and ring destruction; verify
+- [x] Clean up preview on drop, cancel, capture loss and ring destruction; verify
       native drawing/lifecycle and existing drop behavior, run checks, commit/push.
+
+D19 evidence: fmt/clippy and 49 release tests pass (one ignored preview). Native
+preview test verifies no activation/topmost, click-through styles, pointer offset,
+movement and idempotent cleanup. Existing drop-target model tests pass. Explicit
+ignored visual preview was rendered and inspected (TEMP/desktuk-preview-drag.bmp).
+Loaded shell icon is drawn once onto a 210/255-opacity disc; native fallback is
+visible before icons load. Position comes from queued event coordinates. No shell
+query, timer, new dependency or persistent surface; only one transient window.
+Actual physical cross-circle dragging remains an owner check.
 
 ### D20: Work-area grid snap
 
