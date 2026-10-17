@@ -18,7 +18,9 @@ public static class OpenCircleDragWin {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int command);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int height, uint flags);
     [DllImport("user32.dll", EntryPoint="GetWindowLongW")] public static extern int GetWindowLong(IntPtr h, int index);
     [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action,uint param,out Rect result,uint flags);
@@ -112,6 +114,8 @@ try {
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
         if (-not $DesktopOnly) {
+            [void][OpenCircleDragWin]::ShowWindow($anchor,0)
+            if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or ([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8 -eq 0)) { throw 'Show Desktop hide must not hide a topmost circle' }
             [void][OpenCircleDragWin]::SendMessage($anchor,0x112,[IntPtr]0xF020,[IntPtr]::Zero)
             if ([OpenCircleDragWin]::IsIconic($anchor)) { throw 'Topmost circle accepted shell minimization' }
             [void][OpenCircleDragWin]::SetWindowPos($anchor,[IntPtr]1,0,0,0,0,0x13)

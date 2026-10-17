@@ -261,12 +261,13 @@ workflow and required precommit MSVC checks. No new dependencies are authorized.
       steal activation, intercept pointer/drop targets, or leave idle timers/buffers.
 - [x] Verify target highlight matches final position, cleanup and work-area routing;
       run required checks and commit/push.
-- [ ] Deploy together with D22 and record checked evidence.
+- [x] Deploy together with D22 and record checked evidence.
 
 ### D22: Always-on-top setting and Show Desktop behavior
 
-Observed: owner says circles still disappear/reappear when Win+D is toggled. The
-bottom-right Windows Show Desktop button specifically still causes problems.
+Observed: after the D22 installation, the owner verified circles still disappear
+in both settings; opening another application makes them visible again. Win+D and
+the bottom-right Windows Show Desktop button both trigger the symptom.
 Distinguish hover Desktop Peek from clicking that button and Win+D toggling; native
 ordering fixtures and green CI are not proof of these physical shell interactions.
 
@@ -280,7 +281,9 @@ ordering fixtures and green CI are not proof of these physical shell interaction
       commit/push and clearly distinguish verified behavior from physical
       Peek/click/Win+D checks requiring the owner's assessment. Do not run local
       windows-integration-test.ps1 or generate physical mouse/keyboard input.
-- [ ] Deploy D21/D22, run tray fixtures while installed app is stopped, record evidence.
+- [x] Deploy D21/D22, run tray fixtures while installed app is stopped, record evidence.
+- [ ] Deploy owner-report visibility recovery; confirm the running executable and
+      leave Win+D / corner-click / Peek physical assessment clearly pending.
 
 Compaction advice: before starting this next implementation is a clean boundary.
 Continuation should read CONTEXT.md and this section, not the historical archive.
@@ -305,4 +308,21 @@ fixtures pass with topmost + grid=3, desktop-only + grid=3, grid Off, and missin
 references. They verify owned-ring bands, shell minimize/demotion requests, guide
 cleanup, capture cleanup and saved snaps across restart without physical input.
 These are not evidence of actual owner-machine Win+D / corner click / Peek, which
-remain owner checks. Tray fixtures and deployment follow before completion.
+remain owner checks.
+
+D21/D22 deployment: source acdc061, normal WM_CLOSE shutdown; prior executable
+backed up at target/visible-grid-topmost/previous-installed.exe. Isolated tray tests
+passed for default topmost and explicit desktop-only circles, plus unchanged panel
+behavior: mouse/keyboard reveal, second launch, TaskbarCreated and graceful cleanup.
+Installed/restarted D:/CodeSpace/desktuk/DeskTuk.exe; PID 25656 responds and its tray
+initialized. Read-only native inspection: all three circles visible/topmost, none
+minimized or DWM-cloaked. Config hash, Run/DeskTuk and Explorer HideIcons unchanged.
+SHA256: 1317946E66997526F0ACD4AA80BC426D33F9BCC37C84E20464FA64D17C79B15B.
+Local deployment/windows snapshots: target/visible-grid-topmost/{deployment,windows}.json.
+No physical input or Desktop writes. Windows CI pending at deployment time.
+
+D22 owner follow-up: acdc061 did not prevent Shell hide requests in either mode.
+Added a native recovery path: topmost hosts reject hide positioning and foreground
+changes restore a hidden circle without activation; desktop-only hosts restore
+visibility on desktop/app foreground changes before applying their existing band.
+The actual Windows 11 Show Desktop path still needs the owner's rerun after this fix.

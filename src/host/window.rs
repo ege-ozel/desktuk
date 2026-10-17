@@ -18,8 +18,9 @@ use std::cell::Cell;
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_EXCLUDED_FROM_PEEK};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetAncestor, GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
+    GetAncestor, GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_HIDEWINDOW,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW,
+    WS_POPUP,
 };
 
 use super::{CreateSpec, DesktopHost, HostKind};
@@ -129,8 +130,13 @@ impl DesktopHost for WindowHost {
     }
 
     fn window_pos_changing(&self, _node: HWND, wp: &mut WINDOWPOS) {
-        if self.always_on_top.get() && wp.flags & SWP_NOZORDER == 0 {
-            wp.hwndInsertAfter = HWND_TOPMOST;
+        if self.always_on_top.get() {
+            // Explorer's Show Desktop sends hide positioning to top-level windows.
+            // Keep circles visible while preserving their non-activating style.
+            wp.flags = (wp.flags & !SWP_HIDEWINDOW) | SWP_SHOWWINDOW;
+            if wp.flags & SWP_NOZORDER == 0 {
+                wp.hwndInsertAfter = HWND_TOPMOST;
+            }
         } else if !self.raised.get() && wp.flags & SWP_NOZORDER == 0 {
             wp.hwndInsertAfter = HWND_BOTTOM;
         } else if wp.flags & SWP_NOZORDER == 0 && wp.hwndInsertAfter == HWND_TOPMOST {
@@ -140,12 +146,30 @@ impl DesktopHost for WindowHost {
 
     fn foreground_changed(&self, node: HWND, fg: HWND) {
         if self.always_on_top.get() {
+            if unsafe { IsWindowVisible(node) } == 0 || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsIconic(node) } != 0 {
+                unsafe {
+                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
+                        node,
+                        windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
+                    )
+                };
+                Self::to_topmost(node);
+                dlog!("host[window] restored a hidden topmost circle after foreground change");
+            }
             return;
         }
         // Ignore our own node, hidden controllers, menus and the taskbar/overflow surface.
         if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" || Self::desktop_overlay(fg)
         {
             return;
+        }
+        if unsafe { IsWindowVisible(node) } == 0 || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsIconic(node) } != 0 {
+            unsafe {
+                windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
+                    node,
+                    windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
+                )
+            };
         }
         if shell::is_desktop_window(fg) {
             if !self.raised.get() {
@@ -234,6 +258,9 @@ mod tests {
         host.set_always_on_top(node.0, true);
         assert!(exclude_from_peek(node.0), "DWM accepts the desktop surface's Peek exclusion");
         host.attached(node.0);
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node.0, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+        host.foreground_changed(node.0, desktop.0);
+        assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "Show Desktop hide request must be reversed immediately");
         for fg in [desktop.0, application.0, desktop.0, application.0] {
             host.foreground_changed(node.0, fg);
             host.reveal(node.0);
@@ -245,6 +272,11 @@ mod tests {
             wp.hwndInsertAfter = HWND_BOTTOM;
             host.window_pos_changing(node.0, &mut wp);
             assert_eq!(wp.hwndInsertAfter, HWND_TOPMOST);
+            let mut hide = WINDOWPOS { flags: SWP_HIDEWINDOW | SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE, ..unsafe { std::mem::zeroed() } };
+            host.window_pos_changing(node.0, &mut hide);
+            assert_eq!(hide.flags & SWP_HIDEWINDOW, 0);
+            assert_ne!(hide.flags & SWP_SHOWWINDOW, 0);
+            assert_ne!(hide.flags & SWP_NOZORDER, 0, "do not change band when rejecting a hide-only request");
         }
         assert!(host.system_command(SC_MINIMIZE as usize));
         assert!(!host.system_command(SC_CLOSE as usize));
@@ -326,6 +358,24 @@ mod tests {
                 "capture must not leave a circle above applications"
             );
         }
+    }
+
+    #[test]
+    fn desktop_only_restores_a_shell_hidden_circle_on_foreground_change() {
+        let node = window("DeskTuk.TestDesktopOnlyVisibility", std::ptr::null_mut());
+        let desktop = window("Progman", std::ptr::null_mut());
+        let application = window("DeskTuk.TestDesktopOnlyApplication", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.set_always_on_top(node.0, false);
+        host.attached(node.0);
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node.0, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+        host.foreground_changed(node.0, desktop.0);
+        assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "desktop reveal must undo Shell hide");
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node.0, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+        host.foreground_changed(node.0, application.0);
+        assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "opening an app must recover a hidden circle");
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
     }
 
     #[test]
