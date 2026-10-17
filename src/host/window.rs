@@ -2,7 +2,7 @@
 //! internals; always available. This is the safe default and the fallback.
 //!
 //! * `WS_EX_TOOLWINDOW` keeps it out of the taskbar and Alt+Tab.
-//! * It is pinned to the bottom of the (non-topmost) z-order, so normal applications
+//! * In desktop-only mode it is pinned to the bottom of the non-topmost z-order, so normal applications
 //!   always cover it, like desktop icons.
 //! * "Show desktop" (Win+D) brings Explorer's desktop window above all normal windows,
 //!   which would cover the node. When the desktop becomes the foreground window the
@@ -10,10 +10,13 @@
 //!   immediately, without waiting for the foreground hook to lower a topmost window.
 //!   Only documented APIs are used; the "is this the
 //!   desktop?" test relies on Explorer's window class names (see `shell.rs`).
+//! * Circles default to persistent topmost instead, opt out of Peek fading, and
+//!   reject minimization without taking foreground focus. Panel behavior is unchanged.
 
 use std::cell::Cell;
 
 use windows_sys::Win32::Foundation::{HWND, RECT};
+use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_EXCLUDED_FROM_PEEK};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetAncestor, GetForegroundWindow, IsWindowVisible, SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, SWP_NOACTIVATE,
     SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WINDOWPOS, WS_CLIPCHILDREN, WS_EX_TOOLWINDOW, WS_POPUP,
@@ -26,6 +29,17 @@ use crate::{dlog, shell, win};
 pub struct WindowHost {
     /// True while shown above the desktop in the normal (never topmost) band.
     raised: Cell<bool>,
+    always_on_top: Cell<bool>,
+}
+
+/// Desktop surfaces should stay painted during Peek (distinct from Show Desktop's z-order).
+pub fn exclude_from_peek(hwnd: HWND) -> bool {
+    let excluded: i32 = 1;
+    let result = unsafe { DwmSetWindowAttribute(hwnd, DWMWA_EXCLUDED_FROM_PEEK as u32, (&excluded as *const i32).cast(), 4) };
+    if result < 0 {
+        dlog!("host[window] Peek exclusion failed: {result:#x}");
+    }
+    result >= 0
 }
 
 impl WindowHost {
@@ -43,6 +57,10 @@ impl WindowHost {
             SetWindowPos(node, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
         }
     }
+
+    fn to_topmost(node: HWND) {
+        unsafe { SetWindowPos(node, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER) };
+    }
 }
 
 impl DesktopHost for WindowHost {
@@ -55,6 +73,10 @@ impl DesktopHost for WindowHost {
     }
 
     fn attached(&self, node: HWND) {
+        if self.always_on_top.get() {
+            Self::to_topmost(node);
+            return;
+        }
         self.raised.set(false);
         Self::to_bottom(node);
         // The foreground event only fires on a *change*. If the desktop is already the
@@ -65,6 +87,16 @@ impl DesktopHost for WindowHost {
     }
 
     fn reveal(&self, node: HWND) {
+        if self.always_on_top.get() {
+            unsafe {
+                windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
+                    node,
+                    windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
+                )
+            };
+            Self::to_topmost(node);
+            return;
+        }
         self.raised.set(true);
         unsafe {
             windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node, windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE);
@@ -75,6 +107,10 @@ impl DesktopHost for WindowHost {
     }
 
     fn capture_finished(&self, node: HWND, foreground: HWND, _was_topmost: bool) {
+        if self.always_on_top.get() {
+            Self::to_topmost(node);
+            return;
+        }
         self.foreground_changed(node, foreground);
         unsafe {
             SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -93,7 +129,9 @@ impl DesktopHost for WindowHost {
     }
 
     fn window_pos_changing(&self, _node: HWND, wp: &mut WINDOWPOS) {
-        if !self.raised.get() && wp.flags & SWP_NOZORDER == 0 {
+        if self.always_on_top.get() && wp.flags & SWP_NOZORDER == 0 {
+            wp.hwndInsertAfter = HWND_TOPMOST;
+        } else if !self.raised.get() && wp.flags & SWP_NOZORDER == 0 {
             wp.hwndInsertAfter = HWND_BOTTOM;
         } else if wp.flags & SWP_NOZORDER == 0 && wp.hwndInsertAfter == HWND_TOPMOST {
             wp.hwndInsertAfter = HWND_TOP;
@@ -101,6 +139,9 @@ impl DesktopHost for WindowHost {
     }
 
     fn foreground_changed(&self, node: HWND, fg: HWND) {
+        if self.always_on_top.get() {
+            return;
+        }
         // Ignore our own node, hidden controllers, menus and the taskbar/overflow surface.
         if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" || Self::desktop_overlay(fg)
         {
@@ -122,6 +163,23 @@ impl DesktopHost for WindowHost {
 
     fn shell_restarted(&self, _node: HWND) -> bool {
         false
+    }
+
+    fn set_always_on_top(&self, node: HWND, enabled: bool) {
+        self.always_on_top.set(enabled); // before any message-pumping operation
+        exclude_from_peek(node);
+        if enabled {
+            Self::to_topmost(node);
+        } else {
+            self.raised.set(false);
+            unsafe { SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+            Self::to_bottom(node);
+            self.foreground_changed(node, unsafe { GetForegroundWindow() });
+        }
+    }
+
+    fn system_command(&self, command: usize) -> bool {
+        self.always_on_top.get() && command & 0xfff0 == windows_sys::Win32::UI::WindowsAndMessaging::SC_MINIMIZE as usize
     }
 }
 
@@ -164,6 +222,40 @@ mod tests {
             assert!(!hwnd.is_null(), "native fixture window must be created");
             TestWindow(hwnd)
         }
+    }
+
+    #[test]
+    fn topmost_mode_survives_desktop_app_reveal_and_capture_without_activation() {
+        let foreground = unsafe { GetForegroundWindow() };
+        let node = window("DeskTuk.TestPersistentTopmost", std::ptr::null_mut());
+        let desktop = window("Progman", std::ptr::null_mut());
+        let application = window("DeskTuk.TestTopmostApplication", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.set_always_on_top(node.0, true);
+        assert!(exclude_from_peek(node.0), "DWM accepts the desktop surface's Peek exclusion");
+        host.attached(node.0);
+        for fg in [desktop.0, application.0, desktop.0, application.0] {
+            host.foreground_changed(node.0, fg);
+            host.reveal(node.0);
+            for was_topmost in [false, true] {
+                host.capture_finished(node.0, fg, was_topmost);
+                assert_ne!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+            }
+            let mut wp: WINDOWPOS = unsafe { std::mem::zeroed() };
+            wp.hwndInsertAfter = HWND_BOTTOM;
+            host.window_pos_changing(node.0, &mut wp);
+            assert_eq!(wp.hwndInsertAfter, HWND_TOPMOST);
+        }
+        assert!(host.system_command(SC_MINIMIZE as usize));
+        assert!(!host.system_command(SC_CLOSE as usize));
+        assert_eq!(unsafe { GetForegroundWindow() }, foreground);
+        host.set_always_on_top(node.0, false);
+        host.foreground_changed(node.0, application.0);
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        assert!(!host.system_command(SC_MINIMIZE as usize));
+        host.set_always_on_top(node.0, true);
+        assert_ne!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        assert_eq!(unsafe { GetForegroundWindow() }, foreground);
     }
 
     #[test]

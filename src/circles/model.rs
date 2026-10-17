@@ -26,13 +26,20 @@ pub struct Circle {
     pub groups: Vec<Group>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Board {
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
     /// Global work-area grid: 0 = off, otherwise 2, 3 or 4 cells per axis.
     pub grid: u8,
+    pub always_on_top: bool,
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Self { circles: Vec::new(), recent_pos: None, grid: 0, always_on_top: true }
+    }
 }
 
 /// Where an item lives.
@@ -219,6 +226,7 @@ impl Board {
     /// ```
     pub fn parse_line(&mut self, key: &str, value: &str) -> bool {
         match key {
+            "always_on_top" => self.always_on_top = value.trim() != "0",
             "grid" => {
                 self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
             }
@@ -286,6 +294,10 @@ impl Board {
     /// The board as config lines (each ends with `\n`), in an order `parse_line` reads back.
     pub fn render(&self) -> String {
         let mut s = String::new();
+        // Omit the default so existing configurations do not change on startup.
+        if !self.always_on_top {
+            s += "always_on_top=0\n";
+        }
         if self.grid != 0 {
             s += &format!("grid={}\n", self.grid);
         }
@@ -430,6 +442,20 @@ mod tests {
         for invalid in ["1", "5", "255", "-2", "bad", ""] {
             assert_eq!(parse(&format!("grid={invalid}\n")).grid, 0);
         }
+    }
+
+    #[test]
+    fn topmost_defaults_on_and_opt_out_preserves_all_board_data() {
+        let legacy = "grid=3\nrecent=120|140\ncircle=Music|20|40\ncitem=Music||C:\\song.wav\n";
+        let original = parse(legacy);
+        assert!(original.always_on_top);
+        assert_eq!(original.render(), legacy);
+        let mut opted_out = parse(&format!("{legacy}always_on_top=0\n"));
+        assert!(!opted_out.always_on_top);
+        assert_eq!(parse(&opted_out.render()), opted_out);
+        opted_out.always_on_top = true;
+        assert_eq!(opted_out, original);
+        assert!(parse("always_on_top=garbage\n").always_on_top);
     }
 
     #[test]

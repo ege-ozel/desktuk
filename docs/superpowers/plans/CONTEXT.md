@@ -14,24 +14,24 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - A and D through D20 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- D21 visible drag grid is implemented/tested; install alongside D22 (next):
-  configurable always-on-top / Show Desktop recovery. See active Plan D.
+- D21 visible drag grid and D22 configurable always-on-top / Peek protection are
+  implemented/tested; deployment pending. See active Plan D.
 
 ## Delivered behavior and evidence
 
 - Circles group Desktop file references; Recent, groups, suggestions, hover rings,
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
-- Capture cleanup restores the circle host (or ring owner's host) ordering:
-  tray-revealed circles stay visible on the desktop; real apps remain above them.
+- Capture cleanup preserves the selected circle band: always-on-top (default) or
+  desktop-only (apps cover circles). Panel ordering is unchanged.
 - Installed runtime source: `d1e1174` (D17-D20 interactions). Windows CI passed;
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
-- Required MSVC checks: 52 passing tests, one ignored preview; the preview was also
+- Required MSVC checks: 56 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
 - Pointer entry opens immediately: no hover dwell or opening animation. Closing
-  remains 110 ms. Win+D uses the normal band, never topmost; stale focus events skip.
+  remains 110 ms. Topmost circles reject minimize/demotion; stale focus events skip.
 - Internal item drag shows a click-through icon. Right-click Izgara selects Off /
   2x2 / 3x3 / 4x4; release snaps to cell centres in that monitor's taskbar-free work
-  area. Grid defaults Off and persists; selecting it does not move existing circles.
+  area. Grid defaults Off; holding a circle shows cell/landing guides until release.
 - Closed circles, ring centres and group discs now use centered pixel-coverage
   blending. The outer premultiplied alpha mask remains; text/icons retain native
   rendering. No new dependencies, idle timers, threads or persistent buffers.
@@ -44,8 +44,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 
 ## Observed unresolved behavior and unperformed checks
 
-- Owner reports Win+D toggles circles off/on and bottom-right Show Desktop still
-  misbehaves. Treat as observed unresolved behavior; D18 did not resolve this report.
+- Owner reported Win+D toggling circles and corner-button problems. D22 changes
+  ordering and Peek exclusion; physical Win+D / corner click / Peek remain unverified.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.

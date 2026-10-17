@@ -121,10 +121,23 @@ circle lines are both preserved whichever UI runs.
   paging, disc mask, animation), `view` (board -> slots), `suggest`, `desktop::recent`.
 * Win32: each circle is a small `WS_EX_LAYERED` tool window painted once with
   `UpdateLayeredWindow` (per-pixel alpha, so the corners are click-through); the painting
-  surface is freed right after. Each circle has its own `WindowHost` (bottom of the z-order,
-  raised within the normal band during "Show desktop", never topmost). Stale queued
+  surface is freed right after. Each circle has its own `WindowHost`: **Always on top**
+  defaults on (owner update 2026-10-17). The checked circle menu setting persists;
+  opting out restores bottom/desktop ordering, raised within the normal band during
+  "Show desktop". The panel retains its earlier desktop-only policy. Stale queued
   foreground events are ignored. The ring is one layered window **owned by** its circle, so it
   always stays just above it; it is created on open and destroyed on close.
+* Circles and transient desktop surfaces exclude themselves from Peek fading with
+  `DWMWA_EXCLUDED_FROM_PEEK`. Topmost circles reject `SC_MINIMIZE` and z-order
+  demotion; reveal and capture cleanup preserve the selected band without activation.
+  This addresses separate Show Desktop ordering and Peek fading paths; actual Win+D,
+  corner-button click and Peek remain distinct owner checks on the installed machine.
+  [Windows attribute contract](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute).
+* Grid Off / 2x2 / 3x3 / 4x4 uses the nearest monitor's `rcWork`, excluding any taskbar
+  edge. A click-through layered guide appears while a circle is held, highlighting
+  the target cell and landing centre using the same geometry as final snap. It is
+  redrawn only on target/work-area changes and destroyed on release/cancel/capture
+  loss/destruction; no retained bitmap, timer, thread or idle work.
 * Desktop folders are watched with `FindFirstChangeNotificationW`; the main loop waits on
   those handles with `MsgWaitForMultipleObjectsEx` (no extra thread, no polling), and re-lists
   250 ms after the last change.

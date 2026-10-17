@@ -1,4 +1,4 @@
-param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0)
+param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$DesktopOnly)
 $ErrorActionPreference = 'Stop'
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
@@ -18,6 +18,9 @@ public static class OpenCircleDragWin {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int height, uint flags);
+    [DllImport("user32.dll", EntryPoint="GetWindowLongW")] public static extern int GetWindowLong(IntPtr h, int index);
     [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action,uint param,out Rect result,uint flags);
     [DllImport("user32.dll")] public static extern uint GetDpiForSystem();
     public static Rect WorkArea() { Rect r; if (!SystemParametersInfo(0x30,0,out r,0)) throw new Exception("No work area"); return r; }
@@ -92,6 +95,7 @@ try {
         $expectedY=Snap-Axis $expectedY $work.top $work.bottom
     }
     $lines=@('host=window','ui=circles',"grid=$Grid","recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
+    if ($DesktopOnly) { $lines += 'always_on_top=0' }
     $files=@()
     for ($i=0;$i -lt 24;$i++) {
         $path=Join-Path $root ("fixture-ref-{0:D2}.txt" -f $i)
@@ -107,7 +111,17 @@ try {
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY) -ne [IntPtr]::Zero } 'Fixture circles created'
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
+        if (-not $DesktopOnly) {
+            [void][OpenCircleDragWin]::SendMessage($anchor,0x112,[IntPtr]0xF020,[IntPtr]::Zero)
+            if ([OpenCircleDragWin]::IsIconic($anchor)) { throw 'Topmost circle accepted shell minimization' }
+            [void][OpenCircleDragWin]::SetWindowPos($anchor,[IntPtr]1,0,0,0,0,0x13)
+            if (([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -eq 0) { throw 'Shell ordering demoted a topmost circle' }
+        }
         $ring=Open-Ring $p $anchor | Select-Object -Last 1
+        foreach ($surface in @($anchor,$ring)) {
+            $surfaceStyle=[OpenCircleDragWin]::GetWindowLong($surface,-20)
+            if ((($surfaceStyle -band 8) -ne 0) -eq $DesktopOnly.IsPresent) { throw "Circle and owned ring must follow the selected topmost mode: hwnd=$surface style=$surfaceStyle desktopOnly=$DesktopOnly" }
+        }
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
         $cy=($rect.bottom-$rect.top)/2
@@ -131,6 +145,7 @@ try {
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
         [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
         if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived button release' }
+        if ((([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -ne 0) -eq $DesktopOnly.IsPresent) { throw 'Capture cleanup changed the selected topmost mode' }
         $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }

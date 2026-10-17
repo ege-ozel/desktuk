@@ -21,6 +21,7 @@ mod window;
 
 pub use child::ChildHost;
 pub use owned::OwnedHost;
+pub use window::exclude_from_peek;
 pub use window::WindowHost;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,6 +84,14 @@ pub trait DesktopHost {
 
     /// Called once right after the node window was created, before it is shown.
     fn attached(&self, node: HWND);
+
+    /// Circles can opt into a persistent topmost band; panel hosts keep their policy.
+    fn set_always_on_top(&self, _node: HWND, _enabled: bool) {}
+
+    /// Return true when a shell system command should be ignored by this host.
+    fn system_command(&self, _command: usize) -> bool {
+        false
+    }
 
     /// Explicit recovery from the tray; ordinary foreground changes restore desktop ordering.
     fn reveal(&self, node: HWND) {

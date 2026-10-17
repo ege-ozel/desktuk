@@ -248,7 +248,7 @@ Owner should assess actual Win+D transitions, drag feel/preview and right-click 
 ## Owner follow-up / compaction handoff (2026-10-17)
 
 Installed runtime remains d1e1174, deployment record 03e787b; both Windows CI runs
-passed. The owner reported these usability issues. D21 is implemented; D22 is next.
+passed. The owner reported these usability issues. D21/D22 are implemented/tested.
 Continue with the direct-main/no-PR
 workflow and required precommit MSVC checks. No new dependencies are authorized.
 
@@ -270,16 +270,17 @@ bottom-right Windows Show Desktop button specifically still causes problems.
 Distinguish hover Desktop Peek from clicking that button and Win+D toggling; native
 ordering fixtures and green CI are not proof of these physical shell interactions.
 
-- [ ] Add persistent, checked **Her zaman ustte / Always on top** option, enabled
+- [x] Add persistent, checked **Her zaman ustte / Always on top** option, enabled
       by default per the latest owner instruction, with an opt-out desktop mode.
       This supersedes D18's blanket never-topmost product policy. Keep focus unchanged.
-- [ ] Investigate/correct visibility for both Win+D and bottom-right Show Desktop;
+- [x] Investigate/correct visibility paths for Win+D and bottom-right Show Desktop;
       include open ring, tray reveal, drag capture cleanup and both topmost settings.
       Keep z-order/shell integration in the host layer; do not modify user files.
-- [ ] Update spec/context and meaningful native regressions; run required checks,
-      commit/push, deploy and clearly distinguish verified behavior from physical
+- [x] Update spec/context and meaningful native regressions; run required checks,
+      commit/push and clearly distinguish verified behavior from physical
       Peek/click/Win+D checks requiring the owner's assessment. Do not run local
       windows-integration-test.ps1 or generate physical mouse/keyboard input.
+- [ ] Deploy D21/D22, run tray fixtures while installed app is stopped, record evidence.
 
 Compaction advice: before starting this next implementation is a clean boundary.
 Continuation should read CONTEXT.md and this section, not the historical archive.
@@ -291,3 +292,17 @@ tests and isolated grid=3 routed-message fixture cover immediate visibility on p
 work-area bounds, release, cancel, capture loss and Escape, saved snaps and restart.
 No physical input, user file changes, dependencies or idle work. Required MSVC checks
 pass: fmt/clippy and 54 tests (one ignored preview). Deployment follows D22.
+
+D22 evidence: default topmost circles preserve their band on shell ordering,
+foreground changes, reveal and capture cleanup; SC_MINIMIZE is rejected in that
+mode. Turning the checked circle-menu setting off persists always_on_top=0 and
+restores the existing desktop-only policy. Default omitted to preserve legacy config
+bytes; references/positions unchanged. Panel stays desktop-only. Host-layer
+DWMWA_EXCLUDED_FROM_PEEK prevents Peek fading on circles/rings/drag surfaces, a
+separate path from Show Desktop's ordering. DWM accepts the attribute in native tests.
+Required MSVC fmt/clippy and 56 tests pass (one ignored preview); isolated runtime
+fixtures pass with topmost + grid=3, desktop-only + grid=3, grid Off, and missing
+references. They verify owned-ring bands, shell minimize/demotion requests, guide
+cleanup, capture cleanup and saved snaps across restart without physical input.
+These are not evidence of actual owner-machine Win+D / corner click / Peek, which
+remain owner checks. Tray fixtures and deployment follow before completion.

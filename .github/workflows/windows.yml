@@ -47,7 +47,15 @@ jobs:
         shell: powershell
         run: ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Grid 3
 
+      - name: Desktop-only grid and tray recovery with isolated TEMP fixtures
+        shell: powershell
+        run: |
+          ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Grid 3 -DesktopOnly
+          ./scripts/tray-regression-test.ps1 -Exe target/release/DeskTuk.exe -DesktopOnly
+
       - name: Integration self-test on the runner's desktop
+        # The physical desktop self-test remains panel-only; circle shell interactions
+        # also need the owner's Win+D / Show Desktop / Peek assessment.
         shell: powershell
         run: ./scripts/windows-integration-test.ps1 -Exe target/release/DeskTuk.exe -Out test-results -ExplorerRestart
 

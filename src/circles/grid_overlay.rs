@@ -96,6 +96,7 @@ pub fn update(owner: HWND, pos: (i32, i32), diameter: i32, work: Work, divisions
     if hwnd.is_null() {
         return;
     }
+    crate::host::exclude_from_peek(hwnd);
     WINDOW.set(Some((hwnd, layout)));
     if !surface.present(hwnd, POINT { x: work.0, y: work.1 }) {
         close();

@@ -1,4 +1,4 @@
-param([string]$Exe = 'target/release/DeskTuk.exe')
+param([string]$Exe = 'target/release/DeskTuk.exe', [switch]$DesktopOnly)
 $ErrorActionPreference = 'Stop'
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
@@ -80,6 +80,7 @@ try {
     Set-Content -LiteralPath $file -Value 'fixture' -Encoding utf8
     $cfg = Join-Path $root 'DeskTuk/desktuk.cfg'
     Set-Content -LiteralPath $cfg -Encoding utf8 -Value "host=window`nui=circles`nx=300`ny=300`nitem=$file`nrecent=99999|99999`n"
+    if ($DesktopOnly) { Add-Content -LiteralPath $cfg -Encoding utf8 -Value 'always_on_top=0' }
     $fileHash = (Get-FileHash -LiteralPath $file).Hash
     $configHash = (Get-FileHash -LiteralPath $cfg).Hash
     $hideBefore = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -ErrorAction SilentlyContinue).HideIcons
@@ -99,8 +100,9 @@ try {
         [void][TrayRegressionWin]::ShowWindow($window, 0)
         [void][TrayRegressionWin]::PostMessage($controller, 0x8005, [IntPtr]0, [IntPtr]0x10401)
         Wait-Check { [TrayRegressionWin]::IsWindowVisible($window) } "$ui keyboard tray recovery"
-        if (([TrayRegressionWin]::GetWindowLong($window, -20) -band 8) -ne 0) { throw 'Tray reveal left the UI permanently topmost' }
-        Write-Host "$ui tray reveal stays in the normal window band : PASS"
+        $expectTopmost=$ui -eq 'circles' -and -not $DesktopOnly
+        if ((([TrayRegressionWin]::GetWindowLong($window, -20) -band 8) -ne 0) -ne $expectTopmost) { throw 'Tray reveal changed the configured window band' }
+        Write-Host "$ui tray reveal respects the configured window band : PASS"
         [void][TrayRegressionWin]::ShowWindow($window, 0)
         $second = Start-Fixture $ui (Join-Path $root "$ui-second.log")
         $processes += $second

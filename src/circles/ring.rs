@@ -198,6 +198,7 @@ pub fn open(anchor: HWND, target: Target) {
     if hwnd.is_null() {
         return;
     }
+    crate::host::exclude_from_peek(hwnd);
     unsafe { DragAcceptFiles(hwnd, 1) };
     let (refs, suggestions) = super::slots_for(target);
     let mut ring = Ring {

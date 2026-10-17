@@ -47,6 +47,7 @@ pub fn show(surface: Surface, owner: HWND, at: POINT, dpi: u32) {
     if hwnd.is_null() {
         return;
     }
+    crate::host::exclude_from_peek(hwnd);
     if !surface.present(hwnd, POINT { x: at.x + offset, y: at.y + offset }) {
         unsafe { DestroyWindow(hwnd) };
         return;

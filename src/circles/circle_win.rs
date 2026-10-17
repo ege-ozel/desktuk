@@ -108,6 +108,8 @@ pub fn create(which: Which, pos: (i32, i32)) -> Option<CircleWin> {
     }
     unsafe { DragAcceptFiles(hwnd, 1) };
     let host = host::create(HostKind::Window);
+    let always_on_top = app().board.try_borrow().map(|b| b.always_on_top).unwrap_or(true);
+    host.set_always_on_top(hwnd, always_on_top);
     host.attached(hwnd);
     Some(CircleWin { hwnd, host, which })
 }
@@ -288,8 +290,16 @@ pub fn end_press(hwnd: HWND, released: bool) {
 
 unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
-        // Never take activation: a circle must not jump above application windows.
+        // Showing or interacting with circles must not take keyboard focus.
         WM_MOUSEACTIVATE => MA_NOACTIVATE as LRESULT,
+        WM_SYSCOMMAND => {
+            let blocked = super::host_of(hwnd).is_some_and(|h| h.system_command(wparam));
+            if blocked {
+                0
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+        }
         WM_WINDOWPOSCHANGING => {
             // A drag needs foreground capture. Pinning activation's position request to
             // HWND_BOTTOM prevents activation; the capture helper restores it at release.
