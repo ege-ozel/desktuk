@@ -14,6 +14,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - A and D through D20 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
+- Next owner request: D21 visible drag grid and D22 configurable always-on-top /
+  Show Desktop recovery (Plan D). Recorded for compaction; not implemented yet.
 
 ## Delivered behavior and evidence
 
@@ -21,7 +23,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Capture cleanup restores the circle host (or ring owner's host) ordering:
   tray-revealed circles stay visible on the desktop; real apps remain above them.
-- Installed runtime source: `d1e1174` (D17-D20 interactions). Query live Windows CI;
+- Installed runtime source: `d1e1174` (D17-D20 interactions). Windows CI passed;
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
 - Required MSVC checks: 52 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
@@ -41,6 +43,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   the owner's final visual assessment on the running desktop is still pending.
 
 ## Unperformed manual checks (not observed failures)
+
+- Owner reports Win+D toggles circles off/on and bottom-right Show Desktop still
+  misbehaves. Treat as observed unresolved behavior; D18 did not resolve this report.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.

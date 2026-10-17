@@ -244,3 +244,41 @@ source d1e1174. Restarted process 8140 responds and initialized its tray. Config
 Run/DeskTuk and Explorer HideIcons were unchanged. Evidence is local at
 target/interaction-followup/deployment.json. No physical input or Desktop writes.
 Owner should assess actual Win+D transitions, drag feel/preview and right-click grid.
+
+## Owner follow-up / compaction handoff (2026-10-17)
+
+Installed runtime remains d1e1174, deployment record 03e787b; both Windows CI runs
+passed. The owner now reports these unresolved usability issues. No implementation
+for D21/D22 has started. Resume here after compaction, keeping direct-main/no-PR
+workflow and required precommit MSVC checks. No new dependencies are authorized.
+
+### D21: Visible grid during circle dragging
+
+- [ ] With grid enabled, display work-area cell boundaries while a circle is held /
+      dragged and highlight its actual snap target. Owner needs to see where it
+      will land. Preserve selected 2x2/3x3/4x4 centre snap, taskbar exclusion and DPI.
+- [ ] Remove overlay on release/cancel/capture loss/destruction; overlay must not
+      steal activation, intercept pointer/drop targets, or leave idle timers/buffers.
+- [ ] Verify target highlight matches final position, cleanup and work-area routing;
+      run required checks, commit/push, then deploy and record checked evidence.
+
+### D22: Always-on-top setting and Show Desktop behavior
+
+Observed: owner says circles still disappear/reappear when Win+D is toggled. The
+bottom-right Windows Show Desktop button specifically still causes problems.
+Distinguish hover Desktop Peek from clicking that button and Win+D toggling; native
+ordering fixtures and green CI are not proof of these physical shell interactions.
+
+- [ ] Add persistent, checked **Her zaman ustte / Always on top** option, enabled
+      by default per the latest owner instruction, with an opt-out desktop mode.
+      This supersedes D18's blanket never-topmost product policy. Keep focus unchanged.
+- [ ] Investigate/correct visibility for both Win+D and bottom-right Show Desktop;
+      include open ring, tray reveal, drag capture cleanup and both topmost settings.
+      Keep z-order/shell integration in the host layer; do not modify user files.
+- [ ] Update spec/context and meaningful native regressions; run required checks,
+      commit/push, deploy and clearly distinguish verified behavior from physical
+      Peek/click/Win+D checks requiring the owner's assessment. Do not run local
+      windows-integration-test.ps1 or generate physical mouse/keyboard input.
+
+Compaction advice: before starting this next implementation is a clean boundary.
+Continuation should read CONTEXT.md and this section, not the historical archive.
