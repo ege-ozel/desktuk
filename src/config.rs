@@ -225,11 +225,12 @@ mod tests {
 
     #[test]
     fn config_round_trips_panel_and_circle_lines_together() {
-        let text = "host=window\nui=circles\nx=10\ny=20\nitem=C:\\a.txt\ncircle=Music|1|2\ncitem=Music||C:\\b.wav\n";
+        let text = "host=window\nui=circles\nx=10\ny=20\nitem=C:\\a.txt\ngrid=3\ncircle=Music|1|2\ncitem=Music||C:\\b.wav\n";
         let c = parse_config(text);
         assert_eq!(c.ui, Some(Ui::Circles));
         assert_eq!(c.items, vec![PathBuf::from(r"C:\a.txt")]);
         assert_eq!(c.board.circles.len(), 1);
+        assert_eq!(c.board.grid, 3);
         assert_eq!(c.pos, Some((10, 20)));
         assert_eq!(parse_config(&render_config(&c)), c);
     }

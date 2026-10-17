@@ -15,6 +15,7 @@ mod drag_capture;
 mod drag_preview;
 pub mod draw;
 pub mod geom;
+mod grid;
 pub mod model;
 pub mod rename;
 pub mod ring;
@@ -44,6 +45,11 @@ const IDM_NEW_GROUP: usize = 2;
 const IDM_RENAME: usize = 3;
 const IDM_DELETE: usize = 4;
 const IDM_EXIT: usize = 10;
+const IDM_GRID: usize = 20;
+const IDM_GRID_OFF: usize = 21;
+const IDM_GRID_2: usize = 22;
+const IDM_GRID_3: usize = 23;
+const IDM_GRID_4: usize = 24;
 
 /// A download or copy can fire several folder events in a row; re-list once they settle.
 const DESKTOP_DEBOUNCE_MS: u32 = 250;
@@ -290,6 +296,14 @@ pub fn assign(paths: &[PathBuf], to: Option<Place>) {
 
 /// A circle was dragged to `pos` (screen top-left).
 pub fn moved(which: Which, pos: (i32, i32)) {
+    let divisions = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
+    let hwnd = window_of(which);
+    let pos = if let Some(hwnd) = hwnd {
+        let d = geom::metrics(unsafe { GetDpiForWindow(hwnd) }.max(96)).circle_d;
+        circle_win::snap_to_work(pos, d, divisions)
+    } else {
+        pos
+    };
     {
         let Ok(mut b) = app().board.try_borrow_mut() else { return };
         match which {
@@ -302,6 +316,9 @@ pub fn moved(which: Which, pos: (i32, i32)) {
         }
     }
     app().save_config();
+    if let Some(hwnd) = hwnd {
+        circle_win::render(hwnd, which);
+    }
 }
 
 pub fn accept_suggestion(s: &Suggestion) {
@@ -324,9 +341,28 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
     let ctl = app().controller.get();
     unsafe {
         let m = CreatePopupMenu();
+        if m.is_null() {
+            return 0;
+        }
         for &(id, label) in entries {
             if id == 0 {
                 AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
+            } else if id == IDM_GRID {
+                let grid = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
+                let submenu = CreatePopupMenu();
+                if !submenu.is_null() {
+                    for (command, size, caption) in [
+                        (IDM_GRID_OFF, 0, "Kapal\u{131}"),
+                        (IDM_GRID_2, 2, "2 \u{d7} 2"),
+                        (IDM_GRID_3, 3, "3 \u{d7} 3"),
+                        (IDM_GRID_4, 4, "4 \u{d7} 4"),
+                    ] {
+                        AppendMenuW(submenu, MF_STRING | if grid == size { MF_CHECKED } else { 0 }, command, win::wide(caption).as_ptr());
+                    }
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                        DestroyMenu(submenu);
+                    }
+                }
             } else {
                 let flags = if id == crate::desktop_view::MENU_ID { crate::desktop_view::menu_flags() } else { MF_STRING };
                 AppendMenuW(m, flags, id, win::wide(label).as_ptr());
@@ -345,12 +381,29 @@ pub fn circle_menu(which: Which, at: POINT) {
     if let Which::User(_) = which {
         entries.extend([(IDM_NEW_GROUP, "New &group"), (IDM_RENAME, "&Rename\u{2026}"), (IDM_DELETE, "&Delete circle")]);
     }
-    entries.extend([(0, ""), (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL), (IDM_EXIT, "E&xit DeskTuk")]);
+    entries.extend([
+        (0, ""),
+        (IDM_GRID, "&Izgara"),
+        (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL),
+        (IDM_EXIT, "E&xit DeskTuk"),
+    ]);
     match (popup(&entries, at), which) {
         (IDM_NEW_CIRCLE, _) => new_circle(which),
         (IDM_NEW_GROUP, Which::User(ci)) => new_group(ci),
         (IDM_RENAME, Which::User(ci)) => begin_rename(rename::RenameTarget::Circle(ci)),
         (IDM_DELETE, Which::User(ci)) => delete_circle(ci),
+        (command @ IDM_GRID_OFF..=IDM_GRID_4, _) => {
+            let size = match command {
+                IDM_GRID_2 => 2,
+                IDM_GRID_3 => 3,
+                IDM_GRID_4 => 4,
+                _ => 0,
+            };
+            if let Ok(mut b) = app().board.try_borrow_mut() {
+                b.grid = size;
+            }
+            app().save_config();
+        }
         (IDM_EXIT, _) => crate::app::quit(),
         (crate::desktop_view::MENU_ID, _) => crate::desktop_view::toggle_from_menu(),
         _ => {}

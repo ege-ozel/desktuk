@@ -31,6 +31,8 @@ pub struct Board {
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
+    /// Global work-area grid: 0 = off, otherwise 2, 3 or 4 cells per axis.
+    pub grid: u8,
 }
 
 /// Where an item lives.
@@ -217,6 +219,9 @@ impl Board {
     /// ```
     pub fn parse_line(&mut self, key: &str, value: &str) -> bool {
         match key {
+            "grid" => {
+                self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
+            }
             "circle" => {
                 let mut f = value.splitn(3, '|');
                 let name = clean_name(f.next().unwrap_or(""));
@@ -281,6 +286,9 @@ impl Board {
     /// The board as config lines (each ends with `\n`), in an order `parse_line` reads back.
     pub fn render(&self) -> String {
         let mut s = String::new();
+        if self.grid != 0 {
+            s += &format!("grid={}\n", self.grid);
+        }
         if let Some((x, y)) = self.recent_pos {
             s += &format!("recent={x}|{y}\n");
         }
@@ -405,6 +413,23 @@ mod tests {
         assert!(text.contains("circle=Music|120|-40\n"));
         assert!(text.contains("citem=Music||C:\\Users\\x\\Desktop\\notes.txt\n"));
         assert_eq!(parse(&text), b);
+    }
+
+    #[test]
+    fn grid_round_trips_without_moving_existing_circles_or_references() {
+        let legacy = "recent=-120|70\ncircle=Music|100|200\ncitem=Music||C:\\song.wav\n";
+        let original = parse(legacy);
+        assert_eq!(original.grid, 0);
+        for size in [0, 2, 3, 4] {
+            let mut b = parse(&format!("{legacy}grid={size}\n"));
+            assert_eq!(b.grid, size);
+            assert_eq!(parse(&b.render()), b);
+            b.grid = 0;
+            assert_eq!(b, original, "changing the grid must preserve positions and references");
+        }
+        for invalid in ["1", "5", "255", "-2", "bad", ""] {
+            assert_eq!(parse(&format!("grid={invalid}\n")).grid, 0);
+        }
     }
 
     #[test]

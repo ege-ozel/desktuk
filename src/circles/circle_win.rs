@@ -138,6 +138,11 @@ pub fn render(hwnd: HWND, which: Which) {
 
 /// Keeps a `d`x`d` window at `pos` fully inside the nearest monitor's work area.
 pub fn clamp_to_work(pos: (i32, i32), d: i32) -> (i32, i32) {
+    snap_to_work(pos, d, 0)
+}
+
+/// Clamp or snap using this monitor's actual work area, independent of taskbar edge.
+pub fn snap_to_work(pos: (i32, i32), d: i32, divisions: u8) -> (i32, i32) {
     let r = win::rect(pos.0, pos.1, pos.0 + d, pos.1 + d);
     unsafe {
         let mon = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
@@ -147,7 +152,7 @@ pub fn clamp_to_work(pos: (i32, i32), d: i32) -> (i32, i32) {
             return pos;
         }
         let w = mi.rcWork;
-        (pos.0.min(w.right - d).max(w.left), pos.1.min(w.bottom - d).max(w.top))
+        super::grid::position(pos, d, (w.left, w.top, w.right, w.bottom), divisions)
     }
 }
 

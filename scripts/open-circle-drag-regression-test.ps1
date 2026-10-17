@@ -1,4 +1,4 @@
-param([string]$Exe)
+param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0)
 $ErrorActionPreference = 'Stop'
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
@@ -81,7 +81,17 @@ try {
     $expectedRecentX=$recentX+$dx
     $expectedMusicX=$musicX+$dx
     $expectedY=$sourceY+$dy
-    $lines=@('host=window','ui=circles',"recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
+    if ($Grid -ne 0) {
+        function Snap-Axis([int]$position,[int]$lo,[int]$hi) {
+            $cellWidth=($hi-$lo)/$Grid
+            $cell=[Math]::Min($Grid-1,[Math]::Max(0,[Math]::Floor(($position+$diameter/2-$lo)/$cellWidth)))
+            [int][Math]::Min($hi-$diameter,[Math]::Max($lo,[Math]::Round($lo+($cell+0.5)*$cellWidth-$diameter/2,0,[MidpointRounding]::AwayFromZero)))
+        }
+        $expectedRecentX=Snap-Axis $expectedRecentX $work.left $work.right
+        $expectedMusicX=Snap-Axis $expectedMusicX $work.left $work.right
+        $expectedY=Snap-Axis $expectedY $work.top $work.bottom
+    }
+    $lines=@('host=window','ui=circles',"grid=$Grid","recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
     $files=@()
     for ($i=0;$i -lt 24;$i++) {
         $path=Join-Path $root ("fixture-ref-{0:D2}.txt" -f $i)
@@ -114,10 +124,11 @@ try {
         $atY=$rect.top+$cy+$dy-$sourceY
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
         [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
-        $expectedX=$sourceX+$dx
+        $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }
         $saved=Get-Content -LiteralPath $cfg -Raw
+        if ($Grid -ne 0 -and $saved -notmatch ('(?m)^grid=' + $Grid + '\r?$')) { throw 'Grid setting was not preserved' }
         $expectedLine=if ($sourceX -eq $recentX) { "recent=$expectedRecentX|$expectedY" } else { "circle=Music|$expectedMusicX|$expectedY" }
         if (-not $saved.Contains($expectedLine)) { throw 'Moved circle position was not saved' }
         Write-Host "$expectedLine persisted : PASS"

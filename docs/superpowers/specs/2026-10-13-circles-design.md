@@ -52,6 +52,12 @@ only - it is not a file browser for `C:\`.
   is disabled; a failed change reports an error. Startup and exit never change visibility.
 * Files dropped from Explorer onto a circle are assigned to it; dropped onto Recent they are
   unassigned.
+* Right-click a circle or its ring centre, then **Izgara**: Off / 2x2 / 3x3 / 4x4.
+  This global setting is saved (`grid=2|3|4`; absent/0 = off). Changing it keeps
+  existing positions; dragging and releasing a circle snaps its centre to the
+  nearest cell centre. Cells divide that monitor's actual work area, excluding
+  the taskbar on any edge. The whole circle stays within the usable area. This
+  adds no grid overlay or idle timer and never changes Windows' own icon layout.
 
 **Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):

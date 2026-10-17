@@ -216,10 +216,21 @@ Actual physical cross-circle dragging remains an owner check.
 
 ### D20: Work-area grid snap
 
-- [ ] Add checked right-click grid submenu: Off / 2x2 / 3x3 / 4x4. Owner confirmed
+- [x] Add checked right-click grid submenu: Off / 2x2 / 3x3 / 4x4. Owner confirmed
       snap to cell centres. Persist selection, default Off; positions stay unchanged
       until a circle is dragged and released.
-- [ ] Snap/clamp the whole circle within the nearest monitor's actual work area
+- [x] Snap/clamp the whole circle within the nearest monitor's actual work area
       (including a right/left/top/bottom taskbar); support negative coordinates/DPI.
-- [ ] Test geometry and config compatibility, run required checks/fixtures and build,
-      then commit/push. Install/restart checked release and record observed evidence.
+- [x] Test geometry and config compatibility, run required checks/fixtures and build,
+      then commit/push.
+- [ ] Install/restart checked release and record observed evidence.
+
+D20 evidence: fmt/clippy, 52 release tests (one ignored preview), release build and
+isolated circles/open-centre fixtures pass. The latter also ran with grid=3:
+Recent and Music snapped to distinct work-area cell centres; saved positions and
+all file-reference hashes survived restart. CI includes the grid fixture. Unit
+tests cover all grid sizes, four taskbar edges, negative monitor origins, scaled
+circles, clamping, legacy config/default Off and malformed grid values. No physical
+cursor movement or Desktop writes. Physical menus/cross-circle drag/Win+D remain
+unperformed checks. Ready target/release/DeskTuk.exe SHA256:
+B984059EB9EDF1C197F141763F865DC0DB8974C4D7ED2E73CE805AF8ACE0F8BB.
