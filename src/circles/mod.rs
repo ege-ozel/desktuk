@@ -16,6 +16,7 @@ mod drag_preview;
 pub mod draw;
 pub mod geom;
 mod grid;
+mod grid_overlay;
 pub mod model;
 pub mod rename;
 pub mod ring;

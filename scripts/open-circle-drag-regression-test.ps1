@@ -112,6 +112,12 @@ try {
         $cx=($rect.right-$rect.left)/2
         $cy=($rect.bottom-$rect.top)/2
         [OpenCircleDragWin]::Mouse($ring,0x201,$cx,$cy)
+        $guide=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.GridOverlay',[int]::MinValue,0)
+        if (($Grid -ne 0) -ne ($guide -ne [IntPtr]::Zero)) { throw 'Grid guide visibility must match the selected grid on press' }
+        if ($Grid -ne 0) {
+            $guideRect=[OpenCircleDragWin]::Rectangle($guide)
+            if ($guideRect.left -ne $work.left -or $guideRect.top -ne $work.top -or $guideRect.right -ne $work.right -or $guideRect.bottom -ne $work.bottom) { throw 'Grid guide must cover only the taskbar-free work area' }
+        }
         # Activation/repainting can emit non-button mouse moves. They must not drag.
         [void][OpenCircleDragWin]::SendMessage($anchor,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point(1000,-1000))
         [void][OpenCircleDragWin]::SendMessage($ring,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point($cx+100,$cy+100))
@@ -124,6 +130,7 @@ try {
         $atY=$rect.top+$cy+$dy-$sourceY
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
         [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
+        if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived button release' }
         $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }
@@ -146,6 +153,14 @@ try {
     [OpenCircleDragWin]::Mouse($anchor,0x202,44,44)
     Wait-Check { (Get-Content -LiteralPath $log -Raw) -match $nextFilePattern } 'Centre click loads the next page'
     if (-not [OpenCircleDragWin]::IsWindow($ring)) { throw 'Centre click destroyed the existing ring' }
+    # No physical input: explicit cancellation/capture-loss messages must remove the guide.
+    foreach ($cancel in @(0x1F,0x215,0x100)) {
+        [OpenCircleDragWin]::Mouse($anchor,0x201,44,44)
+        $guide=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.GridOverlay',[int]::MinValue,0)
+        [void][OpenCircleDragWin]::SendMessage($anchor,$cancel,[IntPtr]27,[IntPtr]::Zero)
+        if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived cancel/capture loss/Escape' }
+    }
+    Write-Host 'Grid guide press/release/cancel lifecycle : PASS'
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::PostMessage($controller,0x10,[IntPtr]::Zero,[IntPtr]::Zero)
     if (-not $p.WaitForExit(8000) -or $p.ExitCode -ne 0) { throw 'Fixture did not exit cleanly' }

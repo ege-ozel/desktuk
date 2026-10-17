@@ -1,23 +1,34 @@
 //! Cell-centre snapping in a monitor's usable work area, in physical screen pixels.
 
+pub fn cell(pos: (i32, i32), diameter: i32, work: (i32, i32, i32, i32), divisions: u8) -> Option<(i32, i32)> {
+    if !matches!(divisions, 2..=4) || diameter <= 0 || work.2 <= work.0 || work.3 <= work.1 {
+        return None;
+    }
+    let axis = |p: i32, lo: i32, hi: i32| {
+        (((p as f64 + diameter as f64 / 2.0 - lo as f64) * divisions as f64 / (hi as f64 - lo as f64)).floor() as i32)
+            .clamp(0, divisions as i32 - 1)
+    };
+    Some((axis(pos.0, work.0, work.2), axis(pos.1, work.1, work.3)))
+}
+
 /// Snap the circle centre to the nearest cell centre, then keep the whole circle
 /// inside `work`. Off/unknown divisions only clamp. Negative monitor origins work.
 pub fn position(pos: (i32, i32), diameter: i32, work: (i32, i32, i32, i32), divisions: u8) -> (i32, i32) {
-    let axis = |p: i32, lo: i32, hi: i32| {
+    let target = cell(pos, diameter, work, divisions);
+    let axis = |p: i32, lo: i32, hi: i32, cell: Option<i32>| {
         if hi <= lo || diameter <= 0 {
             return p;
         }
         let end = hi.saturating_sub(diameter).max(lo);
-        if !matches!(divisions, 2..=4) {
+        let Some(cell) = cell else {
             return p.clamp(lo, end);
-        }
+        };
         let size = hi as f64 - lo as f64;
         let n = divisions as f64;
-        let cell = (((p as f64 + diameter as f64 / 2.0 - lo as f64) * n / size).floor()).clamp(0.0, n - 1.0);
-        let snapped = lo as f64 + (cell + 0.5) * size / n - diameter as f64 / 2.0;
+        let snapped = lo as f64 + (cell as f64 + 0.5) * size / n - diameter as f64 / 2.0;
         (snapped.round() as i32).clamp(lo, end)
     };
-    (axis(pos.0, work.0, work.2), axis(pos.1, work.1, work.3))
+    (axis(pos.0, work.0, work.2, target.map(|c| c.0)), axis(pos.1, work.1, work.3, target.map(|c| c.1)))
 }
 
 #[cfg(test)]

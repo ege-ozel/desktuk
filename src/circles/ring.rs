@@ -900,6 +900,10 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             0
         }
         WM_CANCELMODE | WM_KEYDOWN if msg == WM_CANCELMODE || wparam == VK_ESCAPE as usize => {
+            let anchor = with(|r| r.anchor);
+            if let Some(anchor) = anchor {
+                circle_win::end_press(anchor, false);
+            }
             with(|r| r.press = None);
             super::drag_preview::close();
             super::drag_capture::end(hwnd);

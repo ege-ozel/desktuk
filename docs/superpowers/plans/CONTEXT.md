@@ -14,8 +14,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - A and D through D20 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- Next owner request: D21 visible drag grid and D22 configurable always-on-top /
-  Show Desktop recovery (Plan D). Recorded for compaction; not implemented yet.
+- D21 visible drag grid is implemented/tested; install alongside D22 (next):
+  configurable always-on-top / Show Desktop recovery. See active Plan D.
 
 ## Delivered behavior and evidence
 
@@ -42,7 +42,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - The reported hard inner edge was reproduced in a native regression and fixed;
   the owner's final visual assessment on the running desktop is still pending.
 
-## Unperformed manual checks (not observed failures)
+## Observed unresolved behavior and unperformed checks
 
 - Owner reports Win+D toggles circles off/on and bottom-right Show Desktop still
   misbehaves. Treat as observed unresolved behavior; D18 did not resolve this report.
@@ -63,7 +63,7 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 | Hover, paging, animation | src/circles/circle_win.rs, ring.rs |
 | Capture and desktop ordering | src/circles/drag_capture.rs, src/host/window.rs |
 | Drag icon preview | src/circles/drag_preview.rs, draw.rs |
-| Grid snap / persistence | src/circles/grid.rs, circle_win.rs, mod.rs, model.rs |
+| Grid snap / persistence | src/circles/grid.rs, grid_overlay.rs, circle_win.rs, model.rs |
 | References and config | src/circles/model.rs, view.rs, src/config.rs |
 | Desktop updates/Recent/suggestions | src/circles/desktop.rs, suggest.rs, src/watch.rs |
 | Shell icons/menus | src/items.rs, shell.rs, shell_menu.rs |

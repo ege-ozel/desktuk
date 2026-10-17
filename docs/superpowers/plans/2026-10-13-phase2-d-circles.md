@@ -248,19 +248,20 @@ Owner should assess actual Win+D transitions, drag feel/preview and right-click 
 ## Owner follow-up / compaction handoff (2026-10-17)
 
 Installed runtime remains d1e1174, deployment record 03e787b; both Windows CI runs
-passed. The owner now reports these unresolved usability issues. No implementation
-for D21/D22 has started. Resume here after compaction, keeping direct-main/no-PR
+passed. The owner reported these usability issues. D21 is implemented; D22 is next.
+Continue with the direct-main/no-PR
 workflow and required precommit MSVC checks. No new dependencies are authorized.
 
 ### D21: Visible grid during circle dragging
 
-- [ ] With grid enabled, display work-area cell boundaries while a circle is held /
+- [x] With grid enabled, display work-area cell boundaries while a circle is held /
       dragged and highlight its actual snap target. Owner needs to see where it
       will land. Preserve selected 2x2/3x3/4x4 centre snap, taskbar exclusion and DPI.
-- [ ] Remove overlay on release/cancel/capture loss/destruction; overlay must not
+- [x] Remove overlay on release/cancel/capture loss/destruction; overlay must not
       steal activation, intercept pointer/drop targets, or leave idle timers/buffers.
-- [ ] Verify target highlight matches final position, cleanup and work-area routing;
-      run required checks, commit/push, then deploy and record checked evidence.
+- [x] Verify target highlight matches final position, cleanup and work-area routing;
+      run required checks and commit/push.
+- [ ] Deploy together with D22 and record checked evidence.
 
 ### D22: Always-on-top setting and Show Desktop behavior
 
@@ -282,3 +283,11 @@ ordering fixtures and green CI are not proof of these physical shell interaction
 
 Compaction advice: before starting this next implementation is a clean boundary.
 Continuation should read CONTEXT.md and this section, not the historical archive.
+
+D21 evidence: shared cell geometry drives highlight and final snap. Event-driven,
+click-through layered guide sits behind the dragged circle; target fill, boundaries
+and landing cross are painted only on cell/work-area changes. Native pixel/lifecycle
+tests and isolated grid=3 routed-message fixture cover immediate visibility on press,
+work-area bounds, release, cancel, capture loss and Escape, saved snaps and restart.
+No physical input, user file changes, dependencies or idle work. Required MSVC checks
+pass: fmt/clippy and 54 tests (one ignored preview). Deployment follows D22.

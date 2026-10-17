@@ -13,6 +13,7 @@ use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE;
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, DragFinish, DragQueryFileW, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -62,6 +63,7 @@ thread_local! {
 }
 
 pub fn register_class() {
+    super::grid_overlay::register_class();
     let name = win::wide(CLASS);
     let wc = WNDCLASSEXW {
         cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -143,16 +145,20 @@ pub fn clamp_to_work(pos: (i32, i32), d: i32) -> (i32, i32) {
 
 /// Clamp or snap using this monitor's actual work area, independent of taskbar edge.
 pub fn snap_to_work(pos: (i32, i32), d: i32, divisions: u8) -> (i32, i32) {
+    work_area(pos, d).map(|w| super::grid::position(pos, d, w, divisions)).unwrap_or(pos)
+}
+
+fn work_area(pos: (i32, i32), d: i32) -> Option<(i32, i32, i32, i32)> {
     let r = win::rect(pos.0, pos.1, pos.0 + d, pos.1 + d);
     unsafe {
         let mon = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
         let mut mi: MONITORINFO = std::mem::zeroed();
         mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
         if GetMonitorInfoW(mon, &mut mi) == 0 {
-            return pos;
+            return None;
         }
         let w = mi.rcWork;
-        super::grid::position(pos, d, (w.left, w.top, w.right, w.bottom), divisions)
+        Some((w.left, w.top, w.right, w.bottom))
     }
 }
 
@@ -199,6 +205,7 @@ pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
 }
 
 fn begin_press(hwnd: HWND, at: POINT, ring_click: bool) {
+    super::grid_overlay::close();
     if let Some(old) = PRESS.take() {
         super::drag_capture::end(old.hwnd);
     }
@@ -208,6 +215,18 @@ fn begin_press(hwnd: HWND, at: POINT, ring_click: bool) {
     dlog!("circle press hwnd={hwnd:?} from_ring={ring_click} captured={captured}");
     if !captured {
         dlog!("circle drag foreground capture unavailable");
+    }
+    if is_pressed(hwnd) {
+        update_grid(hwnd);
+    }
+}
+
+fn update_grid(hwnd: HWND) {
+    let divisions = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
+    let r = win::window_rect(hwnd);
+    let d = geom::metrics(unsafe { GetDpiForWindow(hwnd) }.max(96)).circle_d;
+    if let Some(work) = work_area((r.left, r.top), d) {
+        super::grid_overlay::update(hwnd, (r.left, r.top), d, work, divisions);
     }
 }
 
@@ -228,6 +247,9 @@ pub fn move_press(hwnd: HWND, c: POINT) {
             unsafe {
                 SetWindowPos(hwnd, std::ptr::null_mut(), p.origin.0 + dx, p.origin.1 + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
             };
+            if is_pressed(hwnd) {
+                update_grid(hwnd);
+            }
         }
     }
 }
@@ -251,6 +273,7 @@ pub fn end_press(hwnd: HWND, released: bool) {
         return;
     }
     let Some(p) = PRESS.take() else { return };
+    super::grid_overlay::close();
     super::drag_capture::end(hwnd); // PRESS is already empty before message-pumping calls
     let Some(which) = super::which_of(hwnd) else { return };
     if p.moving {
@@ -298,6 +321,22 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             if lparam as HWND != hwnd {
                 end_press(hwnd, false);
             }
+            0
+        }
+        WM_CANCELMODE => {
+            end_press(hwnd, false);
+            0
+        }
+        WM_DESTROY => {
+            if is_pressed(hwnd) {
+                PRESS.take();
+                super::grid_overlay::close();
+                super::drag_capture::end(hwnd);
+            }
+            0
+        }
+        WM_KEYDOWN if wparam == VK_ESCAPE as usize => {
+            end_press(hwnd, false);
             0
         }
         WM_RBUTTONUP => {
