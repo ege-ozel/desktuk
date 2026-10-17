@@ -14,8 +14,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - A and D through D22 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- D21 drag guide is installed. D22 topmost, Peek and owner-reported hide recovery
-  are implemented; the latest visibility fix awaits install. See active Plan D.
+- D21 drag guide and D22 owner-reported hide recovery are installed. The saved
+  preference selects desktop-only mode; right-click to change. See active Plan D.
 
 ## Delivered behavior and evidence
 
@@ -23,9 +23,10 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Capture cleanup preserves the selected circle band: always-on-top (default) or
   desktop-only (apps cover circles). Panel ordering is unchanged.
-- Installed runtime source: `acdc061` (D21/D22). Windows CI pending;
+- Installed runtime source: `86f510c` (D22 visibility recovery). Its Windows CI passed;
+  z-order test serialization is on main, with CI rerunning;
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
-- Required MSVC checks: 56 passing tests, one ignored preview; the preview was also
+- Required MSVC checks: 57 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
 - Pointer entry opens immediately: no hover dwell or opening animation. Closing
   remains 110 ms. Topmost circles reject minimize/demotion; stale focus events skip.

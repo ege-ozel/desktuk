@@ -213,6 +213,12 @@ mod tests {
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
+    static Z_ORDER_TEST: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn serial_z_order_test() -> std::sync::MutexGuard<'static, ()> {
+        Z_ORDER_TEST.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     struct TestWindow(HWND);
     impl Drop for TestWindow {
         fn drop(&mut self) {
@@ -250,6 +256,7 @@ mod tests {
 
     #[test]
     fn topmost_mode_survives_desktop_app_reveal_and_capture_without_activation() {
+        let _serial = serial_z_order_test();
         let foreground = unsafe { GetForegroundWindow() };
         let node = window("DeskTuk.TestPersistentTopmost", std::ptr::null_mut());
         let desktop = window("Progman", std::ptr::null_mut());
@@ -292,6 +299,7 @@ mod tests {
 
     #[test]
     fn show_desktop_never_covers_a_restored_app_while_hook_is_pending() {
+        let _serial = serial_z_order_test();
         let node = window("DeskTuk.TestShowDesktop", std::ptr::null_mut());
         let desktop = window("Progman", std::ptr::null_mut());
         let application = window("DeskTuk.TestRestoredApplication", std::ptr::null_mut());
@@ -314,6 +322,7 @@ mod tests {
 
     #[test]
     fn capture_finish_keeps_a_tray_revealed_circle_above_the_desktop() {
+        let _serial = serial_z_order_test();
         let node = window("DeskTuk.TestCaptureHost", std::ptr::null_mut());
         let tray = window("Shell_TrayWnd", std::ptr::null_mut());
         let backdrop = window("DeskTuk.TestBackdrop", std::ptr::null_mut());
@@ -332,6 +341,7 @@ mod tests {
 
     #[test]
     fn capture_finish_restores_desktop_band_but_keeps_apps_above_the_circle() {
+        let _serial = serial_z_order_test();
         let node = window("DeskTuk.TestCaptureBands", std::ptr::null_mut());
         let tray = window("Shell_TrayWnd", std::ptr::null_mut());
         let application = window("DeskTuk.TestCaptureApplication", std::ptr::null_mut());
@@ -362,6 +372,7 @@ mod tests {
 
     #[test]
     fn desktop_only_restores_a_shell_hidden_circle_on_foreground_change() {
+        let _serial = serial_z_order_test();
         let node = window("DeskTuk.TestDesktopOnlyVisibility", std::ptr::null_mut());
         let desktop = window("Progman", std::ptr::null_mut());
         let application = window("DeskTuk.TestDesktopOnlyApplication", std::ptr::null_mut());
@@ -380,6 +391,7 @@ mod tests {
 
     #[test]
     fn taskbar_and_overflow_focus_preserve_desktop_order_but_apps_lower_it() {
+        let _serial = serial_z_order_test();
         let node = window("DeskTuk.TestHost", std::ptr::null_mut());
         let host = WindowHost::default();
         for class in

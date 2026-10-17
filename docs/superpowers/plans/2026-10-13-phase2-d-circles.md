@@ -282,11 +282,8 @@ ordering fixtures and green CI are not proof of these physical shell interaction
       Peek/click/Win+D checks requiring the owner's assessment. Do not run local
       windows-integration-test.ps1 or generate physical mouse/keyboard input.
 - [x] Deploy D21/D22, run tray fixtures while installed app is stopped, record evidence.
-- [ ] Deploy owner-report visibility recovery; confirm the running executable and
+- [x] Deploy owner-report visibility recovery; confirm the running executable and
       leave Win+D / corner-click / Peek physical assessment clearly pending.
-
-Compaction advice: before starting this next implementation is a clean boundary.
-Continuation should read CONTEXT.md and this section, not the historical archive.
 
 D21 evidence: shared cell geometry drives highlight and final snap. Event-driven,
 click-through layered guide sits behind the dragged circle; target fill, boundaries
@@ -326,3 +323,18 @@ Added a native recovery path: topmost hosts reject hide positioning and foregrou
 changes restore a hidden circle without activation; desktop-only hosts restore
 visibility on desktop/app foreground changes before applying their existing band.
 The actual Windows 11 Show Desktop path still needs the owner's rerun after this fix.
+
+D22 recovery deployment: source 86f510c; previous executable from acdc061 backed up
+at target/show-desktop-recovery/previous-installed.exe. Synthetic ShowWindow(SW_HIDE)
+is blocked in the topmost runtime fixture; desktop-only foreground recovery passes
+native host tests. Both grid=3 drag fixtures and tray suites pass in both modes.
+Installed/restarted DeskTuk.exe, PID 25216, responding. Owner config, startup and
+HideIcons preferences match their pre-install values; saved always_on_top=0 selects
+desktop-only mode and was intentionally preserved. Native inspection confirms all
+three circles visible, normal-band, not minimized and not DWM-cloaked. SHA256:
+434222962D484E653CEB793B2B20FB8D24B4F053DDFF95227381C61CB604284A. Deployment
+evidence/snapshots: target/show-desktop-recovery/{deployment,windows}.json. The owner
+must rerun physical Win+D and the taskbar corner button. Windows CI 39032509588 passed
+the deployed runtime, including release checks, all fixture modes and runner integration.
+Z-order native fixture tests are serialized to avoid their shared Windows desktop; the
+updated test harness is pushed and its Windows CI run is pending.
