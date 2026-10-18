@@ -436,7 +436,7 @@ without deriving the next cell from the prior snapped position.
       opening while preserving eased close and no idle timer.
 - [x] Enlarge closed-circle text/counts and icons only where a native shell image exists;
       snap a dragged circle immediately to its entered grid cell without transition jitter.
-- [ ] Add/update regression coverage and design/context evidence; run required MSVC checks,
+- [x] Add/update regression coverage and design/context evidence; run required MSVC checks,
       release build and CI fixture modes. Do not generate physical input on the owner PC.
 - [x] Deploy/restart the checked binary and record evidence.
 - [ ] Owner assesses real Win+D, taskbar corner, Peek, hover/menu behavior and visual scale.
@@ -451,3 +451,6 @@ repository's ignored `DeskTuk.exe`; SHA256 is
 21156. Runtime enumeration found the compact dock and all three circles visible and
 `WS_EX_TOPMOST`; the saved user config SHA256 stayed
 `A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90EF0D2778C6F`.
+GitHub Windows CI run 39128090469 passed release build, Clippy, unit tests, all isolated
+circle/grid/tray fixtures and the runner integration self-test. This runner result does
+not replace the owner's physical Win+D / taskbar corner / Peek assessment.

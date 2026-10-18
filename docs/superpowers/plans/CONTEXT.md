@@ -11,8 +11,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and D through D24 are installed; D25 is implemented, locally checked and deployed;
-  CI and the owner's physical Show Desktop assessment are pending.
+- A and D through D24 are installed; D25 is implemented, locally checked, deployed and
+  passed GitHub Windows CI. The owner's physical Show Desktop assessment is pending.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
 - Owner confirmed circles should always remain topmost, including open rings. D25 removes
@@ -24,8 +24,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - D25 deployed `DeskTuk.exe` SHA256 `5FC17D25D611E06A2476BBC42026B50AEBF09DA8CD9CC5C55B203693B3AEC230`;
   runtime enumeration confirmed the compact dock and all three circles visible/topmost.
-- D25 MSVC release checks and isolated circle/grid/topmost/tray fixtures passed locally;
-  physical Win+D, taskbar corner and Peek still need owner assessment.
+- D25 MSVC release checks, isolated circle/grid/topmost/tray fixtures and GitHub Windows
+  CI run 39128090469 passed; physical Win+D, taskbar corner and Peek still need assessment.
 - Installed runtime source: `9876047` (D24 dock). CI 39124382613 caught stale topmost
   assumptions in tray and circle-drag fixtures; follow-up 39124809152 passed checks,
   fixture modes and runner integration. D23 CI 39118544698 and local tray/open-centre/
@@ -83,8 +83,8 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
-- Active follow-up: D25 in 2026-10-13-phase2-d-circles.md; CI and physical Win+D / taskbar
-  corner click and Peek remain pending.
+- Active follow-up: D25 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar corner
+  click, Peek, hover/menu behavior and visual scale remain pending owner assessment.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Original implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
