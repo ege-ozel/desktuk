@@ -47,11 +47,9 @@ jobs:
         shell: powershell
         run: ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Grid 3
 
-      - name: Desktop-only grid and tray recovery with isolated TEMP fixtures
+      - name: Always-on-top circles and tray recovery with isolated TEMP fixtures
         shell: powershell
         run: |
-          ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Grid 3 -DesktopOnly
-          ./scripts/tray-regression-test.ps1 -Exe target/release/DeskTuk.exe -DesktopOnly
           ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Topmost
           ./scripts/tray-regression-test.ps1 -Exe target/release/DeskTuk.exe -Topmost
 

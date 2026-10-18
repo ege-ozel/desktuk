@@ -51,7 +51,6 @@ const IDM_GRID_OFF: usize = 21;
 const IDM_GRID_2: usize = 22;
 const IDM_GRID_3: usize = 23;
 const IDM_GRID_4: usize = 24;
-const IDM_ALWAYS_ON_TOP: usize = 25;
 
 /// A download or copy can fire several folder events in a row; re-list once they settle.
 const DESKTOP_DEBOUNCE_MS: u32 = 250;
@@ -197,10 +196,15 @@ pub fn any_visible() -> bool {
 
 /// Reveal the board and open one selected circle from the recovery dock.
 pub fn open_target(which: Which) {
-    show();
-    if let Some(hwnd) = window_of(which) {
-        ring::open(hwnd, which.target());
+    let Some(hwnd) = window_of(which) else { return };
+    let target = which.target();
+    if ring::close_target(hwnd, target) {
+        return;
     }
+    if !any_visible() {
+        show();
+    }
+    ring::open(hwnd, target);
 }
 
 /// Repaints every circle (names, counts) and the open ring.
@@ -406,13 +410,7 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     }
                 }
             } else {
-                let flags = if id == crate::desktop_view::MENU_ID {
-                    crate::desktop_view::menu_flags()
-                } else if id == IDM_ALWAYS_ON_TOP {
-                    MF_STRING | if app().board.try_borrow().map(|b| b.always_on_top).unwrap_or(true) { MF_CHECKED } else { 0 }
-                } else {
-                    MF_STRING
-                };
+                let flags = if id == crate::desktop_view::MENU_ID { crate::desktop_view::menu_flags() } else { MF_STRING };
                 AppendMenuW(m, flags, id, win::wide(label).as_ptr());
             }
         }
@@ -432,7 +430,6 @@ pub fn circle_menu(which: Which, at: POINT) {
     entries.extend([
         (0, ""),
         (IDM_GRID, "&Izgara"),
-        (IDM_ALWAYS_ON_TOP, "Her zaman \u{fc}stte"),
         (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL),
         (IDM_EXIT, "E&xit DeskTuk"),
     ]);
@@ -454,26 +451,9 @@ pub fn circle_menu(which: Which, at: POINT) {
             app().save_config();
         }
         (IDM_EXIT, _) => crate::app::quit(),
-        (IDM_ALWAYS_ON_TOP, _) => toggle_always_on_top(),
         (crate::desktop_view::MENU_ID, _) => crate::desktop_view::toggle_from_menu(),
         _ => {}
     }
-}
-
-fn toggle_always_on_top() {
-    let enabled = {
-        let Ok(mut board) = app().board.try_borrow_mut() else { return };
-        board.always_on_top = !board.always_on_top;
-        board.always_on_top
-    };
-    // Copy the hosts before changing z-order; owned rings follow their circle.
-    let list: Vec<_> = state()
-        .and_then(|st| st.windows.try_borrow().ok().map(|w| w.iter().map(|w| (w.hwnd, w.host.clone())).collect()))
-        .unwrap_or_default();
-    for (hwnd, host) in list {
-        host.set_always_on_top(hwnd, enabled);
-    }
-    app().save_config();
 }
 
 /// Adds "New circle" to the left of `from` and starts renaming it.

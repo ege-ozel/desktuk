@@ -38,10 +38,10 @@ only - it is not a file browser for `C:\`.
 
 ## Behaviour
 
-**Closed circle** (88 px at 96 DPI): name and item count, accent rim. Recent is tinted blue.
+**Closed circle** (104 px at 96 DPI): name and item count, accent rim. Recent is tinted blue.
 
-* Pointer entry or click opens the ring immediately, without hover dwell or opening
-  animation. Drag: moves the circle (position saved).
+* Pointer entry or click starts an immediate short ease-out reveal. Drag: moves the circle
+  (position saved); with a grid enabled it snaps to each cell as the pointer enters it.
 * Right-click: New circle, New group, Rename..., Delete circle (confirmation; items go back to
   Recent), Exit. On Recent: New circle, Exit.
   **Owner follow-up (2026-10-13):** all circle/Recent and file menus, plus the panel menu,
@@ -81,8 +81,9 @@ near a screen edge):
   While dragging, a translucent icon follows the pointer. It uses the cached shell
   icon (native fallback if not loaded), accepts no input, and disappears on release,
   Escape, capture loss or ring destruction. File paths remain references.
-* Opens immediately, closes over 110 ms after the pointer leaves the disc. No timer runs
-  when nothing animates.
+* Opens immediately with a short ease-out reveal and closes over 110 ms after the pointer
+  leaves the disc. Clicking outside or selecting the current target again also closes it.
+  No timer runs when nothing animates.
 
 **Suggestions:** an extension points at circle *c* when *c* holds at least 2 files with it and
 strictly more than any other circle; generic extensions (`lnk`, `url`, `tmp`) never count. At
@@ -119,14 +120,12 @@ circle lines are both preserved whichever UI runs.
 
 * Pure, unit-tested: `circles::model` (board + config lines), `geom` (slots, hit testing,
   paging, disc mask, animation), `view` (board -> slots), `suggest`, `desktop::recent`.
-* Win32: each circle is a small `WS_EX_LAYERED` tool window painted once with
+* Win32: each circle is a `WS_EX_LAYERED | WS_EX_TOPMOST` tool window painted once with
   `UpdateLayeredWindow` (per-pixel alpha, so the corners are click-through); the painting
-  surface is freed right after. Circles use desktop ordering by default, so applications
-  cover them; the checked circle-menu setting can explicitly opt into Always on top.
-  A compact right-edge DeskTuk dock remains in the topmost band. It lists Recent and
-  user circles, opens a selected circle, and has a separate board show/hide action; the
-  list scrolls when it exceeds the available height. This provides access after Windows
-  Show Desktop hides the circles. Stale queued foreground events are ignored. The ring
+  surface is freed right after. Circles and their owned rings always remain in the topmost
+  band, including through Show Desktop; they do not activate. A compact blue right-edge
+  `Desktop` dock remains topmost with a dropdown and a separate hover-toggle tile. The
+  dropdown lists board visibility, Recent and user circles. Stale queued foreground events are ignored. The ring
   is one layered window **owned by** its circle, so it always stays just above it; it is
   created on open and destroyed on close.
 * Circles and transient desktop surfaces exclude themselves from Peek fading with
@@ -212,3 +211,15 @@ still trigger normal background ordering. No new polling, threads or dependencie
 The tray menu also includes Masaüstü öğelerini göster (owner, 2026-10-14). It reuses
 the same desktop_view command, reads Explorer's live visibility when opened, and
 changes it only on explicit selection. Startup and exit do not alter this preference.
+
+## Owner follow-up: Always-on-top circles and compact dock (2026-10-18)
+
+The owner confirmed circles and open rings must remain Always on Top, including after
+Win+D and taskbar Show Desktop. This supersedes D24's desktop ordering default. The dock
+uses the DeskTuk blue accent, a compact `Desktop` dropdown header, and a separate larger
+hover-toggle tile. The dropdown lists board visibility, Recent and user circles.
+Selecting the current ring target again closes it; moving or clicking outside the ring
+closes it. Ring opening starts immediately with a short ease-out reveal. Closed circles
+use a 104 px base diameter and larger text/counts. Ring icons may exceed the current
+desktop icon size only when the shell supplies a suitable native image. With a snap grid,
+each drag position is based on the unsnapped pointer and snaps to the entered cell centre.

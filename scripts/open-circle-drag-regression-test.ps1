@@ -1,6 +1,5 @@
-param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$DesktopOnly, [switch]$Topmost)
+param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$Topmost)
 $ErrorActionPreference = 'Stop'
-if ($DesktopOnly -and $Topmost) { throw 'Choose either -DesktopOnly or -Topmost.' }
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $root = Join-Path $tempBase ('desktuk-open-circle-drag-' + [guid]::NewGuid().ToString('N'))
@@ -78,7 +77,7 @@ function Open-Ring($p,[IntPtr]$anchor) {
 try {
     $cfg=Join-Path $root 'DeskTuk/desktuk.cfg'
     $work=[OpenCircleDragWin]::WorkArea()
-    $diameter=[int][Math]::Ceiling(88*[OpenCircleDragWin]::GetDpiForSystem()/96)
+    $diameter=[int][Math]::Ceiling(104*[OpenCircleDragWin]::GetDpiForSystem()/96)
     $recentX=$work.left+20
     $musicX=$work.left+[int][Math]::Max(40,[Math]::Floor(($work.right-$work.left-$diameter-20)/2))
     $sourceY=$work.top+20
@@ -98,7 +97,6 @@ try {
         $expectedY=Snap-Axis $expectedY $work.top $work.bottom
     }
     $lines=@('host=window','ui=circles',"grid=$Grid","recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
-    if ($DesktopOnly) { $lines += 'always_on_top=0' }
     if ($Topmost) { $lines += 'always_on_top=1' }
     $files=@()
     for ($i=0;$i -lt 24;$i++) {
@@ -115,18 +113,16 @@ try {
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY) -ne [IntPtr]::Zero } 'Fixture circles created'
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
-        if ($Topmost) {
-            [void][OpenCircleDragWin]::ShowWindow($anchor,0)
-            if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or ([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8 -eq 0)) { throw 'Show Desktop hide must not hide a topmost circle' }
-            [void][OpenCircleDragWin]::SendMessage($anchor,0x112,[IntPtr]0xF020,[IntPtr]::Zero)
-            if ([OpenCircleDragWin]::IsIconic($anchor)) { throw 'Topmost circle accepted shell minimization' }
-            [void][OpenCircleDragWin]::SetWindowPos($anchor,[IntPtr]1,0,0,0,0,0x13)
-            if (([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -eq 0) { throw 'Shell ordering demoted a topmost circle' }
-        }
+        [void][OpenCircleDragWin]::ShowWindow($anchor,0)
+        if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or ([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8 -eq 0)) { throw 'Show Desktop hide must not hide a topmost circle' }
+        [void][OpenCircleDragWin]::SendMessage($anchor,0x112,[IntPtr]0xF020,[IntPtr]::Zero)
+        if ([OpenCircleDragWin]::IsIconic($anchor)) { throw 'Topmost circle accepted shell minimization' }
+        [void][OpenCircleDragWin]::SetWindowPos($anchor,[IntPtr]1,0,0,0,0,0x13)
+        if (([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -eq 0) { throw 'Shell ordering demoted a topmost circle' }
         $ring=Open-Ring $p $anchor | Select-Object -Last 1
         foreach ($surface in @($anchor,$ring)) {
             $surfaceStyle=[OpenCircleDragWin]::GetWindowLong($surface,-20)
-            if ((($surfaceStyle -band 8) -ne 0) -ne $Topmost.IsPresent) { throw "Circle and owned ring must follow the selected topmost mode: hwnd=$surface style=$surfaceStyle topmost=$Topmost" }
+            if (($surfaceStyle -band 8) -eq 0) { throw "Circle and owned ring must remain topmost: hwnd=$surface style=$surfaceStyle" }
         }
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
@@ -149,10 +145,12 @@ try {
         $atX=$rect.left+$cx+$dx-$sourceX
         $atY=$rect.top+$cy+$dy-$sourceY
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
+        $during=[OpenCircleDragWin]::Rectangle($anchor)
+        $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
+        if ($during.left -ne $expectedX -or $during.top -ne $expectedY) { throw 'Circle did not snap to its entered cell during the drag' }
         [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
         if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived button release' }
-        if ((([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -ne 0) -ne $Topmost.IsPresent) { throw 'Capture cleanup changed the selected topmost mode' }
-        $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
+        if (([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -eq 0) { throw 'Capture cleanup demoted a topmost circle' }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }
         $saved=Get-Content -LiteralPath $cfg -Raw
@@ -182,6 +180,9 @@ try {
         if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived cancel/capture loss/Escape' }
     }
     Write-Host 'Grid guide press/release/cancel lifecycle : PASS'
+    $ring=Open-Ring $p $anchor | Select-Object -Last 1
+    [void][OpenCircleDragWin]::SendMessage($ring,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point(0,0))
+    Wait-Check { -not [OpenCircleDragWin]::IsWindow($ring) } 'Pointer outside the ring disc eases closed'
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::PostMessage($controller,0x10,[IntPtr]::Zero,[IntPtr]::Zero)
     if (-not $p.WaitForExit(8000) -or $p.ExitCode -ne 0) { throw 'Fixture did not exit cleanly' }

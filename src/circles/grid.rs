@@ -58,4 +58,21 @@ mod tests {
         assert_eq!(position((70, 70), 176, (0, 0, 200, 200), 4), (24, 24));
         assert_eq!(position((3, 4), 88, (0, 0, 40, 40), 2), (0, 0));
     }
+
+    #[test]
+    fn drag_landing_jumps_once_per_entered_cell_without_rebasing_the_pointer() {
+        let work = (0, 0, 900, 600);
+        let first_raw = (20, 20);
+        let first = position(first_raw, 104, work, 3);
+        assert_eq!(cell(first, 104, work, 3), Some((0, 0)));
+        assert_eq!(first, (98, 48));
+
+        let crossed_raw = (251, 20); // centre passes the vertical boundary into column 1
+        let crossed = position(crossed_raw, 104, work, 3);
+        assert_eq!(cell(crossed, 104, work, 3), Some((1, 0)));
+        assert_eq!(crossed, (398, 48));
+
+        let still_in_cell_raw = (280, 40);
+        assert_eq!(position(still_in_cell_raw, 104, work, 3), crossed);
+    }
 }

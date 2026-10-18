@@ -26,7 +26,7 @@ pub struct Circle {
     pub groups: Vec<Group>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Board {
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
@@ -34,6 +34,12 @@ pub struct Board {
     /// Global work-area grid: 0 = off, otherwise 2, 3 or 4 cells per axis.
     pub grid: u8,
     pub always_on_top: bool,
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Self { circles: Vec::new(), recent_pos: None, grid: 0, always_on_top: true }
+    }
 }
 
 /// Where an item lives.
@@ -220,7 +226,8 @@ impl Board {
     /// ```
     pub fn parse_line(&mut self, key: &str, value: &str) -> bool {
         match key {
-            "always_on_top" => self.always_on_top = value.trim() == "1",
+            // Kept as a recognized legacy key; circles are now always topmost by owner decision.
+            "always_on_top" => self.always_on_top = true,
             "grid" => {
                 self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
             }
@@ -288,10 +295,7 @@ impl Board {
     /// The board as config lines (each ends with `\n`), in an order `parse_line` reads back.
     pub fn render(&self) -> String {
         let mut s = String::new();
-        // Omit desktop ordering; only the explicit topmost opt-in needs a config line.
-        if self.always_on_top {
-            s += "always_on_top=1\n";
-        }
+        s += "always_on_top=1\n";
         if self.grid != 0 {
             s += &format!("grid={}\n", self.grid);
         }
@@ -439,17 +443,13 @@ mod tests {
     }
 
     #[test]
-    fn circles_default_to_desktop_order_and_topmost_can_be_enabled() {
+    fn circles_default_and_legacy_configs_are_always_topmost() {
         let legacy = "grid=3\nrecent=120|140\ncircle=Music|20|40\ncitem=Music||C:\\song.wav\n";
         let original = parse(legacy);
-        assert!(!original.always_on_top);
-        assert_eq!(original.render(), legacy);
-        let mut opted_in = parse(&format!("{legacy}always_on_top=1\n"));
-        assert!(opted_in.always_on_top);
-        assert_eq!(parse(&opted_in.render()), opted_in);
-        opted_in.always_on_top = false;
-        assert_eq!(opted_in, original);
-        assert!(!parse("always_on_top=garbage\n").always_on_top);
+        assert!(original.always_on_top);
+        assert_eq!(parse(&original.render()), original);
+        assert!(parse(&format!("{legacy}always_on_top=0\n")).always_on_top);
+        assert!(parse("always_on_top=garbage\n").always_on_top);
     }
 
     #[test]

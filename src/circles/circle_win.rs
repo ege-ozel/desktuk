@@ -246,9 +246,13 @@ pub fn move_press(hwnd: HWND, c: POINT) {
             ring::close_now();
         }
         if p.moving && is_pressed(hwnd) {
-            unsafe {
-                SetWindowPos(hwnd, std::ptr::null_mut(), p.origin.0 + dx, p.origin.1 + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
-            };
+            // Derive every landing from the original pointer delta, never from the
+            // previously snapped HWND position; crossing a cell boundary is stable.
+            let raw = (p.origin.0 + dx, p.origin.1 + dy);
+            let divisions = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
+            let d = geom::metrics(dpi).circle_d;
+            let landing = snap_to_work(raw, d, divisions);
+            unsafe { SetWindowPos(hwnd, std::ptr::null_mut(), landing.0, landing.1, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE) };
             if is_pressed(hwnd) {
                 update_grid(hwnd);
             }

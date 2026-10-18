@@ -8,7 +8,9 @@ pub const PER_PAGE: usize = 20;
 pub const INNER_SLOTS: usize = 8;
 pub const OUTER_SLOTS: usize = PER_PAGE - INNER_SLOTS;
 
-/// Ring closing animation length (opening is immediate).
+/// Opening begins immediately and eases into the full ring.
+pub const OPEN_MS: f64 = 120.0;
+/// Ring closing animation length.
 pub const CLOSE_MS: f64 = 110.0;
 
 /// Pixel sizes for one DPI. All values are 96-DPI design values scaled by `win::scale`.
@@ -32,7 +34,7 @@ pub struct Metrics {
 pub fn metrics(dpi: u32) -> Metrics {
     let s = |v| win::scale(v, dpi);
     Metrics {
-        circle_d: s(88),
+        circle_d: s(104),
         ring_r: s(186),
         slot: s(54),
         icon: s(32),

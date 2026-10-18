@@ -416,3 +416,38 @@ the same stale default in the circle-drag fixture. Both fixtures/workflow now ex
 desktop default, explicit desktop-only mode and topmost opt-in. Follow-up Windows CI
 39124809152 passed release checks, all fixture modes and the runner integration self-test.
 Owner physical Win+D, corner-click and Peek assessment remains outstanding.
+
+### D25: Always-on-top circles and compact blue desktop dock
+
+Owner follow-up (2026-10-18, after D24 install): Win+D still hides circles. Owner
+confirmed circles and open rings should remain Always on Top. Replace the full-height
+pink dock with a compact blue `Desktop` dropdown and an attached hover-toggle tile.
+Dropdown actions show/hide the board or open Recent/a user circle; selecting the open
+target again closes it, and pointer/click outside an open ring dismisses it. Open rings
+start immediately with a short eased reveal. Closed-circle text/counts grow, shell icons
+use native-or-larger available sizes, and grid dragging snaps to each entered cell
+without deriving the next cell from the prior snapped position.
+
+- [x] Keep circles and owned rings topmost through Shell Show Desktop; make topmost the
+      default for existing configs and remove the conflicting desktop-order toggle.
+- [x] Replace the dock with the blue compact Desktop header/dropdown and a separate
+      attached hover-toggle tile; selecting the current ring target again closes it.
+- [x] Dismiss rings when pointer/click leaves their circular area; add immediate eased
+      opening while preserving eased close and no idle timer.
+- [x] Enlarge closed-circle text/counts and icons only where a native shell image exists;
+      snap a dragged circle immediately to its entered grid cell without transition jitter.
+- [ ] Add/update regression coverage and design/context evidence; run required MSVC checks,
+      release build and CI fixture modes. Do not generate physical input on the owner PC.
+- [x] Deploy/restart the checked binary and record evidence.
+- [ ] Owner assesses real Win+D, taskbar corner, Peek, hover/menu behavior and visual scale.
+
+Local evidence (2026-10-18): `cargo fmt`, release Clippy with `-D warnings`, release tests
+(63 passed, one ignored preview), release build and explicit circle preview passed. The
+open-circle fixture passed default, 3x3 grid and explicit legacy-topmost modes; the tray
+fixture passed explicit topmost mode. Both PowerShell fixtures parsed successfully. No
+physical mouse/Win+D input was generated. Deployed `target/release/DeskTuk.exe` to the
+repository's ignored `DeskTuk.exe`; SHA256 is
+`5FC17D25D611E06A2476BBC42026B50AEBF09DA8CD9CC5C55B203693B3AEC230`. Restarted PID
+21156. Runtime enumeration found the compact dock and all three circles visible and
+`WS_EX_TOPMOST`; the saved user config SHA256 stayed
+`A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90EF0D2778C6F`.

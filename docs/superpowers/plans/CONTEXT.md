@@ -11,18 +11,21 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and D through D24 are installed; owner physical Win+D/corner/Peek checks remain.
+- A and D through D24 are installed; D25 is implemented, locally checked and deployed;
+  CI and the owner's physical Show Desktop assessment are pending.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- Circles default to desktop ordering; right-click opts into topmost. See Plan D.
+- Owner confirmed circles should always remain topmost, including open rings. D25 removes
+  the older desktop-order default and makes the current dock compact and blue.
 
 ## Delivered behavior and evidence
 
 - Circles group Desktop file references; Recent, groups, suggestions, hover rings,
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
-- Circles default to desktop ordering (apps cover circles); a global option keeps
-  topmost mode available. The right-edge recovery dock stays topmost, lists Recent and
-  circles, opens a selected circle, and toggles board visibility.
+- D25 deployed `DeskTuk.exe` SHA256 `5FC17D25D611E06A2476BBC42026B50AEBF09DA8CD9CC5C55B203693B3AEC230`;
+  runtime enumeration confirmed the compact dock and all three circles visible/topmost.
+- D25 MSVC release checks and isolated circle/grid/topmost/tray fixtures passed locally;
+  physical Win+D, taskbar corner and Peek still need owner assessment.
 - Installed runtime source: `9876047` (D24 dock). CI 39124382613 caught stale topmost
   assumptions in tray and circle-drag fixtures; follow-up 39124809152 passed checks,
   fixture modes and runner integration. D23 CI 39118544698 and local tray/open-centre/
@@ -46,8 +49,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 
 ## Observed unresolved behavior and unperformed checks
 
-- Owner reports D23 failed physical Win+D/taskbar Show Desktop. D24 adds a topmost
-  recovery dock; physical Win+D / corner click / Peek assessment remains pending.
+- Owner reports the installed D24 build still hides circles on Win+D. D25 changes circles
+  and their rings to always-on-top; the installed D25 build's physical Win+D / corner click /
+  Peek behavior remains unverified pending owner assessment.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.
@@ -79,8 +83,8 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
-- Active follow-up: D24 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar
-  corner click and Peek remain pending on the owner machine.
+- Active follow-up: D25 in 2026-10-13-phase2-d-circles.md; CI and physical Win+D / taskbar
+  corner click and Peek remain pending.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Original implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

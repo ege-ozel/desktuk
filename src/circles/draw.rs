@@ -27,7 +27,7 @@ pub const SUBTEXT: u32 = win::rgb(170, 175, 185);
 
 /// A small translucent disc carrying the loaded icon (or a shared native fallback).
 pub fn drag_icon(icon: HICON, dpi: u32) -> Option<Surface> {
-    let px = win::scale(32, dpi);
+    let px = win::scale(40, dpi);
     let pad = win::scale(8, dpi);
     let d = px + 2 * pad;
     let mut s = Surface::new(d, d)?;
@@ -127,13 +127,13 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, recent: bool)
     let rim = sc(3).max(2);
     fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), if recent { RECENT_BG } else { CIRCLE_BG });
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
-    let bold = Font::new(dpi, true, 100);
-    let small = Font::new(dpi, false, 90);
-    let pad = sc(12);
+    let bold = Font::new(dpi, true, 108);
+    let small = Font::new(dpi, true, 145);
+    let pad = sc(10);
     text(
         dc,
         name,
-        win::rect(pad, d * 24 / 100, d - pad, d * 62 / 100),
+        win::rect(pad, d * 20 / 100, d - pad, d * 60 / 100),
         TEXT,
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
@@ -141,7 +141,7 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, recent: bool)
     text(
         dc,
         &count.to_string(),
-        win::rect(pad, d * 62 / 100, d - pad, d * 80 / 100),
+        win::rect(pad, d * 60 / 100, d - pad, d * 86 / 100),
         SUBTEXT,
         &small,
         DT_CENTER | DT_SINGLELINE | DT_VCENTER,

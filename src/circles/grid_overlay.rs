@@ -39,12 +39,18 @@ fn paint(layout: Layout) -> Option<Surface> {
     let pixels = surface.pixels();
     let (cx, cy) = (layout.snap.0 - left + layout.diameter / 2, layout.snap.1 - top + layout.diameter / 2);
     let stroke = (layout.diameter / 44).max(1);
+    let near_line = |coordinate: i32, extent: i32| {
+        let cell = (coordinate as i64 * n as i64 / extent as i64) as i32;
+        let before = cell * extent / n;
+        let after = (cell + 1) * extent / n;
+        coordinate - before < stroke || after - coordinate <= stroke
+    };
     for y in 0..h {
+        let row = ((y as i64 * n as i64) / h as i64) as i32;
+        let horizontal_line = near_line(y, h);
         for x in 0..w {
             let col = ((x as i64 * n as i64) / w as i64) as i32;
-            let row = ((y as i64 * n as i64) / h as i64) as i32;
-            let boundary =
-                (0..=n).any(|i| (x - i * w / n).abs() < stroke || (y - i * h / n).abs() < stroke) || x >= w - stroke || y >= h - stroke;
+            let boundary = near_line(x, w) || horizontal_line || x >= w - stroke || y >= h - stroke;
             let cross =
                 ((x - cx).abs() < stroke && (y - cy).abs() < 10 * stroke) || ((y - cy).abs() < stroke && (x - cx).abs() < 10 * stroke);
             // Premultiplied blue: clear outside target; translucent fill and bright guides.

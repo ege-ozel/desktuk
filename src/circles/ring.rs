@@ -54,6 +54,8 @@ struct Anim {
     t0: f64,
     from: f32,
     to: f32,
+    duration_ms: f64,
+    closing: bool,
 }
 
 /// Left button pressed on an item slot; becomes a drag once it moves far enough.
@@ -91,6 +93,51 @@ thread_local! {
     static RING: RefCell<Option<Ring>> = const { RefCell::new(None) };
     static NEXT_LOAD: Cell<u64> = const { Cell::new(0) };
     static OPENING: Cell<bool> = const { Cell::new(false) };
+    static MOUSE_HOOK: Cell<HHOOK> = const { Cell::new(std::ptr::null_mut()) };
+}
+
+const WM_APP_OUTSIDE_POINTER: u32 = WM_APP + 41;
+
+fn install_mouse_hook() {
+    MOUSE_HOOK.with(|hook| {
+        if !hook.get().is_null() {
+            return;
+        }
+        let instance = unsafe { GetModuleHandleW(std::ptr::null()) };
+        let installed = unsafe { SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook), instance, 0) };
+        if !installed.is_null() {
+            hook.set(installed);
+        } else {
+            dlog!("ring mouse dismissal hook failed: {}", unsafe { windows_sys::Win32::Foundation::GetLastError() });
+        }
+    });
+}
+
+fn uninstall_mouse_hook() {
+    MOUSE_HOOK.with(|hook| {
+        let installed = hook.replace(std::ptr::null_mut());
+        if !installed.is_null() {
+            unsafe { UnhookWindowsHookEx(installed) };
+        }
+    });
+}
+
+unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -> LRESULT {
+    if code >= 0 {
+        let kind = message as u32;
+        if matches!(kind, WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN) {
+            let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
+            let outside = with(|ring| hit_screen(ring, point) == RingHit::Outside).unwrap_or(false);
+            let pointer_only = kind == WM_MOUSEMOVE;
+            if outside && !(pointer_only && crate::dock::contains_screen(point)) {
+                let hwnd = with(|ring| ring.hwnd).unwrap_or(std::ptr::null_mut());
+                if !hwnd.is_null() {
+                    unsafe { PostMessageW(hwnd, WM_APP_OUTSIDE_POINTER, 0, 0) };
+                }
+            }
+        }
+    }
+    unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) }
 }
 
 struct Opening;
@@ -140,12 +187,20 @@ fn top_left(r: &Ring) -> POINT {
 }
 
 fn closing(r: &Ring) -> bool {
-    r.anim.is_some()
+    r.anim.is_some_and(|a| a.closing)
 }
 
 /// Whether a ring (not already closing) is open for the circle window `anchor`.
 pub fn is_open_for(anchor: HWND) -> bool {
     with(|r| r.anchor == anchor && !closing(r)).unwrap_or(false)
+}
+
+pub fn close_target(anchor: HWND, target: Target) -> bool {
+    let (matches, is_closing) = with(|r| (r.anchor == anchor && r.target == target, closing(r))).unwrap_or((false, false));
+    if matches && !is_closing {
+        begin_close();
+    }
+    matches
 }
 
 /// Opens the ring for `target` over the circle window `anchor`, closing any other ring.
@@ -157,10 +212,12 @@ pub fn open(anchor: HWND, target: Target) {
     close_now();
     let dpi = unsafe { GetDpiForWindow(anchor) }.max(96);
     // Query Explorer outside RING/board borrows: cross-process COM can pump messages.
-    let icon = crate::desktop_view::icon_size().unwrap_or_else(|e| {
-        dlog!("desktop icon size unavailable: {e}");
-        win::scale(48, dpi)
-    });
+    let icon = crate::desktop_view::icon_size()
+        .unwrap_or_else(|e| {
+            dlog!("desktop icon size unavailable: {e}");
+            win::scale(48, dpi)
+        })
+        .max(48); // prefer the shell's 48 px extra-large image list over a smaller desktop icon.
     if unsafe { IsWindow(anchor) } == 0 {
         return;
     }
@@ -181,7 +238,7 @@ pub fn open(anchor: HWND, target: Target) {
     let Some(surface) = Surface::new(size, size) else { return };
     let hwnd = unsafe {
         CreateWindowExW(
-            WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
             win::wide(CLASS).as_ptr(),
             win::wide("DeskTuk Ring").as_ptr(),
             WS_POPUP,
@@ -214,8 +271,14 @@ pub fn open(anchor: HWND, target: Target) {
         dpi,
         metrics: m,
         center,
-        radius: m.ring_r as f32,
-        anim: None,
+        radius: m.circle_d as f32 / 2.0,
+        anim: Some(Anim {
+            t0: diag::since_start_ms(),
+            from: m.circle_d as f32 / 2.0,
+            to: m.ring_r as f32,
+            duration_ms: geom::OPEN_MS,
+            closing: false,
+        }),
         full: None,
         surface,
         menu_open: false,
@@ -239,7 +302,9 @@ pub fn open(anchor: HWND, target: Target) {
     spawn_loader(to_load);
     unsafe {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        SetTimer(hwnd, TIMER_ANIM, FRAME_MS, None);
     }
+    install_mouse_hook();
     dlog!("ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size}", m.icon, m.per_page());
 }
 
@@ -290,6 +355,7 @@ pub fn close_now() {
     let taken = RING.with(|cell| cell.try_borrow_mut().ok().and_then(|mut g| g.take()));
     if let Some(r) = taken {
         let h = r.hwnd;
+        uninstall_mouse_hook();
         drop(r); // releases icons and the surface
         super::drag_preview::close();
         super::drag_capture::end(h);
@@ -312,9 +378,16 @@ fn begin_close() {
         if r.full.is_none() {
             r.full = Some(r.surface.pixels().to_vec());
         }
-        r.anim = Some(Anim { t0: diag::since_start_ms(), from: r.radius, to: m.circle_d as f32 / 2.0 });
+        r.anim = Some(Anim {
+            t0: diag::since_start_ms(),
+            from: r.radius,
+            to: m.circle_d as f32 / 2.0,
+            duration_ms: geom::CLOSE_MS,
+            closing: true,
+        });
         unsafe { SetTimer(r.hwnd, TIMER_ANIM, FRAME_MS, None) };
     });
+    uninstall_mouse_hook();
 }
 
 /// Re-reads the slots (after the board or the Desktop changed) and repaints.
@@ -484,12 +557,14 @@ fn tick() {
             unsafe { KillTimer(r.hwnd, TIMER_ANIM) };
             return false;
         };
-        let (rad, done) = geom::anim_radius(a.from, a.to, now - a.t0, geom::CLOSE_MS);
+        let (rad, done) = geom::anim_radius(a.from, a.to, now - a.t0, a.duration_ms);
         r.radius = rad;
         if done {
             r.anim = None;
             unsafe { KillTimer(r.hwnd, TIMER_ANIM) };
-            return true;
+            if a.closing {
+                return true;
+            }
         }
         let size = r.surface.w as usize;
         if let Some(full) = r.full.take() {
@@ -546,6 +621,10 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
         return;
     }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
+    if with(|r| hit(r, x, y) == RingHit::Outside).unwrap_or(false) {
+        begin_close();
+        return;
+    }
     let preview = with(|r| {
         if closing(r) {
             return None;
@@ -676,6 +755,10 @@ fn on_left_up(lparam: LPARAM) {
         return;
     }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
+    if with(|r| hit(r, x, y) == RingHit::Outside).unwrap_or(false) {
+        begin_close();
+        return;
+    }
     let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
     super::drag_preview::close();
     super::drag_capture::end(hwnd);
@@ -927,7 +1010,12 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             tick();
             0
         }
+        WM_APP_OUTSIDE_POINTER => {
+            close_if_outside();
+            0
+        }
         WM_DESTROY => {
+            uninstall_mouse_hook();
             // Destroyed from outside (its owner circle went away): drop the state.
             RING.with(|cell| {
                 if let Ok(mut g) = cell.try_borrow_mut() {

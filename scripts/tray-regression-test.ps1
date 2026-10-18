@@ -1,6 +1,5 @@
-param([string]$Exe = 'target/release/DeskTuk.exe', [switch]$DesktopOnly, [switch]$Topmost)
+param([string]$Exe = 'target/release/DeskTuk.exe', [switch]$Topmost)
 $ErrorActionPreference = 'Stop'
-if ($DesktopOnly -and $Topmost) { throw 'Choose either -DesktopOnly or -Topmost.' }
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $root = Join-Path $tempBase ('desktuk-tray-regression-' + [guid]::NewGuid().ToString('N'))
@@ -81,7 +80,6 @@ try {
     Set-Content -LiteralPath $file -Value 'fixture' -Encoding utf8
     $cfg = Join-Path $root 'DeskTuk/desktuk.cfg'
     Set-Content -LiteralPath $cfg -Encoding utf8 -Value "host=window`nui=circles`nx=300`ny=300`nitem=$file`nrecent=99999|99999`n"
-    if ($DesktopOnly) { Add-Content -LiteralPath $cfg -Encoding utf8 -Value 'always_on_top=0' }
     if ($Topmost) { Add-Content -LiteralPath $cfg -Encoding utf8 -Value 'always_on_top=1' }
     $fileHash = (Get-FileHash -LiteralPath $file).Hash
     $configHash = (Get-FileHash -LiteralPath $cfg).Hash
@@ -102,7 +100,7 @@ try {
         [void][TrayRegressionWin]::ShowWindow($window, 0)
         [void][TrayRegressionWin]::PostMessage($controller, 0x8005, [IntPtr]0, [IntPtr]0x10401)
         Wait-Check { [TrayRegressionWin]::IsWindowVisible($window) } "$ui keyboard tray recovery"
-        $expectTopmost=$ui -eq 'circles' -and $Topmost
+        $expectTopmost=$ui -eq 'circles'
         if ((([TrayRegressionWin]::GetWindowLong($window, -20) -band 8) -ne 0) -ne $expectTopmost) { throw 'Tray reveal changed the configured window band' }
         Write-Host "$ui tray reveal respects the configured window band : PASS"
         [void][TrayRegressionWin]::ShowWindow($window, 0)
