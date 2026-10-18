@@ -643,7 +643,7 @@ to another. Treat physical owner feedback as a failure of the current interactio
       a moving circle back at its saved position during background refresh.
 - [x] Verify native guide reuse/geometry and measure repeated cell crossings, retain
       grid Off and release-only snapping; run required MSVC checks and regressions.
-- [ ] Push, confirm code CI, deploy the checked release and preserve configuration;
+- [x] Push, confirm code CI, deploy the checked release and preserve configuration;
       record evidence and leave real pointer feel for owner assessment.
 
 D32 local evidence (2026-10-19): isolated item fixture passes overlap-covered target,
@@ -705,3 +705,26 @@ item tests pass. D32 release review also snapshots the resolved destination befo
 preview destruction/capture release/focus restoration can pump messages; assignment no
 longer consults potentially replaced ring state after release cleanup. Required MSVC
 checks and the item fixture pass for this final release-ordering fix.
+
+D32/D33 delivery (2026-10-19): Windows CI 39167200551 passed all jobs for d32b436,
+including the item-transfer fixture and runner-only integration test. Installed MSVC
+release SHA256 B141C90B19832CE237E0625E3D4CC16D503B1B727015E461D2DB4E6D15237DDC;
+restarted PID 24396. Backup: target/d33-fluid-drag/previous-installed.exe. Config hash
+before/after: AACA01B4FD0DD97FF844145B5706C6711DCCB463041B390F9D506E4D72B30533.
+Runtime enumeration confirmed the dock and all three circles visible. Owner physical
+assessment remains pending; do not treat routed-input timings as displayed FPS.
+
+### D34: Movable DeskTuk menu beside the taskbar
+
+Owner follow-up (2026-10-19): call the menu DeskTuk, and let its collapsed square move
+alongside the taskbar. Right/left taskbars use a vertical rail; bottom/top use a horizontal
+rail. Use the adjacent usable Desktop edge, leaving the taskbar's controls unobstructed.
+
+- [ ] Drag the collapsed square or expanded heading without toggling visibility or
+      firing hover actions mid-drag; preserve normal click and hover semantics.
+- [ ] Detect the selected monitor's reserved taskbar edge, clamp the menu beside it,
+      handle all four edges/DPI/display changes and persist the rail position.
+- [ ] Rename the heading to DeskTuk and verify drag, no-activation, persistence and
+      bounds with pure/native regressions; run required MSVC checks and commit/push.
+- [ ] Confirm CI, deploy the checked release and record preserved config evidence;
+      leave physical feel/taskbar placement for owner assessment.

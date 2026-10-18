@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D31 are delivered; D32 fixes item dragging; D33 targets drag costs.
+- A and D through D33 are delivered; D34 adds a movable DeskTuk menu/taskbar rail.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 
@@ -17,8 +17,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D30/D31 installed SHA256: 9290346E4C87359A9C07A34742F165787DC26AEC013B4FD794F57F479A82F1EF.
-  Code CI 39164756139 passed. Prior binary: target/d31-dock/previous-installed.exe.
+- D32/D33 installed SHA256: B141C90B19832CE237E0625E3D4CC16D503B1B727015E461D2DB4E6D15237DDC.
+  Code CI 39167200551 passed. Prior binary: target/d33-fluid-drag/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -71,7 +71,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; current follow-ups D32/D33.
+- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D34.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
