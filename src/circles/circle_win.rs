@@ -232,7 +232,7 @@ pub fn queue_pointer(hwnd: HWND, point: POINT, released: bool) {
 
 fn apply_pointer(hwnd: HWND) {
     if let Some((point, released)) = POINTER.take() {
-        move_press(hwnd, point);
+        move_press_screen(hwnd, point);
         if released {
             end_press(hwnd, true);
         }
@@ -279,6 +279,12 @@ fn update_grid(hwnd: HWND) {
 }
 
 pub fn move_press(hwnd: HWND, c: POINT) {
+    if !POINTER_ROUTE.get() {
+        move_press_screen(hwnd, c);
+    }
+}
+
+fn move_press_screen(hwnd: HWND, c: POINT) {
     if let Some(mut p) = PRESS.get().filter(|p| p.hwnd == hwnd) {
         let (dx, dy) = (c.x - p.cursor.x, c.y - p.cursor.y);
         let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);

@@ -594,3 +594,7 @@ Product review recommendation: prioritize stable movement, a discoverable move a
 brief first-use help and multi-monitor/DPI review. Keyboard/size accessibility and stale
 reference diagnostics are useful follow-ups. Keep topmost behavior as decided; defer
 legacy-panel removal until compatibility evidence exists. These remain proposals.
+
+D30 follow-up: apply the native/fallback exclusion inside the shared movement entry
+point as well as the circle message handler, so an open ring cannot replay a native
+sample while a coalesced hook sample is pending. Required MSVC checks pass again.
