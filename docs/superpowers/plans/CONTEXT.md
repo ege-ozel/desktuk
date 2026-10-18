@@ -24,8 +24,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   topmost mode available. The right-edge recovery dock stays topmost, lists Recent and
   circles, opens a selected circle, and toggles board visibility.
 - Installed runtime source: `9876047` (D24 persistent dock). Windows CI 39124382613
-  caught a stale tray-fixture expectation; its follow-up now covers default, desktop-only
-  and topmost modes. D23 run 39118544698 passed; z-order serialization is on main.
+  caught stale default-topmost assumptions in tray and circle-drag fixtures; follow-up
+  covers desktop default, desktop-only and topmost modes. D23 run 39118544698 passed.
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
 - Required MSVC checks for D24: 62 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.

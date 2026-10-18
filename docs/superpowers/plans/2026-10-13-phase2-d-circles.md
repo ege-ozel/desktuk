@@ -410,7 +410,8 @@ Installed SHA256: 748196090B2F369B77FD9D2713691C917CE3F7D3FF7D0359B90CD6BF77C4C9
 Running PID 18100 responds. DeskTuk.Dock was visible at 2150,631..2388,809 with
 WS_EX_TOPMOST and WS_EX_NOACTIVATE; three DeskTuk.Circle windows were visible. Config
 SHA256 remained EB398553552B6DC2C544735C28B118D62A6E46A76ED5759E166B25993C0ACB47
-(ui=circles, always_on_top=0). Windows CI run 39124382613 caught a tray fixture that
-still assumed omitted topmost meant enabled; the fixture/workflow now exercise the new
-desktop default, explicit desktop-only mode and topmost opt-in. Follow-up CI is pending.
+(ui=circles, always_on_top=0). CI 39124382613 caught a tray fixture that assumed omitted
+topmost meant enabled; run 39124625142 confirmed tray recovery after its update but found
+the same stale default in the circle-drag fixture. Both fixtures/workflow now exercise the
+desktop default, explicit desktop-only mode and topmost opt-in; follow-up CI is pending.
 Owner physical Win+D, corner-click and Peek assessment remains outstanding.

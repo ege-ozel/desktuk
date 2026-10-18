@@ -1,5 +1,6 @@
-param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$DesktopOnly)
+param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$DesktopOnly, [switch]$Topmost)
 $ErrorActionPreference = 'Stop'
+if ($DesktopOnly -and $Topmost) { throw 'Choose either -DesktopOnly or -Topmost.' }
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $root = Join-Path $tempBase ('desktuk-open-circle-drag-' + [guid]::NewGuid().ToString('N'))
@@ -98,6 +99,7 @@ try {
     }
     $lines=@('host=window','ui=circles',"grid=$Grid","recent=$recentX|$sourceY","circle=Music|$musicX|$sourceY")
     if ($DesktopOnly) { $lines += 'always_on_top=0' }
+    if ($Topmost) { $lines += 'always_on_top=1' }
     $files=@()
     for ($i=0;$i -lt 24;$i++) {
         $path=Join-Path $root ("fixture-ref-{0:D2}.txt" -f $i)
@@ -113,7 +115,7 @@ try {
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY) -ne [IntPtr]::Zero } 'Fixture circles created'
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
-        if (-not $DesktopOnly) {
+        if ($Topmost) {
             [void][OpenCircleDragWin]::ShowWindow($anchor,0)
             if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or ([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8 -eq 0)) { throw 'Show Desktop hide must not hide a topmost circle' }
             [void][OpenCircleDragWin]::SendMessage($anchor,0x112,[IntPtr]0xF020,[IntPtr]::Zero)
@@ -124,7 +126,7 @@ try {
         $ring=Open-Ring $p $anchor | Select-Object -Last 1
         foreach ($surface in @($anchor,$ring)) {
             $surfaceStyle=[OpenCircleDragWin]::GetWindowLong($surface,-20)
-            if ((($surfaceStyle -band 8) -ne 0) -eq $DesktopOnly.IsPresent) { throw "Circle and owned ring must follow the selected topmost mode: hwnd=$surface style=$surfaceStyle desktopOnly=$DesktopOnly" }
+            if ((($surfaceStyle -band 8) -ne 0) -ne $Topmost.IsPresent) { throw "Circle and owned ring must follow the selected topmost mode: hwnd=$surface style=$surfaceStyle topmost=$Topmost" }
         }
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
@@ -149,7 +151,7 @@ try {
         [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
         [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
         if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived button release' }
-        if ((([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -ne 0) -eq $DesktopOnly.IsPresent) { throw 'Capture cleanup changed the selected topmost mode' }
+        if ((([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -ne 0) -ne $Topmost.IsPresent) { throw 'Capture cleanup changed the selected topmost mode' }
         $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
         if ([OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring remained open during the circle move' }
