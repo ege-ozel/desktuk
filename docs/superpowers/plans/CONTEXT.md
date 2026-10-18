@@ -11,8 +11,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
 - A and D through D24 are installed; D25 is implemented, checked, deployed and CI-passed.
-  D26/D27 dock changes are built/deployed; fmt, release check/build and diff pass;
-  Clippy/tests/CI pending. B1/B2/C were superseded; B3 was delivered through D9.
+  D26/D27 dock changes are built/deployed; fmt, Clippy, release tests, build and GitHub CI
+  pass. Owner-side visual assessment remains pending. B1/B2/C were superseded; B3 via D9.
 - Owner confirmed circles should always remain topmost, including open rings. D25 removes
   the older desktop-order default and makes the current dock compact and blue.
 

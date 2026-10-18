@@ -498,10 +498,13 @@ flicker by keeping geometry stable and repainting only changed rows/the tile.
 - [x] Run required MSVC fmt, Clippy and release tests before commit (63 passed, one ignored).
 - [ ] Ask the owner to assess the fixed menu, tile, hover timing and border rendering.
 - [x] Build/deploy at the existing DeskTuk.exe location and preserve the user config.
+- [x] Pass GitHub Windows CI, including isolated UI fixtures and runner integration.
 
 Local evidence (2026-10-18): fmt, release Clippy with `-D warnings`, release tests
 (63 passed, one ignored), release build and `git diff --check` passed. Deployed
 `D:/CodeSpace/desktuk/DeskTuk.exe`, SHA256
 `8676BF6F0360C0002876BAFAB55634F7CFF6AC564F3E8D736FD4851D2379B85D`, restarted PID 10860;
 user config SHA256 stayed `A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90EF0D2778C6F`.
-GitHub CI and physical interaction review remain outstanding for D27.
+GitHub Windows CI run 39130064554 passed release build, Clippy, unit tests, all isolated
+circle/grid/tray/drag fixtures and the runner integration self-test. Only owner-side visual
+and hover assessment remains outstanding.
