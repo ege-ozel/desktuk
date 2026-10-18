@@ -18,6 +18,7 @@ public static class ItemDragWin {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint command);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
@@ -66,14 +67,6 @@ function Start-Fixture([string]$log) {
     } finally { $env:APPDATA=$previousAppData }
 }
 
-function Open-Ring($p,[IntPtr]$anchor) {
-    [void][ItemDragWin]::SendMessage($anchor,0x200,[IntPtr]::Zero,[ItemDragWin]::Point(20,20))
-    if ([ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -eq [IntPtr]::Zero) {
-        throw 'Pointer entry must create the ring synchronously without hover dwell'
-    }
-    Wait-Check { [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero } 'Ring opens'
-    [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0)
-}
 
 function Slot-Point([IntPtr]$ring,[int]$index) {
     $rect=[ItemDragWin]::Rectangle($ring)
@@ -90,7 +83,16 @@ function Slot-Point([IntPtr]$ring,[int]$index) {
 }
 function Open-At([int]$x,[int]$y) {
     $anchor=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$x,$y)
-    Open-Ring $p $anchor | Select-Object -Last 1
+    $until=[DateTime]::UtcNow.AddSeconds(6)
+    do {
+        [void][ItemDragWin]::SendMessage($anchor,0x200,[IntPtr]::Zero,[ItemDragWin]::Point(20,20))
+        $candidate=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0)
+        if ($candidate -ne [IntPtr]::Zero -and [ItemDragWin]::GetWindow($candidate,4) -eq $anchor) {
+            return $candidate
+        }
+        Start-Sleep -Milliseconds 20
+    } while ([DateTime]::UtcNow -lt $until)
+    throw 'Requested source ring did not become ready'
 }
 function Begin-Item([IntPtr]$ring,[int]$slot) {
     $point=Slot-Point $ring $slot
@@ -123,7 +125,7 @@ try {
     $hash=(Get-FileHash -LiteralPath $file).Hash
     $work=[ItemDragWin]::WorkArea()
     $d=[int][Math]::Ceiling(104*[ItemDragWin]::GetDpiForSystem()/96)
-    $sx=$work.left+300; $sy=$work.top+300
+    $sx=$work.left+120; $sy=$work.top+40
     $nearX=$sx+$d+30
     $farX=$work.right-$d-80
     $recentX=$work.left+30; $recentY=$work.bottom-$d-30
@@ -133,7 +135,7 @@ try {
     Set-Content -LiteralPath $cfg -Value ($config -join "`n") -Encoding UTF8
     $p=Start-Fixture $log
     $processes+=$p
-    Wait-Check { [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sx,$sy) -ne [IntPtr]::Zero } 'Item fixture ready'
+    Wait-Check { [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sx,$sy) -ne [IntPtr]::Zero -and [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Dock',[int]::MinValue,0) -ne [IntPtr]::Zero } 'All fixture windows ready'
     $ring=Open-At $sx $sy
     Begin-Item $ring 1
     Release-At $ring ($nearX+$d/2) ($sy+$d/2)

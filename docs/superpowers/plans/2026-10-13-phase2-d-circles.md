@@ -675,3 +675,20 @@ Explicit 4K offscreen probe: initial setup 30.4108 ms; 500 native cell updates 1
 with one frame upload and one target upload. This measures submission cost in an isolated
 fixture, not displayed frame rate or physical pointer latency. Physical feel is unverified.
 Grid remains optional and snaps on release; no dependency or idle bitmap was added.
+
+D32/D33 verification follow-up (2026-10-19): first CI 39166571640 passed compile,
+Clippy, units, circle and tray fixtures, then failed the new item fixture on the runner's
+1024x768 desktop. It observed the first source window before complete startup and an
+unrelated hovered ring (Circle(1)). The fixture now waits for the dock, verifies ring
+ownership with a bounded readiness loop, and keeps initial circles away from the small
+runner desktop's centre pointer. The synchronous-opening contract remains covered by
+the existing open-circle fixture. Updated local item-transfer checks pass.
+
+Comparative drag probe is preserved as scripts/drag-performance-test.ps1. It runs an
+isolated config, verifies the actual rectangle after every movement, and aborts on mixed
+physical input or an incorrect move. Two valid 120-cell runs of the prior installed D31
+binary took 6509.75 / 6257.37 ms; valid D33 runs took 44.71 / 44.74 / 47.48 ms on this
+machine, excluding first guide setup. D33 reported line_uploads=1, target_uploads=1,
+cell_moves=120. App CPU time also fell (6203.12 ms to 46.88 ms in the paired verification).
+Subsequent attempts during pointer activity correctly aborted rather than reporting a
+misleading speed. These are synchronous routed-input costs, not frame-rate guarantees.
