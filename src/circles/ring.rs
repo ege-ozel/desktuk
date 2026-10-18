@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, ScreenToClient, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
@@ -125,6 +125,20 @@ fn uninstall_mouse_hook() {
 unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -> LRESULT {
     if code >= 0 {
         let kind = message as u32;
+        if matches!(kind, WM_MOUSEMOVE | WM_LBUTTONUP) {
+            if let Some(anchor) = circle_win::pressed_window() {
+                if !super::drag_capture::is_active_for(anchor) {
+                    let mut point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
+                    if unsafe { ScreenToClient(anchor, &mut point) } != 0 {
+                        let msg = if kind == WM_MOUSEMOVE { WM_MOUSEMOVE } else { WM_LBUTTONUP };
+                        let keys = if kind == WM_MOUSEMOVE { 1 } else { 0 };
+                        let packed = ((point.x as u16 as u32) | ((point.y as u16 as u32) << 16)) as isize;
+                        unsafe { PostMessageW(anchor, msg, keys, packed) };
+                    }
+                }
+                return unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) };
+            }
+        }
         if matches!(kind, WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN) {
             let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
             let outside = with(|ring| hit_screen(ring, point) == RingHit::Outside).unwrap_or(false);
@@ -355,7 +369,9 @@ pub fn close_now() {
     let taken = RING.with(|cell| cell.try_borrow_mut().ok().and_then(|mut g| g.take()));
     if let Some(r) = taken {
         let h = r.hwnd;
-        uninstall_mouse_hook();
+        if circle_win::pressed_window().is_none() {
+            uninstall_mouse_hook();
+        }
         drop(r); // releases icons and the surface
         super::drag_preview::close();
         super::drag_capture::end(h);
@@ -370,6 +386,9 @@ pub fn close_now() {
 }
 
 fn begin_close() {
+    if circle_win::pressed_window().is_some() {
+        return;
+    }
     with(|r| {
         if closing(r) {
             return;
@@ -388,6 +407,19 @@ fn begin_close() {
         unsafe { SetTimer(r.hwnd, TIMER_ANIM, FRAME_MS, None) };
     });
     uninstall_mouse_hook();
+}
+
+/// Keep a short-lived global fallback while dragging a circle. A no-activate layered
+/// window can be denied foreground mouse capture; the hook then routes only movement
+/// and release until the press ends, so the grid and drag cannot become stranded.
+pub fn circle_drag_started() {
+    install_mouse_hook();
+}
+
+pub fn circle_drag_finished() {
+    if with(|_| true).is_none() {
+        uninstall_mouse_hook();
+    }
 }
 
 /// Re-reads the slots (after the board or the Desktop changed) and repaints.
@@ -604,6 +636,9 @@ fn cursor_pos() -> POINT {
 
 /// Starts closing if the pointer is no longer over the ring (after a menu or a drag).
 fn close_if_outside() {
+    if circle_win::pressed_window().is_some() {
+        return;
+    }
     let outside = with(|r| hit_screen(r, cursor_pos()) == RingHit::Outside).unwrap_or(false);
     if outside {
         begin_close();
@@ -1015,7 +1050,9 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             0
         }
         WM_DESTROY => {
-            uninstall_mouse_hook();
+            if circle_win::pressed_window().is_none() {
+                uninstall_mouse_hook();
+            }
             // Destroyed from outside (its owner circle went away): drop the state.
             RING.with(|cell| {
                 if let Ok(mut g) = cell.try_borrow_mut() {

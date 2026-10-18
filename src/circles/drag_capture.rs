@@ -23,6 +23,10 @@ pub fn is_active() -> bool {
     ACTIVE.get().is_some()
 }
 
+pub fn is_active_for(hwnd: HWND) -> bool {
+    ACTIVE.get().is_some_and(|capture| capture.hwnd == hwnd)
+}
+
 pub fn begin(hwnd: HWND) -> bool {
     if let Some(old) = ACTIVE.take() {
         finish(old);

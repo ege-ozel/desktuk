@@ -50,6 +50,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   Peek behavior remains unverified pending owner assessment.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
+- Owner reports that dragging a circle after opening its ring can stall and leave the grid
+  visible. D28 adds a temporary low-level mouse fallback when foreground capture is denied;
+  its Windows fixture and CI verification are pending.
 - Actual reboot/login with startup enabled.
 - Real Explorer restart and tray/window recovery on the owner's machine.
 - Physical menu/show-hide interaction, alternate sizes/DPI and visual quality.

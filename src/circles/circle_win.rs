@@ -201,6 +201,10 @@ pub fn is_pressed(hwnd: HWND) -> bool {
     PRESS.get().map(|p| p.hwnd == hwnd).unwrap_or(false)
 }
 
+pub fn pressed_window() -> Option<HWND> {
+    PRESS.get().map(|p| p.hwnd)
+}
+
 /// A press on the open ring's centre belongs to its circle, just like a closed press.
 pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
     begin_press(hwnd, at, true);
@@ -213,6 +217,7 @@ fn begin_press(hwnd: HWND, at: POINT, ring_click: bool) {
     }
     let r = win::window_rect(hwnd);
     PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, ring_click }));
+    ring::circle_drag_started();
     let captured = super::drag_capture::begin(hwnd);
     dlog!("circle press hwnd={hwnd:?} from_ring={ring_click} captured={captured}");
     if !captured {
@@ -281,6 +286,7 @@ pub fn end_press(hwnd: HWND, released: bool) {
     let Some(p) = PRESS.take() else { return };
     super::grid_overlay::close();
     super::drag_capture::end(hwnd); // PRESS is already empty before message-pumping calls
+    ring::circle_drag_finished();
     let Some(which) = super::which_of(hwnd) else { return };
     if p.moving {
         let r = win::window_rect(hwnd);

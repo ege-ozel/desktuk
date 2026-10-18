@@ -508,3 +508,18 @@ user config SHA256 stayed `A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90
 GitHub Windows CI run 39130064554 passed release build, Clippy, unit tests, all isolated
 circle/grid/tray/drag fixtures and the runner integration self-test. Only owner-side visual
 and hover assessment remains outstanding.
+
+### D28: Keep circle drag and grid state alive after ring expansion
+
+Owner report (2026-10-18): after hovering a circle open, dragging it can stop responding
+and leave the snap-grid guide visible. A denied foreground mouse capture can strand the
+press when the pointer leaves the ring and its outside-dismiss hook closes.
+
+- [x] Route physical pointer movement/release to the pressed circle while temporary
+      capture is unavailable; keep the short-lived hook through ring destruction.
+- [x] Ignore outside-ring dismissal while a circle press is active; clean up the grid,
+      capture and fallback hook on release/cancel/capture loss.
+- [x] Verify open-ring drag and grid lifecycle with the isolated Windows fixture and the
+      required MSVC fmt, Clippy and release test commands.
+- [ ] Commit the fix and evidence; confirm GitHub Windows CI passes.
+- [ ] Owner assesses physical open-ring circle dragging and grid snap.
