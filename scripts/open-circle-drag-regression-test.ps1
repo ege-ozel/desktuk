@@ -1,5 +1,18 @@
-param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$Topmost)
+param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$Topmost, [string]$PreviewDir)
 $ErrorActionPreference = 'Stop'
+function Save-DockPreview([IntPtr]$window,[string]$name) {
+    if (-not $PreviewDir) { return }
+    Add-Type -AssemblyName System.Drawing
+    $null=New-Item -ItemType Directory -Path $PreviewDir -Force
+    $r=[OpenCircleDragWin]::Rectangle($window)
+    $bitmap=New-Object Drawing.Bitmap ($r.right-$r.left),($r.bottom-$r.top)
+    $graphics=[Drawing.Graphics]::FromImage($bitmap)
+    $dc=$graphics.GetHdc()
+    try { [void][OpenCircleDragWin]::PrintWindow($window,$dc,2) }
+    finally { $graphics.ReleaseHdc($dc); $graphics.Dispose() }
+    try { $bitmap.Save((Join-Path $PreviewDir $name),[Drawing.Imaging.ImageFormat]::Png) }
+    finally { $bitmap.Dispose() }
+}
 $build = (Resolve-Path -LiteralPath $Exe).Path
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $root = Join-Path $tempBase ('desktuk-open-circle-drag-' + [guid]::NewGuid().ToString('N'))
@@ -17,6 +30,7 @@ public static class OpenCircleDragWin {
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
@@ -112,6 +126,31 @@ try {
     $p=Start-Fixture $log
     $processes+=$p
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY) -ne [IntPtr]::Zero } 'Fixture circles created'
+    # Route only messages to the isolated dock: collapse must leave the visibility
+    # square usable, and the existing tray/show action must restore the full menu.
+    $dock=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Dock',[int]::MinValue,0)
+    Save-DockPreview $dock "expanded.png"
+    $dockRect=[OpenCircleDragWin]::Rectangle($dock)
+    $dpi=[OpenCircleDragWin]::GetDpiForSystem()
+    $arrowX=$dockRect.right-$dockRect.left-[Math]::Round(18*$dpi/96)
+    $arrowY=[Math]::Round(20*$dpi/96)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$arrowX,$arrowY)
+    Save-DockPreview $dock "collapsed.png"
+    $collapsed=[OpenCircleDragWin]::Rectangle($dock)
+    $side=[Math]::Floor((64*$dpi+48)/96)
+    if ($collapsed.right-$collapsed.left -ne $side -or $collapsed.bottom-$collapsed.top -ne $side) { throw 'Collapsed dock must contain only the padded square' }
+    $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$recentX,$sourceY)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsing menu changed circle visibility' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    if ([OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsed visibility square did not hide circles' }
+    [void][OpenCircleDragWin]::SendMessage($dock,0x2A3,[IntPtr]::Zero,[IntPtr]::Zero)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsed visibility square did not show circles' }
+    $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
+    [void][OpenCircleDragWin]::SendMessage($controller,0x8006,[IntPtr]::Zero,[IntPtr]::Zero)
+    $restored=[OpenCircleDragWin]::Rectangle($dock)
+    if ($restored.right-$restored.left -ne $dockRect.right-$dockRect.left -or $restored.bottom-$restored.top -ne $dockRect.bottom-$dockRect.top) { throw 'Show action did not restore the menu' }
+    Write-Host 'Compact dock collapse, visibility square and menu recovery : PASS'
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
         [void][OpenCircleDragWin]::ShowWindow($anchor,0)
@@ -200,7 +239,7 @@ try {
     Write-Host 'Mouse movement/clicks were routed messages; the physical cursor was not moved.'
 } catch {
     if (Test-Path -LiteralPath $log) {
-        Get-Content -LiteralPath $log | Select-String -Pattern 'display:|ring opened|circle press|drag capture|drag foreground|foreground ->' |
+        Get-Content -LiteralPath $log | Select-String -Pattern 'display:|ring|circle press|drag capture|drag foreground|foreground ->|app shown|app hidden' |
             Select-Object -Last 30 | ForEach-Object { Write-Host $_.Line }
     }
     throw

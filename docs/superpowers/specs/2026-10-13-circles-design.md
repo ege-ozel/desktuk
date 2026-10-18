@@ -65,6 +65,12 @@ on a closed circle or an open ring's centre moves the circle. A left click on an
 centre keeps its page-turn behavior. The recovery dock uses the Windows icon-title font so
 its labels match the desktop's native item labels.
 
+**Owner follow-up (2026-10-18, D31):** keep equal outer side padding around the dock's
+visibility row and fit its width to the native-font labels. A dropdown arrow at the right
+of the Desktop heading hides the menu, leaving only the visibility square. Square click
+or its existing hover dwell still toggles circles. Right-click offers Menüyü göster /
+Menüyü gizle; tray/show recovery restores the full menu. Collapse is session-only.
+
 **Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):
 

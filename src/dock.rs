@@ -5,12 +5,12 @@
 
 use std::cell::Cell;
 
-use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
+use windows_sys::Win32::Foundation::{HWND, POINT, RECT, SIZE};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect,
-    ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, LOGFONTW,
-    PAINTSTRUCT, TRANSPARENT,
+    BeginPaint, CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, GetDC,
+    GetTextExtentPoint32W, InvalidateRect, ReleaseDC, ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT,
+    DT_NOPREFIX, DT_RIGHT, DT_SINGLELINE, DT_VCENTER, HFONT, LOGFONTW, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
@@ -31,7 +31,8 @@ const ROW_HOVER: u32 = win::rgb(44, 78, 120);
 const TEAL: u32 = win::rgb(100, 220, 190);
 const SWITCH_BG: u32 = win::rgb(45, 55, 66);
 const MAX_ROWS: usize = 7;
-const WIDTH: i32 = 224;
+const PAD: i32 = 8;
+const LABEL_GAP: i32 = 10;
 const HEADER_H: i32 = 40;
 const ACTION_SIZE: i32 = 48;
 const GAP: i32 = 4;
@@ -45,6 +46,7 @@ enum Entry {
 }
 
 thread_local! {
+    static EXPANDED: Cell<bool> = const { Cell::new(true) };
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static SCROLL: Cell<usize> = const { Cell::new(0) };
     static TRACKING: Cell<bool> = const { Cell::new(false) };
@@ -65,22 +67,82 @@ fn rows() -> Vec<(Entry, String)> {
     rows
 }
 
+fn icon_title_font(dpi: u32) -> HFONT {
+    let mut font: LOGFONTW = unsafe { std::mem::zeroed() };
+    unsafe {
+        SystemParametersInfoForDpi(
+            SPI_GETICONTITLELOGFONT,
+            std::mem::size_of::<LOGFONTW>() as u32,
+            (&mut font as *mut LOGFONTW).cast(),
+            0,
+            dpi,
+        );
+        CreateFontIndirectW(&font)
+    }
+}
+
+fn expanded_width(dpi: u32) -> i32 {
+    let hdc = unsafe { GetDC(std::ptr::null_mut()) };
+    if hdc.is_null() {
+        return scale(208, dpi);
+    }
+    let font = icon_title_font(dpi);
+    let old = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
+    let mut text_width = 0;
+    for label in ["Daireleri gizle", "Daireleri göster"] {
+        let text = win::wide(label);
+        let mut size: SIZE = unsafe { std::mem::zeroed() };
+        if unsafe { GetTextExtentPoint32W(hdc, text.as_ptr(), (text.len() - 1) as i32, &mut size) } != 0 {
+            text_width = text_width.max(size.cx);
+        }
+    }
+    unsafe {
+        if !old.is_null() {
+            SelectObject(hdc, old);
+        }
+        if !font.is_null() {
+            DeleteObject(font);
+        }
+        ReleaseDC(std::ptr::null_mut(), hdc);
+    }
+    scale(PAD * 2 + ACTION_SIZE + LABEL_GAP, dpi) + if text_width > 0 { text_width } else { scale(96, dpi) }
+}
+
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
+    if !EXPANDED.get() {
+        let side = scale(ACTION_SIZE + PAD * 2, dpi);
+        return (side, side);
+    }
     let visible = visible_row_count(dpi, count) as i32;
-    (scale(WIDTH, dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H, dpi))
+    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H, dpi))
 }
 
 fn action_rect(dpi: u32) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
-    let left = scale(8, dpi);
-    let top = scale(HEADER_H + GAP, dpi);
+    let left = scale(PAD, dpi);
+    let top = scale(if EXPANDED.get() { HEADER_H + GAP } else { PAD }, dpi);
     win::rect(left, top, left + size, top + size)
+}
+
+fn arrow_rect(dpi: u32) -> RECT {
+    let width = expanded_width(dpi);
+    win::rect(width - scale(36, dpi), 0, width, scale(HEADER_H, dpi))
+}
+
+fn set_expanded(hwnd: HWND, expanded: bool) {
+    EXPANDED.set(expanded);
+    unsafe { KillTimer(hwnd, ACTION_TIMER) };
+    ACTION_INSIDE.set(false);
+    ACTION_HOVER.set(false);
+    HOVER_ROW.set(-1);
+    place(hwnd);
+    unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
 }
 
 fn row_rect(dpi: u32, index: usize) -> RECT {
     let scroll = SCROLL.with(Cell::get);
     let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi) + index.saturating_sub(scroll) as i32 * scale(ROW_H, dpi);
-    win::rect(scale(8, dpi), top, scale(WIDTH - 8, dpi), top + scale(ROW_H, dpi))
+    win::rect(scale(8, dpi), top, expanded_width(dpi) - scale(PAD, dpi), top + scale(ROW_H, dpi))
 }
 
 fn visible_row_count(dpi: u32, count: usize) -> usize {
@@ -184,6 +246,7 @@ pub fn create() {
 }
 
 pub fn show() {
+    EXPANDED.set(true);
     WINDOW.with(|window| {
         let hwnd = window.get();
         if !hwnd.is_null() && unsafe { IsWindow(hwnd) } != 0 {
@@ -227,44 +290,42 @@ fn paint(hwnd: HWND) {
     let scroll = SCROLL.with(Cell::get).min(count.saturating_sub(visible_count));
     let row_h = scale(ROW_H, dpi);
     let header_h = scale(HEADER_H, dpi);
-    let action_size = scale(ACTION_SIZE, dpi);
+
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
     let teal = unsafe { CreateSolidBrush(TEAL) };
     let hover = unsafe { CreateSolidBrush(ROW_HOVER) };
     let switch_bg = unsafe { CreateSolidBrush(SWITCH_BG) };
     let switch_on = circles::any_visible();
-    let mut icon_font: LOGFONTW = unsafe { std::mem::zeroed() };
-    unsafe {
-        SystemParametersInfoForDpi(
-            SPI_GETICONTITLELOGFONT,
-            std::mem::size_of::<LOGFONTW>() as u32,
-            (&mut icon_font as *mut LOGFONTW).cast(),
-            0,
-            dpi,
-        );
-    }
-    let font: HFONT = unsafe { CreateFontIndirectW(&icon_font) };
+    let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let header_tile = win::rect(0, 0, client.right, header_h);
-    let switch_top = header_h + scale(GAP, dpi);
-    let switch_bottom = switch_top + action_size;
-    let switch_left = scale(8, dpi);
-    let switch_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
+    let switch_rect = action_rect(dpi);
+    let switch_top = switch_rect.top;
+    let switch_bottom = switch_rect.bottom;
+    let switch_left = switch_rect.left;
+    let action_size = switch_rect.right - switch_left;
     let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
-        FillRect(hdc, &header_tile, hover);
+        if EXPANDED.get() {
+            FillRect(hdc, &header_tile, hover);
+        }
         FrameRect(hdc, &border, accent);
         SetBkMode(hdc, TRANSPARENT as i32);
-        SetTextColor(hdc, TEAL);
-        let mut mark_glyph = win::wide("◉");
-        let mut mark_rect = win::rect(scale(10, dpi), 0, scale(38, dpi), header_h);
-        DrawTextW(hdc, mark_glyph.as_mut_ptr(), -1, &mut mark_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        SetTextColor(hdc, TEXT);
-        let mut title = win::wide("DeskTuk");
-        let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(8, dpi), header_h - scale(2, dpi));
-        DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        if EXPANDED.get() {
+            SetTextColor(hdc, TEAL);
+            let mut mark_glyph = win::wide("◉");
+            let mut mark_rect = win::rect(scale(10, dpi), 0, scale(38, dpi), header_h);
+            DrawTextW(hdc, mark_glyph.as_mut_ptr(), -1, &mut mark_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SetTextColor(hdc, TEXT);
+            let mut title = win::wide("Desktop");
+            let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(36, dpi), header_h - scale(2, dpi));
+            DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            let mut arrow = win::wide("⌄");
+            let mut arrow_area = arrow_rect(dpi);
+            DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
         FillRect(hdc, &switch_rect, if switch_on { teal } else { switch_bg });
         FrameRect(hdc, &switch_rect, if switch_on { teal } else { accent });
         SetTextColor(hdc, if switch_on { BG } else { TEAL });
@@ -272,21 +333,23 @@ fn paint(hwnd: HWND) {
         let mut toggle_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
         DrawTextW(hdc, toggle_glyph.as_mut_ptr(), -1, &mut toggle_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         SetTextColor(hdc, TEXT);
-        let mut action = win::wide(if switch_on { "Daireleri gizle" } else { "Daireleri göster" });
-        let mut action_text =
-            win::rect(switch_left + action_size + scale(10, dpi), switch_top, client.right - scale(8, dpi), switch_bottom);
-        DrawTextW(hdc, action.as_mut_ptr(), -1, &mut action_text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        SetTextColor(hdc, SUBTEXT);
-        for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
-            let index = scroll + visible_index;
-            let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
-            let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
-            if HOVER_ROW.with(Cell::get) == index as isize {
-                FillRect(hdc, &row, hover);
+        if EXPANDED.get() {
+            let mut action = win::wide(if switch_on { "Daireleri gizle" } else { "Daireleri göster" });
+            let mut action_text =
+                win::rect(switch_left + action_size + scale(10, dpi), switch_top, client.right - scale(8, dpi), switch_bottom);
+            DrawTextW(hdc, action.as_mut_ptr(), -1, &mut action_text, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SetTextColor(hdc, SUBTEXT);
+            for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
+                let index = scroll + visible_index;
+                let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
+                let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
+                if HOVER_ROW.with(Cell::get) == index as isize {
+                    FillRect(hdc, &row, hover);
+                }
+                let mut label = win::wide(&entries[index].1);
+                let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
+                DrawTextW(hdc, label.as_mut_ptr(), -1, &mut label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             }
-            let mut label = win::wide(&entries[index].1);
-            let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
-            DrawTextW(hdc, label.as_mut_ptr(), -1, &mut label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
         DeleteObject(bg);
         DeleteObject(accent);
@@ -325,10 +388,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let x = win::x_lparam(lparam);
             let y = win::y_lparam(lparam);
             let dpi = GetDpiForWindow(hwnd).max(96);
-            let action_top = scale(HEADER_H + GAP, dpi);
-            let action_bottom = action_top + scale(ACTION_SIZE, dpi);
-            let action_left = scale(8, dpi);
-            let action_right = action_left + scale(ACTION_SIZE, dpi);
+            let action = action_rect(dpi);
+            let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
             let hovering_action = x >= action_left && x < action_right && y >= action_top && y < action_bottom;
             if hovering_action && !ACTION_INSIDE.replace(true) {
                 unsafe { SetTimer(hwnd, ACTION_TIMER, ACTION_DWELL_MS, None) };
@@ -340,8 +401,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let entries = rows();
             let list_top = action_bottom + scale(GAP, dpi);
             let scroll = SCROLL.with(Cell::get);
-            let list_index =
-                if y >= list_top { Some(scroll.saturating_add(((y - list_top) / scale(ROW_H, dpi).max(1)) as usize)) } else { None };
+            let list_index = if EXPANDED.get() && y >= list_top {
+                Some(scroll.saturating_add(((y - list_top) / scale(ROW_H, dpi).max(1)) as usize))
+            } else {
+                None
+            };
             let next_hover =
                 list_index.filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len())).map_or(-1, |i| i as isize);
             let previous_hover = HOVER_ROW.replace(next_hover);
@@ -373,10 +437,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
         WM_TIMER if wparam == ACTION_TIMER => {
             let mut cursor = POINT { x: 0, y: 0 };
             let dpi = GetDpiForWindow(hwnd).max(96);
-            let action_top = scale(HEADER_H + GAP, dpi);
-            let action_bottom = action_top + scale(ACTION_SIZE, dpi);
-            let action_left = scale(8, dpi);
-            let action_right = action_left + scale(ACTION_SIZE, dpi);
+            let action = action_rect(dpi);
+            let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
             let inside = unsafe { GetCursorPos(&mut cursor) != 0 && ScreenToClient(hwnd, &mut cursor) != 0 }
                 && cursor.x >= action_left
                 && cursor.x < action_right
@@ -397,11 +459,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let dpi = GetDpiForWindow(hwnd).max(96);
             let x = win::x_lparam(lparam);
             let y = win::y_lparam(lparam);
-            let action_top = scale(HEADER_H + GAP, dpi);
-            let action_bottom = action_top + scale(ACTION_SIZE, dpi);
-            let action_left = scale(8, dpi);
-            let action_right = action_left + scale(ACTION_SIZE, dpi);
-            if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
+            let action = action_rect(dpi);
+            let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
+            if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
+                set_expanded(hwnd, false);
+            } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
                 unsafe { KillTimer(hwnd, ACTION_TIMER) };
                 if !ACTION_HOVER.replace(true) {
                     circles::toggle_visibility();
@@ -409,7 +471,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                     unsafe { InvalidateRect(hwnd, &rect, 0) };
                 }
                 ACTION_INSIDE.set(true);
-            } else if y >= action_bottom + scale(GAP, dpi) {
+            } else if EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
                 let entries = rows();
                 let start = action_bottom + scale(GAP, dpi);
                 let visible = visible_row_count(dpi, entries.len());
@@ -426,6 +488,25 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             }
             0
         }
+        WM_RBUTTONUP => {
+            KillTimer(hwnd, ACTION_TIMER);
+            let menu = CreatePopupMenu();
+            if !menu.is_null() {
+                let label = win::wide(if EXPANDED.get() { "Menüyü gizle" } else { "Menüyü göster" });
+                AppendMenuW(menu, MF_STRING, 1, label.as_ptr());
+                let mut point = POINT { x: 0, y: 0 };
+                GetCursorPos(&mut point);
+                SetForegroundWindow(hwnd);
+                let command =
+                    TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, point.x, point.y, 0, hwnd, std::ptr::null());
+                DestroyMenu(menu);
+                if command == 1 {
+                    set_expanded(hwnd, !EXPANDED.get());
+                }
+            }
+            0
+        }
+        WM_MOUSEWHEEL if !EXPANDED.get() => 0,
         WM_MOUSEWHEEL => {
             let delta = ((wparam >> 16) as i16).signum();
             if delta == 0 {
@@ -492,8 +573,16 @@ mod tests {
 
     #[test]
     fn dock_dimensions_scale_with_dpi() {
-        assert_eq!(dimensions(96, 1).0, 224);
-        assert_eq!(dimensions(192, 8).0, 448);
+        EXPANDED.set(true);
+        let width = dimensions(96, 1).0;
+        assert!(width > ACTION_SIZE + PAD * 2 + LABEL_GAP);
+        assert!(dimensions(192, 8).0 >= width * 2 - 4);
+        EXPANDED.set(false);
+        assert_eq!(dimensions(96, 8), (64, 64));
+        assert_eq!(dimensions(192, 8), (128, 128));
+        let action = action_rect(192);
+        assert_eq!((action.left, action.top, 128 - action.right, 128 - action.bottom), (16, 16, 16, 16));
+        EXPANDED.set(true);
         assert_eq!(scale(ACTION_DWELL_MS as i32, 192), 600);
         assert_eq!(scale(ROW_H, 192), 56);
     }

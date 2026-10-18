@@ -577,10 +577,11 @@ lines or arbitrary positions; opening Print Screen appears to clear it.
 Owner request (2026-10-18): equal side padding around the visibility row, a dropdown
 arrow at the right of the Desktop heading, and only the visibility square when hidden.
 
-- [ ] Fit the expanded dock to its native-font action label with equal outer padding.
-- [ ] Add a header arrow to collapse to the visibility square; square context menu restores
+- [x] Fit the expanded dock to its native-font action label with equal outer padding.
+- [x] Add a header arrow to collapse to the visibility square; square context menu restores
       the menu without changing circle visibility. Keep click/hover toggle behavior.
-- [ ] Verify layout/interaction, required MSVC checks and CI; deploy checked release.
+- [x] Verify layout/interaction and required MSVC checks.
+- [ ] Confirm GitHub Windows CI and deploy the checked release.
 
 D30 local evidence (2026-10-18): Windows MSVC fmt, release Clippy with -D warnings,
 64 release tests (one ignored), release build and isolated open-circle Grid=3/Topmost
@@ -598,3 +599,15 @@ legacy-panel removal until compatibility evidence exists. These remain proposals
 D30 follow-up: apply the native/fallback exclusion inside the shared movement entry
 point as well as the circle message handler, so an open ring cannot replay a native
 sample while a coalesced hook sample is pending. Required MSVC checks pass again.
+
+D31 local evidence (2026-10-18): Windows MSVC fmt, release Clippy (-D warnings),
+64 release tests (one ignored), release build and isolated open-circle fixtures with
+Grid=0 and Grid=3/Topmost passed. The fixture verifies exact DPI-scaled 64x64 collapsed
+bounds, hide/show through the remaining square, unchanged circle visibility on collapse,
+and expanded-menu recovery via the existing show action. Native PrintWindow previews
+were inspected in target/d31-preview; the expanded width is 153 px at this system's
+96 DPI, down from 224 px. Visibility text is right-aligned to the same 8 px outer margin
+as the square. Two earlier fixture runs saw a ring close during its pre-drag settle;
+subsequent full runs passed; physical outside-pointer interference is not excluded.
+The hidden menu can also be restored via square right-click > Menüyü göster.
+Collapse state remains session-only. No physical mouse/keyboard input was generated.
