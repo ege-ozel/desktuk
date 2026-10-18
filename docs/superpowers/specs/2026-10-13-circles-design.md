@@ -81,6 +81,15 @@ cells. Background enumeration/repainting and shell/working-set cleanup defer unt
 finishes. Keep grid Off available and snap only on release. Physical feel remains an
 owner acceptance check; synthetic input/submit timing cannot establish displayed smoothness.
 
+**Owner follow-up (2026-10-19, D34):** name the dock heading **DeskTuk**. Left-drag its
+collapsed visibility square or expanded heading to reposition it along the selected
+monitor's taskbar-adjacent usable edge. Right/left edges form a vertical rail; top/bottom
+form a horizontal rail. Prefer a reserved taskbar/appbar edge, falling back to the nearest
+usable edge when no reservation is visible. Keep the full menu inside the work area and
+leave the taskbar unobstructed. Save the clamped anchor as `dock_pos=x|y`; old configs
+retain automatic placement. Cancel restores the saved anchor. Dragging pauses hover
+visibility actions and never activates the dock. Menu collapse stays session-only.
+
 **Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):
 

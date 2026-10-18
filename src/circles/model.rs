@@ -31,6 +31,8 @@ pub struct Board {
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
+    /// Saved anchor beside the taskbar, in screen pixels.
+    pub dock_pos: Option<(i32, i32)>,
     /// Global work-area grid: 0 = off, otherwise 2, 3 or 4 cells per axis.
     pub grid: u8,
     pub always_on_top: bool,
@@ -38,7 +40,7 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self { circles: Vec::new(), recent_pos: None, grid: 0, always_on_top: true }
+        Self { circles: Vec::new(), recent_pos: None, dock_pos: None, grid: 0, always_on_top: true }
     }
 }
 
@@ -272,9 +274,13 @@ impl Board {
                 };
                 self.assign(Path::new(p), to);
             }
-            "recent" => {
+            "recent" | "dock_pos" => {
                 let parsed = value.split_once('|').and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
-                self.recent_pos = parsed;
+                if key == "recent" {
+                    self.recent_pos = parsed;
+                } else {
+                    self.dock_pos = parsed;
+                }
             }
             _ => return false,
         }
@@ -298,6 +304,9 @@ impl Board {
         s += "always_on_top=1\n";
         if self.grid != 0 {
             s += &format!("grid={}\n", self.grid);
+        }
+        if let Some((x, y)) = self.dock_pos {
+            s += &format!("dock_pos={x}|{y}\n");
         }
         if let Some((x, y)) = self.recent_pos {
             s += &format!("recent={x}|{y}\n");
@@ -419,6 +428,7 @@ mod tests {
         b.assign(&p(r"C:\Users\x\Desktop\a b\song.wav"), Place::Group(m, g));
         b.add_circle("Books", (5, 6));
         b.recent_pos = Some((1600, 80));
+        b.dock_pos = Some((-1900, 400));
         let text = b.render();
         assert!(text.contains("circle=Music|120|-40\n"));
         assert!(text.contains("citem=Music||C:\\Users\\x\\Desktop\\notes.txt\n"));

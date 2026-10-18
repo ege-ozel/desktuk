@@ -13,6 +13,8 @@ mod config;
 mod desktop_view;
 mod diag;
 mod dock;
+mod dock_drag;
+mod dock_layout;
 mod host;
 mod items;
 mod node;

@@ -24,7 +24,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   preserves release, and prevents native/routed streams from moving the same press twice.
   Local MSVC checks, 1,000-sample queue test and Grid=3 open-circle fixture pass.
 - D31 sizes the dock to its Windows icon-title font, with equal side padding. The
-  Desktop heading's right arrow collapses it to the visibility square. Right-click
+  DeskTuk heading's right arrow collapses it to the visibility square. Right-click
   offers menu show/hide; tray/show recovery restores the expanded dock.
   Collapse state is session-only. Physical visual/interaction assessment is pending.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -38,6 +38,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D33 uploads grid lines once and moves a reusable target-cell window. Circle/Desktop
   refresh, metadata repaint and memory cleanup defer until interaction ends. Native
   geometry/reuse tests, held-refresh regression and explicit 500-cell/4K probe pass.
+
+- D34 adds left dragging for the collapsed square/expanded DeskTuk heading. The dock
+  follows the current monitor's reserved taskbar edge and persists dock_pos=x|y.
+  Four-edge/negative-coordinate tests and native drag/restart/cancel checks pass locally.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.

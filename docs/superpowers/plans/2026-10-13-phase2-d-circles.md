@@ -720,11 +720,23 @@ Owner follow-up (2026-10-19): call the menu DeskTuk, and let its collapsed squar
 alongside the taskbar. Right/left taskbars use a vertical rail; bottom/top use a horizontal
 rail. Use the adjacent usable Desktop edge, leaving the taskbar's controls unobstructed.
 
-- [ ] Drag the collapsed square or expanded heading without toggling visibility or
+- [x] Drag the collapsed square or expanded heading without toggling visibility or
       firing hover actions mid-drag; preserve normal click and hover semantics.
-- [ ] Detect the selected monitor's reserved taskbar edge, clamp the menu beside it,
+- [x] Detect the selected monitor's reserved taskbar edge, clamp the menu beside it,
       handle all four edges/DPI/display changes and persist the rail position.
-- [ ] Rename the heading to DeskTuk and verify drag, no-activation, persistence and
+- [x] Rename the heading to DeskTuk and verify drag, no-activation, persistence and
       bounds with pure/native regressions; run required MSVC checks and commit/push.
 - [ ] Confirm CI, deploy the checked release and record preserved config evidence;
       leave physical feel/taskbar placement for owner assessment.
+
+D34 local evidence (2026-10-19): required Windows MSVC fmt, release Clippy (-D warnings),
+65 release tests (two explicit ignored probes), release build, Grid=3/Topmost open-circle
+fixture and item-transfer fixture pass. Pure rail tests cover left/right/top/bottom
+reserved edges, auto-hide/no-reservation nearest-edge fallback, negative coordinates,
+clamping and both compact/expanded dimensions. Board round-trip preserves dock_pos.
+The native fixture verifies collapsed dragging stays on the rail, does not toggle circles
+or steal foreground, suppresses the hover timer, saves/reloads its position, and restores
+saved state on cancelled expanded-heading drag. PrintWindow previews were inspected at
+target/d34-dock-preview; the heading now reads DeskTuk. No physical input was generated.
+Temporary pointer tracking coalesces screen samples and does not request foreground or
+alter Explorer's taskbar. No new dependency, persistent bitmap or idle timer was added.

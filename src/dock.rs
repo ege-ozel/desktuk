@@ -12,6 +12,7 @@ use windows_sys::Win32::Graphics::Gdi::{
     GetTextExtentPoint32W, InvalidateRect, ReleaseDC, ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT,
     DT_NOPREFIX, DT_RIGHT, DT_SINGLELINE, DT_VCENTER, HFONT, LOGFONTW, PAINTSTRUCT, TRANSPARENT,
 };
+use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
@@ -20,7 +21,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE
 use windows_sys::Win32::UI::WindowsAndMessaging::{SPI_GETICONTITLELOGFONT, *};
 
 use crate::circles::circle_win::Which;
-use crate::{app, circles, win};
+use crate::{app, circles, dock_drag, dock_layout, win};
 
 const CLASS: &str = "DeskTuk.Dock";
 const BG: u32 = crate::node::BG;
@@ -46,6 +47,7 @@ enum Entry {
 }
 
 thread_local! {
+    static POSITION: Cell<Option<(i32,i32)>> = const { Cell::new(None) };
     static EXPANDED: Cell<bool> = const { Cell::new(true) };
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static SCROLL: Cell<usize> = const { Cell::new(0) };
@@ -154,24 +156,77 @@ fn visible_row_count(dpi: u32, count: usize) -> usize {
     count.min(MAX_ROWS).min(fit.max(1))
 }
 
-fn work_area() -> RECT {
+fn monitor_area() -> (RECT, RECT) {
+    let point = POSITION.get().map(|(x, y)| POINT { x, y }).unwrap_or(POINT { x: 0, y: 0 });
+    let mut info: MONITORINFO = unsafe { std::mem::zeroed() };
+    info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+    if unsafe { GetMonitorInfoW(MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST), &mut info) } != 0 {
+        return (info.rcMonitor, info.rcWork);
+    }
     let mut work = win::rect(0, 0, 1024, 768);
     unsafe {
         SystemParametersInfoW(SPI_GETWORKAREA, 0, (&mut work as *mut RECT).cast(), 0);
     }
-    work
+    (work, work)
+}
+fn work_area() -> RECT {
+    monitor_area().1
+}
+fn bounds(r: RECT) -> dock_layout::Bounds {
+    (r.left, r.top, r.right, r.bottom)
 }
 
 fn place(hwnd: HWND) {
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
-    let (width, height) = dimensions(dpi, rows().len());
-    let work = work_area();
-    let gap = scale(12, dpi);
-    let x = (work.right - width - gap).max(work.left);
-    let centered = work.top + (work.bottom - work.top - scale(HEADER_H, dpi)) / 2;
-    let y = centered.min((work.bottom - height).max(work.top)).max(work.top);
+    let size = dimensions(dpi, rows().len());
+    let (monitor, work) = monitor_area();
+    let at = POSITION.get().unwrap_or((work.right, work.top + (work.bottom - work.top) / 2));
+    let edge = dock_layout::edge(bounds(monitor), bounds(work), at);
+    let action = action_rect(dpi);
+    let (x, y) = dock_layout::position(bounds(work), edge, at, size, scale(12, dpi), (action.top + action.bottom) / 2);
     unsafe {
-        SetWindowPos(hwnd, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        SetWindowPos(hwnd, HWND_TOPMOST, x, y, size.0, size.1, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+}
+
+pub fn move_anchor(hwnd: HWND, at: Option<(i32, i32)>) {
+    POSITION.set(at);
+    place(hwnd);
+}
+
+pub fn save_position() {
+    let hwnd = WINDOW.get();
+    let rect = win::window_rect(hwnd);
+    let action = action_rect(unsafe { GetDpiForWindow(hwnd) }.max(96));
+    let at = (rect.left + (rect.right - rect.left) / 2, rect.top + (action.top + action.bottom) / 2);
+    POSITION.set(Some(at));
+    {
+        let Ok(mut board) = app::app().board.try_borrow_mut() else { return };
+        board.dock_pos = Some(at);
+    }
+    app::app().save_config();
+}
+
+pub fn after_drag() {
+    // Require a fresh hover entry after moving, while allowing a deliberate click.
+    ACTION_INSIDE.set(true);
+    ACTION_HOVER.set(false);
+    HOVER_ROW.set(-1);
+}
+
+fn screen_point(hwnd: HWND, lparam: isize) -> POINT {
+    let mut point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
+    unsafe {
+        ClientToScreen(hwnd, &mut point);
+    }
+    point
+}
+
+pub fn click_screen(hwnd: HWND, mut point: POINT) {
+    if unsafe { ScreenToClient(hwnd, &mut point) } != 0 {
+        unsafe {
+            click_client(hwnd, point.x, point.y);
+        }
     }
 }
 
@@ -193,6 +248,7 @@ pub fn contains_screen(point: POINT) -> bool {
 }
 
 pub fn create() {
+    POSITION.set(app::app().board.try_borrow().ok().and_then(|b| b.dock_pos));
     let name = win::wide(CLASS);
     let class = WNDCLASSEXW {
         cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -270,6 +326,7 @@ pub fn refresh() {
 }
 
 pub fn shutdown() {
+    dock_drag::shutdown();
     WINDOW.with(|window| {
         let hwnd = window.replace(std::ptr::null_mut());
         if !hwnd.is_null() && unsafe { IsWindow(hwnd) } != 0 {
@@ -319,7 +376,7 @@ fn paint(hwnd: HWND) {
             let mut mark_rect = win::rect(scale(10, dpi), 0, scale(38, dpi), header_h);
             DrawTextW(hdc, mark_glyph.as_mut_ptr(), -1, &mut mark_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             SetTextColor(hdc, TEXT);
-            let mut title = win::wide("Desktop");
+            let mut title = win::wide("DeskTuk");
             let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(36, dpi), header_h - scale(2, dpi));
             DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             let mut arrow = win::wide("⌄");
@@ -366,6 +423,37 @@ fn paint(hwnd: HWND) {
     }
 }
 
+unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
+    let dpi = GetDpiForWindow(hwnd).max(96);
+    let action = action_rect(dpi);
+    let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
+    if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
+        set_expanded(hwnd, false);
+    } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
+        unsafe { KillTimer(hwnd, ACTION_TIMER) };
+        if !ACTION_HOVER.replace(true) {
+            circles::toggle_visibility();
+            let rect = action_rect(dpi);
+            unsafe { InvalidateRect(hwnd, &rect, 0) };
+        }
+        ACTION_INSIDE.set(true);
+    } else if EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
+        let entries = rows();
+        let start = action_bottom + scale(GAP, dpi);
+        let visible = visible_row_count(dpi, entries.len());
+        let row_height = scale(ROW_H, dpi).max(1);
+        let offset = ((y - start).max(0) / row_height) as usize;
+        let index = SCROLL.with(Cell::get).saturating_add(offset);
+        if offset < visible {
+            if let Some((entry, _)) = entries.get(index).cloned() {
+                match entry {
+                    Entry::Target(which) => circles::open_target(which),
+                }
+            }
+        }
+    }
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
     match msg {
         WM_PAINT => {
@@ -374,6 +462,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
         }
         WM_MOUSEACTIVATE => MA_NOACTIVATE as isize,
         WM_MOUSEMOVE => {
+            if dock_drag::active() {
+                if wparam & 1 != 0 {
+                    dock_drag::move_native(screen_point(hwnd, lparam));
+                }
+                return 0;
+            }
             TRACKING.with(|tracking| {
                 if !tracking.replace(true) {
                     let mut tme = TRACKMOUSEEVENT {
@@ -435,6 +529,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_TIMER if wparam == ACTION_TIMER => {
+            if dock_drag::active() {
+                KillTimer(hwnd, ACTION_TIMER);
+                return 0;
+            }
             let mut cursor = POINT { x: 0, y: 0 };
             let dpi = GetDpiForWindow(hwnd).max(96);
             let action = action_rect(dpi);
@@ -455,37 +553,40 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             }
             0
         }
-        WM_LBUTTONUP => {
+        WM_LBUTTONDOWN => {
+            dock_drag::prepare_click();
+            KillTimer(hwnd, ACTION_TIMER);
             let dpi = GetDpiForWindow(hwnd).max(96);
-            let x = win::x_lparam(lparam);
-            let y = win::y_lparam(lparam);
-            let action = action_rect(dpi);
-            let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
-            if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
-                set_expanded(hwnd, false);
-            } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
-                unsafe { KillTimer(hwnd, ACTION_TIMER) };
-                if !ACTION_HOVER.replace(true) {
-                    circles::toggle_visibility();
-                    let rect = action_rect(dpi);
-                    unsafe { InvalidateRect(hwnd, &rect, 0) };
-                }
-                ACTION_INSIDE.set(true);
-            } else if EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
-                let entries = rows();
-                let start = action_bottom + scale(GAP, dpi);
-                let visible = visible_row_count(dpi, entries.len());
-                let row_height = scale(ROW_H, dpi).max(1);
-                let offset = ((y - start).max(0) / row_height) as usize;
-                let index = SCROLL.with(Cell::get).saturating_add(offset);
-                if offset < visible {
-                    if let Some((entry, _)) = entries.get(index).cloned() {
-                        match entry {
-                            Entry::Target(which) => circles::open_target(which),
-                        }
-                    }
-                }
+            let point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
+            let heading = EXPANDED.get() && point.y >= 0 && point.y < scale(HEADER_H, dpi) && !win::rect_contains(&arrow_rect(dpi), point);
+            if heading || win::rect_contains(&action_rect(dpi), point) {
+                let r = win::window_rect(hwnd);
+                let action = action_rect(dpi);
+                dock_drag::begin(
+                    hwnd,
+                    screen_point(hwnd, lparam),
+                    (r.left + (r.right - r.left) / 2, r.top + (action.top + action.bottom) / 2),
+                    POSITION.get(),
+                );
             }
+            0
+        }
+        WM_LBUTTONUP => {
+            if !dock_drag::release_native(screen_point(hwnd, lparam)) {
+                click_client(hwnd, win::x_lparam(lparam), win::y_lparam(lparam));
+            }
+            0
+        }
+        WM_CANCELMODE | WM_CAPTURECHANGED => {
+            dock_drag::cancel();
+            0
+        }
+        WM_KEYDOWN if wparam == 0x1b => {
+            dock_drag::cancel();
+            0
+        }
+        dock_drag::WM_POINTER => {
+            dock_drag::dispatch(wparam);
             0
         }
         WM_RBUTTONUP => {
@@ -546,16 +647,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_DPICHANGED => {
-            let suggested = &*(lparam as *const RECT);
-            let dpi = ((wparam & 0xffff) as u32).max(96);
-            let (width, height) = dimensions(dpi, rows().len());
-            let work = work_area();
-            let x = suggested.left.max(work.left).min(work.right - width);
-            let y = suggested.top.max(work.top).min(work.bottom - height);
-            SetWindowPos(hwnd, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            place(hwnd);
             0
         }
         WM_DESTROY => {
+            dock_drag::shutdown();
             WINDOW.with(|window| {
                 if window.get() == hwnd {
                     window.set(std::ptr::null_mut());

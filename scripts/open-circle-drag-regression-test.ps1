@@ -30,6 +30,8 @@ public static class OpenCircleDragWin {
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder b, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
@@ -146,10 +148,39 @@ try {
     [void][OpenCircleDragWin]::SendMessage($dock,0x2A3,[IntPtr]::Zero,[IntPtr]::Zero)
     [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsed visibility square did not show circles' }
+    # Move the collapsed tile along its detected taskbar rail; a drag must not
+    # toggle circles, take focus or run the dwell action while held.
+    $beforeDock=[OpenCircleDragWin]::Rectangle($dock)
+    $fg=[OpenCircleDragWin]::GetForegroundWindow()
+    $vertical=[Math]::Max($work.left,[OpenCircleDragWin]::GetSystemMetrics(0)-$work.right) -gt [Math]::Max($work.top,[OpenCircleDragWin]::GetSystemMetrics(1)-$work.bottom)
+    $moveX=if ($vertical) { 0 } else { -120 }
+    $moveY=if ($vertical) { 80 } else { 0 }
+    [OpenCircleDragWin]::Mouse($dock,0x201,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($dock,0x200,($side/2+$moveX),($side/2+$moveY))
+    [void][OpenCircleDragWin]::SendMessage($dock,0x113,[IntPtr]1,[IntPtr]::Zero)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Menu drag fired the visibility hover timer' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    $movedDock=[OpenCircleDragWin]::Rectangle($dock)
+    if (($vertical -and ($movedDock.left -ne $beforeDock.left -or $movedDock.top -eq $beforeDock.top)) -or (-not $vertical -and ($movedDock.top -ne $beforeDock.top -or $movedDock.left -eq $beforeDock.left))) { throw 'Collapsed menu did not move along its taskbar rail' }
+    if ([OpenCircleDragWin]::GetForegroundWindow() -ne $fg) { throw 'Moving menu took focus' }
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or (Get-Content -LiteralPath $cfg -Raw) -notmatch '(?m)^dock_pos=') { throw 'Menu drag changed visibility or failed to persist' }
+    Write-Host 'Collapsed DeskTuk drag, rail constraint, hover suppression and persistence : PASS'
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::SendMessage($controller,0x8006,[IntPtr]::Zero,[IntPtr]::Zero)
     $restored=[OpenCircleDragWin]::Rectangle($dock)
     if ($restored.right-$restored.left -ne $dockRect.right-$dockRect.left -or $restored.bottom-$restored.top -ne $dockRect.bottom-$dockRect.top) { throw 'Show action did not restore the menu' }
+    $beforeHeading=[OpenCircleDragWin]::Rectangle($dock)
+    $savedDock=(Get-Content -LiteralPath $cfg | Where-Object { $_ -like 'dock_pos=*' })
+    [OpenCircleDragWin]::Mouse($dock,0x201,[Math]::Round(60*$dpi/96),[Math]::Round(20*$dpi/96))
+    $headerDx=if ($vertical) { 0 } else { -40 }
+    $headerDy=if ($vertical) { -40 } else { 0 }
+    [OpenCircleDragWin]::Mouse($dock,0x200,([Math]::Round(60*$dpi/96)+$headerDx),([Math]::Round(20*$dpi/96)+$headerDy))
+    $headingMoved=[OpenCircleDragWin]::Rectangle($dock)
+    if ($headingMoved.left -eq $beforeHeading.left -and $headingMoved.top -eq $beforeHeading.top) { throw 'Expanded DeskTuk heading could not be dragged' }
+    [void][OpenCircleDragWin]::SendMessage($dock,0x1F,[IntPtr]::Zero,[IntPtr]::Zero)
+    $headingRestored=[OpenCircleDragWin]::Rectangle($dock)
+    if ($headingRestored.left -ne $beforeHeading.left -or $headingRestored.top -ne $beforeHeading.top -or $savedDock -ne (Get-Content -LiteralPath $cfg | Where-Object { $_ -like 'dock_pos=*' })) { throw 'Cancelling heading drag did not restore the saved position' }
+    Write-Host 'Expanded heading drag and cancellation restore saved position : PASS'
     Write-Host 'Compact dock collapse, visibility square and menu recovery : PASS'
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
@@ -241,6 +272,12 @@ try {
     $p=Start-Fixture (Join-Path $root 'restart.log')
     $processes+=$p
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedRecentX,$expectedY) -ne [IntPtr]::Zero -and [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedMusicX,$expectedY) -ne [IntPtr]::Zero } 'Moved positions survive restart'
+    $dock=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Dock',[int]::MinValue,0)
+    $r=[OpenCircleDragWin]::Rectangle($dock)
+    [OpenCircleDragWin]::Mouse($dock,0x202,($r.right-$r.left-[Math]::Round(18*$dpi/96)),[Math]::Round(20*$dpi/96))
+    $restoredDock=[OpenCircleDragWin]::Rectangle($dock)
+    if ($restoredDock.left -ne $movedDock.left -or $restoredDock.top -ne $movedDock.top) { throw 'Collapsed DeskTuk position did not survive restart' }
+    Write-Host 'DeskTuk rail position survives restart : PASS'
     $hashesAfter=@($files | ForEach-Object { (Get-FileHash -LiteralPath $_).Hash })
     if (@(Compare-Object $hashes $hashesAfter).Count -ne 0) { throw 'Referenced fixture files changed' }
     Write-Host 'All file references preserved : PASS'

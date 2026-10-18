@@ -210,11 +210,11 @@ pub fn open_target(which: Which) {
 }
 
 pub fn drag_active() -> bool {
-    circle_win::pressed_window().is_some() || ring::item_drag_pending()
+    circle_win::pressed_window().is_some() || ring::item_drag_pending() || crate::dock_drag::active()
 }
 
 pub fn interaction_active() -> bool {
-    circle_win::pressed_window().is_some() || ring::is_open()
+    circle_win::pressed_window().is_some() || ring::is_open() || crate::dock_drag::active()
 }
 
 pub fn defer_refresh() {
