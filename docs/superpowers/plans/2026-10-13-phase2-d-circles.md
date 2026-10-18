@@ -570,7 +570,7 @@ lines or arbitrary positions; opening Print Screen appears to clear it.
 - [x] Keep native and fallback pointer streams from advancing the same press twice;
       invalidate queued samples on cancellation/new presses and retain release cleanup.
 - [x] Verify rapid movement/release using isolated regressions and required MSVC checks.
-- [ ] Commit/push, confirm CI and deploy the checked release; physical review remains pending.
+- [x] Commit/push, confirm CI and deploy the checked release; physical review remains pending.
 
 ### D31: Compact dock and hide-menu control
 
@@ -581,7 +581,7 @@ arrow at the right of the Desktop heading, and only the visibility square when h
 - [x] Add a header arrow to collapse to the visibility square; square context menu restores
       the menu without changing circle visibility. Keep click/hover toggle behavior.
 - [x] Verify layout/interaction and required MSVC checks.
-- [ ] Confirm GitHub Windows CI and deploy the checked release.
+- [x] Confirm GitHub Windows CI and deploy the checked release.
 
 D30 local evidence (2026-10-18): Windows MSVC fmt, release Clippy with -D warnings,
 64 release tests (one ignored), release build and isolated open-circle Grid=3/Topmost
@@ -611,3 +611,14 @@ as the square. Two earlier fixture runs saw a ring close during its pre-drag set
 subsequent full runs passed; physical outside-pointer interference is not excluded.
 The hidden menu can also be restored via square right-click > Menüyü göster.
 Collapse state remains session-only. No physical mouse/keyboard input was generated.
+
+D30/D31 delivery (2026-10-18): commits 929c427, c1016e2 and 29ae585 are pushed to main.
+GitHub Windows CI 39164756139 passed all jobs for 29ae585, including all isolated UI
+fixtures and the runner-only desktop integration test. Installed the checked local MSVC
+release at D:/CodeSpace/desktuk/DeskTuk.exe after normal controller WM_CLOSE; restarted
+PID 10736. SHA256: 9290346E4C87359A9C07A34742F165787DC26AEC013B4FD794F57F479A82F1EF.
+Prior installed binary is retained at target/d31-dock/previous-installed.exe.
+Config SHA256 before/after remained
+53D1728C1392BAC076271573B835279679ED9D7FE5B919FA84E0D2C352B40A1E.
+Runtime enumeration confirmed a visible 153x180 dock and three visible 104x104 circles.
+Physical fast middle dragging after hover and owner visual assessment remain outstanding.

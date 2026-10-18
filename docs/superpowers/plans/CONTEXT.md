@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D29 are delivered; D30/D31 address fast dragging and the dock.
+- A and D through D31 are delivered; D30/D31 address fast dragging and the dock.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 
@@ -17,8 +17,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D29 installed SHA256: 26FDAFAD6B981E19A8B5FD37A411DD721383107FD272C09DE514AFF7F962A609.
-  CI 39163071663 passed. Prior binary: target/d29-middle-drag/previous-installed.exe.
+- D30/D31 installed SHA256: 9290346E4C87359A9C07A34742F165787DC26AEC013B4FD794F57F479A82F1EF.
+  Code CI 39164756139 passed. Prior binary: target/d31-dock/previous-installed.exe.
+  Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
   Local MSVC checks, 1,000-sample queue test and Grid=3 open-circle fixture pass.
