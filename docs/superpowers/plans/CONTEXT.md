@@ -55,6 +55,11 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   the isolated open-ring drag/grid fixture and GitHub CI 39160762962 pass. Physical drag
   feel on the owner's desktop remains pending. The checked release is installed at the
   existing `DeskTuk.exe` path; the prior binary is backed up under target/d28-drag-fallback.
+- Owner reports D28 still cannot move an open circle and asks for gentler grid behavior.
+  D29 uses middle-button drag and defers snap until release; free-move/snap fixture and local
+  MSVC checks pass. Dock labels use the Windows icon-title font. CI and deployment pending.
+- Owner requested a review list before choosing later product changes; proposals are recorded
+  in `docs/superpowers/reviews/2026-10-18-product-review.md`.
 - Actual reboot/login with startup enabled.
 - Real Explorer restart and tray/window recovery on the owner's machine.
 - Physical menu/show-hide interaction, alternate sizes/DPI and visual quality.

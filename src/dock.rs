@@ -8,14 +8,16 @@ use std::cell::Cell;
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SetBkMode,
-    SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, PAINTSTRUCT, TRANSPARENT,
+    BeginPaint, CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect,
+    ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, LOGFONTW,
+    PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+use windows_sys::Win32::UI::HiDpi::SystemParametersInfoForDpi;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{SPI_GETICONTITLELOGFONT, *};
 
 use crate::circles::circle_win::Which;
 use crate::{app, circles, win};
@@ -232,6 +234,18 @@ fn paint(hwnd: HWND) {
     let hover = unsafe { CreateSolidBrush(ROW_HOVER) };
     let switch_bg = unsafe { CreateSolidBrush(SWITCH_BG) };
     let switch_on = circles::any_visible();
+    let mut icon_font: LOGFONTW = unsafe { std::mem::zeroed() };
+    unsafe {
+        SystemParametersInfoForDpi(
+            SPI_GETICONTITLELOGFONT,
+            std::mem::size_of::<LOGFONTW>() as u32,
+            (&mut icon_font as *mut LOGFONTW).cast(),
+            0,
+            dpi,
+        );
+    }
+    let font: HFONT = unsafe { CreateFontIndirectW(&icon_font) };
+    let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let header_tile = win::rect(0, 0, client.right, header_h);
     let switch_top = header_h + scale(GAP, dpi);
     let switch_bottom = switch_top + action_size;
@@ -279,6 +293,12 @@ fn paint(hwnd: HWND) {
         DeleteObject(teal);
         DeleteObject(hover);
         DeleteObject(switch_bg);
+        if !font.is_null() {
+            if !old_font.is_null() {
+                SelectObject(hdc, old_font);
+            }
+            DeleteObject(font);
+        }
         EndPaint(hwnd, &ps);
     }
 }

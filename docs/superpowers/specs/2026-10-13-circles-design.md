@@ -59,6 +59,12 @@ only - it is not a file browser for `C:\`.
   the taskbar on any edge. The whole circle stays within the usable area. This
   adds no grid overlay or idle timer and never changes Windows' own icon layout.
 
+**Owner follow-up (2026-10-18):** circle dragging should move freely while held, with the
+grid guide marking the target cell; snap to that cell only on release. Middle-button drag
+on a closed circle or an open ring's centre moves the circle. A left click on an open ring's
+centre keeps its page-turn behavior. The recovery dock uses the Windows icon-title font so
+its labels match the desktop's native item labels.
+
 **Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):
 

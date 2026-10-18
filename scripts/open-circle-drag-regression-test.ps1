@@ -44,6 +44,7 @@ public static class OpenCircleDragWin {
     public static Rect Rectangle(IntPtr h) { Rect r; if (!GetWindowRect(h,out r)) throw new Exception("Missing window"); return r; }
     public static IntPtr Point(int x,int y) { return new IntPtr(unchecked((int)((uint)(ushort)x | ((uint)(ushort)y << 16)))); }
     public static void Mouse(IntPtr h,uint message,int x,int y) { SendMessage(h,message,new IntPtr(message==0x202 ? 0 : 1),Point(x,y)); }
+    public static void MiddleMouse(IntPtr h,uint message,int x,int y) { SendMessage(h,message,new IntPtr(message==0x200 ? 0x10 : 0),Point(x,y)); }
 }
 '@
 
@@ -127,7 +128,7 @@ try {
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
         $cy=($rect.bottom-$rect.top)/2
-        [OpenCircleDragWin]::Mouse($ring,0x201,$cx,$cy)
+        [OpenCircleDragWin]::MiddleMouse($ring,0x207,$cx,$cy)
         $guide=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.GridOverlay',[int]::MinValue,0)
         if (($Grid -ne 0) -ne ($guide -ne [IntPtr]::Zero)) { throw 'Grid guide visibility must match the selected grid on press' }
         if ($Grid -ne 0) {
@@ -144,11 +145,15 @@ try {
         if (-not [OpenCircleDragWin]::IsWindow($ring)) { throw 'Ring closed during a pending centre drag' }
         $atX=$rect.left+$cx+$dx-$sourceX
         $atY=$rect.top+$cy+$dy-$sourceY
-        [OpenCircleDragWin]::Mouse($anchor,0x200,$atX,$atY)
+        [OpenCircleDragWin]::MiddleMouse($anchor,0x200,$atX,$atY)
         $during=[OpenCircleDragWin]::Rectangle($anchor)
         $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
-        if ($during.left -ne $expectedX -or $during.top -ne $expectedY) { throw 'Circle did not snap to its entered cell during the drag' }
-        [OpenCircleDragWin]::Mouse($anchor,0x202,$atX-$dx,$atY-$dy)
+        $freeX=[Math]::Min($work.right-$diameter,[Math]::Max($work.left,$sourceX+$dx))
+        $freeY=[Math]::Min($work.bottom-$diameter,[Math]::Max($work.top,$sourceY+$dy))
+        if ($during.left -ne $freeX -or $during.top -ne $freeY) { throw 'Circle should move freely inside the work area while held' }
+        [OpenCircleDragWin]::MiddleMouse($anchor,0x208,$atX-$dx,$atY-$dy)
+        $afterRelease=[OpenCircleDragWin]::Rectangle($anchor)
+        if ($afterRelease.left -ne $expectedX -or $afterRelease.top -ne $expectedY) { throw 'Circle did not snap to the active grid cell on release' }
         if ([OpenCircleDragWin]::IsWindow($guide)) { throw 'Grid guide survived button release' }
         if (([OpenCircleDragWin]::GetWindowLong($anchor,-20) -band 8) -eq 0) { throw 'Capture cleanup demoted a topmost circle' }
         Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedX,$expectedY) -ne [IntPtr]::Zero } "Open circle at $sourceX moves by event delta"
@@ -169,7 +174,7 @@ try {
     $nextIndex=[int]$opened[$opened.Count-1].Groups[1].Value
     $nextFilePattern='item loaded path=.*fixture-ref-'+('{0:D2}' -f $nextIndex)+'\.txt'
     [OpenCircleDragWin]::Mouse($ring,0x201,$cx,$cy)
-    [OpenCircleDragWin]::Mouse($anchor,0x202,44,44)
+    [OpenCircleDragWin]::Mouse($ring,0x202,$cx,$cy)
     Wait-Check { (Get-Content -LiteralPath $log -Raw) -match $nextFilePattern } 'Centre click loads the next page'
     if (-not [OpenCircleDragWin]::IsWindow($ring)) { throw 'Centre click destroyed the existing ring' }
     # No physical input: explicit cancellation/capture-loss messages must remove the guide.

@@ -534,3 +534,19 @@ SHA256 `C780848B7576B3B7DEC520A6E5225B557C6215E98A1BF690E8EC5C3C08CAE5AD`, resta
 6412, and confirmed the config hash remained `1AF842855F42F67496F779DC695253670C3B7BB8B5A22E08AA8DAA7B696AA47B`.
 Previous binary is backed up at `target/d28-drag-fallback/previous-installed.exe`.
 Physical drag feel on the owner's desktop remains unverified.
+
+Owner follow-up (2026-10-18): the installed D28 build still cannot move an open circle.
+The grid also snaps too aggressively during movement. Owner suggested using the middle
+mouse button for moving circles.
+
+### D29: Move circles with middle-button drag and snap on release
+
+- [x] Use middle-button drag on a closed circle or an open ring's centre to move it;
+      keep left-click on an open centre for page changes and closed-circle left drag intact.
+- [x] Move freely while held, show the grid target, and snap/clamp only after release.
+- [x] Draw dock text with the Windows icon-title font at the window's DPI to match desktop labels.
+- [x] Extend the isolated fixture to check free movement, release snapping and grid cleanup.
+- [x] Pass local MSVC fmt, Clippy, release tests/build and the isolated grid=3 open-circle fixture.
+- [ ] Pass GitHub Windows CI; deploy the checked build at the existing executable path and
+      record the preserved config hash.
+- [ ] Owner verifies middle-button open-ring dragging and release snapping physically.

@@ -28,13 +28,17 @@ pub fn is_active_for(hwnd: HWND) -> bool {
 }
 
 pub fn begin(hwnd: HWND) -> bool {
+    begin_with_button(hwnd, VK_LBUTTON)
+}
+
+pub fn begin_with_button(hwnd: HWND, button: u16) -> bool {
     if let Some(old) = ACTIVE.take() {
         finish(old);
     }
     // Capture/focus ownership belongs to a real button-down input sequence. A
     // routed WM_LBUTTONDOWN alone does not update the thread's input key state;
     // taking capture in that case can inject unrelated current-cursor movement.
-    if unsafe { GetKeyState(VK_LBUTTON as i32) } >= 0 {
+    if unsafe { GetKeyState(button as i32) } >= 0 {
         crate::dlog!("drag capture skipped: no queued left-button-down state");
         return false;
     }

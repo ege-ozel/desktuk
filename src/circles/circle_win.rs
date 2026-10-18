@@ -13,7 +13,7 @@ use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_ESCAPE, VK_LBUTTON, VK_MBUTTON};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, DragFinish, DragQueryFileW, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -55,7 +55,7 @@ struct Press {
     cursor: POINT,
     origin: (i32, i32),
     moving: bool,
-    ring_click: bool,
+    button: u16,
 }
 
 thread_local! {
@@ -205,21 +205,29 @@ pub fn pressed_window() -> Option<HWND> {
     PRESS.get().map(|p| p.hwnd)
 }
 
-/// A press on the open ring's centre belongs to its circle, just like a closed press.
-pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
-    begin_press(hwnd, at, true);
+pub fn pressed_mouse_route() -> Option<(HWND, usize, u32)> {
+    PRESS.get().map(|p| if p.button == VK_MBUTTON { (p.hwnd, 0x0010, WM_MBUTTONUP) } else { (p.hwnd, 0x0001, WM_LBUTTONUP) })
 }
 
-fn begin_press(hwnd: HWND, at: POINT, ring_click: bool) {
+pub fn is_release_message(hwnd: HWND, msg: u32) -> bool {
+    pressed_mouse_route().is_some_and(|(target, _, release)| target == hwnd && release == msg)
+}
+
+/// A press on the open ring's centre belongs to its circle, just like a closed press.
+pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
+    begin_press(hwnd, at, VK_MBUTTON);
+}
+
+fn begin_press(hwnd: HWND, at: POINT, button: u16) {
     super::grid_overlay::close();
     if let Some(old) = PRESS.take() {
         super::drag_capture::end(old.hwnd);
     }
     let r = win::window_rect(hwnd);
-    PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, ring_click }));
+    PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, button }));
     ring::circle_drag_started();
-    let captured = super::drag_capture::begin(hwnd);
-    dlog!("circle press hwnd={hwnd:?} from_ring={ring_click} captured={captured}");
+    let captured = super::drag_capture::begin_with_button(hwnd, button);
+    dlog!("circle press hwnd={hwnd:?} button={button:#x} captured={captured}");
     if !captured {
         dlog!("circle drag foreground capture unavailable");
     }
@@ -251,13 +259,12 @@ pub fn move_press(hwnd: HWND, c: POINT) {
             ring::close_now();
         }
         if p.moving && is_pressed(hwnd) {
-            // Derive every landing from the original pointer delta, never from the
-            // previously snapped HWND position; crossing a cell boundary is stable.
+            // Move freely while dragging. The selected grid cell is shown as a guide;
+            // the circle snaps only when the button is released.
             let raw = (p.origin.0 + dx, p.origin.1 + dy);
-            let divisions = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
             let d = geom::metrics(dpi).circle_d;
-            let landing = snap_to_work(raw, d, divisions);
-            unsafe { SetWindowPos(hwnd, std::ptr::null_mut(), landing.0, landing.1, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE) };
+            let position = clamp_to_work(raw, d);
+            unsafe { SetWindowPos(hwnd, std::ptr::null_mut(), position.0, position.1, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE) };
             if is_pressed(hwnd) {
                 update_grid(hwnd);
             }
@@ -277,7 +284,7 @@ fn on_move(hwnd: HWND, lparam: LPARAM) {
     }
 }
 
-/// Ends a left-button press. `released`: the button went up (a click opens the ring);
+/// Ends a mouse press. `released`: the button went up (a left click opens the ring);
 /// otherwise capture was lost and nothing is opened.
 pub fn end_press(hwnd: HWND, released: bool) {
     if !is_pressed(hwnd) {
@@ -291,9 +298,7 @@ pub fn end_press(hwnd: HWND, released: bool) {
     if p.moving {
         let r = win::window_rect(hwnd);
         super::moved(which, (r.left, r.top));
-    } else if released && p.ring_click {
-        ring::center_clicked(hwnd);
-    } else if released {
+    } else if released && p.button == VK_LBUTTON {
         ring::open(hwnd, which.target());
     }
 }
@@ -321,20 +326,34 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_MOUSEMOVE => {
-            // MK_LBUTTON: hover/recalculation messages with no button held must
-            // not advance an outstanding drag using unrelated cursor coordinates.
-            if (is_pressed(hwnd) && wparam & 1 != 0) || (!is_pressed(hwnd) && wparam & 1 == 0) {
+            // Repaint/hover messages without the active button must not advance a drag.
+            let pressed = pressed_mouse_route().filter(|(target, _, _)| *target == hwnd);
+            let has_button = pressed.is_some_and(|(_, key, _)| wparam & key != 0);
+            if (pressed.is_some() && has_button) || (pressed.is_none() && wparam & 1 == 0) {
                 on_move(hwnd, lparam);
             }
             0
         }
         WM_LBUTTONDOWN => {
             super::rename::commit_active();
-            begin_press(hwnd, mouse_point(hwnd, lparam), false);
+            begin_press(hwnd, mouse_point(hwnd, lparam), VK_LBUTTON);
+            0
+        }
+        WM_MBUTTONDOWN => {
+            super::rename::commit_active();
+            begin_press(hwnd, mouse_point(hwnd, lparam), VK_MBUTTON);
             0
         }
         WM_LBUTTONUP => {
-            end_press(hwnd, true);
+            if is_release_message(hwnd, WM_LBUTTONUP) {
+                end_press(hwnd, true);
+            }
+            0
+        }
+        WM_MBUTTONUP => {
+            if is_release_message(hwnd, WM_MBUTTONUP) {
+                end_press(hwnd, true);
+            }
             0
         }
         WM_CAPTURECHANGED => {
