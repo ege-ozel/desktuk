@@ -53,7 +53,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Owner reports that dragging a circle after opening its ring can stall and leave the grid
   visible. D28 adds a temporary low-level mouse fallback when foreground capture is denied;
   the isolated open-ring drag/grid fixture and GitHub CI 39160762962 pass. Physical drag
-  feel on the owner's desktop remains pending.
+  feel on the owner's desktop remains pending. The checked release is installed at the
+  existing `DeskTuk.exe` path; the prior binary is backed up under target/d28-drag-fallback.
 - Actual reboot/login with startup enabled.
 - Real Explorer restart and tray/window recovery on the owner's machine.
 - Physical menu/show-hide interaction, alternate sizes/DPI and visual quality.

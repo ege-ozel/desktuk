@@ -529,4 +529,8 @@ release tests (63 passed, one ignored), and release build passed. The isolated
 `open-circle-drag-regression-test.ps1 -Grid 3 -Topmost` passed movement, cell snapping,
 grid release/cancel, persistence and restart checks without physical cursor movement.
 GitHub Windows CI run 39160762962 passed, including open-circle drag, grid, tray and
-runner integration fixtures. Physical drag feel on the owner's desktop remains unverified.
+runner integration fixtures. Deployed the checked release to `D:/CodeSpace/desktuk/DeskTuk.exe`,
+SHA256 `C780848B7576B3B7DEC520A6E5225B557C6215E98A1BF690E8EC5C3C08CAE5AD`, restarted PID
+6412, and confirmed the config hash remained `1AF842855F42F67496F779DC695253670C3B7BB8B5A22E08AA8DAA7B696AA47B`.
+Previous binary is backed up at `target/d28-drag-fallback/previous-installed.exe`.
+Physical drag feel on the owner's desktop remains unverified.
