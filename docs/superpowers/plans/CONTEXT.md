@@ -49,7 +49,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   and their rings to always-on-top; the installed D25 build's physical Win+D / corner click /
   Peek behavior remains unverified pending owner assessment.
 
-- Physical mouse capture/drag, including an open ring and tray recovery.
+- D30 fixes stale queued fallback client coordinates using coalesced screen samples.
+  Local MSVC checks and Grid=3 open-circle fixture pass; physical fast drag is pending.
 - Owner reports that dragging a circle after opening its ring can stall and leave the grid
   visible. D28 adds a temporary low-level mouse fallback when foreground capture is denied;
   the isolated open-ring drag/grid fixture and GitHub CI 39160762962 pass. Physical drag
@@ -91,7 +92,7 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
-- Active follow-up: D27 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar corner
+- Active follow-up: D30/D31 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar corner
   click, Peek, hover/menu behavior and visual scale remain pending owner assessment.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.

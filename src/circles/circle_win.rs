@@ -25,6 +25,7 @@ use crate::host::{self, DesktopHost, HostKind};
 use crate::{dlog, win};
 
 const CLASS: &str = "DeskTuk.Circle";
+const WM_DRAG_POINTER: u32 = WM_APP + 42;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Which {
@@ -60,6 +61,9 @@ struct Press {
 
 thread_local! {
     static PRESS: Cell<Option<Press>> = const { Cell::new(None) };
+    static POINTER: Cell<Option<(POINT, bool)>> = const { Cell::new(None) };
+    static POINTER_ROUTE: Cell<bool> = const { Cell::new(false) };
+    static PRESS_ID: Cell<usize> = const { Cell::new(0) };
 }
 
 pub fn register_class() {
@@ -209,6 +213,32 @@ pub fn pressed_mouse_route() -> Option<(HWND, usize, u32)> {
     PRESS.get().map(|p| if p.button == VK_MBUTTON { (p.hwnd, 0x0010, WM_MBUTTONUP) } else { (p.hwnd, 0x0001, WM_LBUTTONUP) })
 }
 
+/// The hook stores screen coordinates, never client coordinates of a moving window.
+/// Keep only the newest sample so a fast mouse cannot build a movement backlog.
+pub fn queue_pointer(hwnd: HWND, point: POINT, released: bool) {
+    if POINTER.get().is_some_and(|(_, released)| released) {
+        return;
+    }
+    POINTER_ROUTE.set(true);
+    let previous = POINTER.replace(Some((point, released)));
+    if previous.is_none() {
+        let posted = unsafe { PostMessageW(hwnd, WM_DRAG_POINTER, PRESS_ID.get(), 0) };
+        if posted == 0 {
+            POINTER.set(None);
+            POINTER_ROUTE.set(false);
+        }
+    }
+}
+
+fn apply_pointer(hwnd: HWND) {
+    if let Some((point, released)) = POINTER.take() {
+        move_press(hwnd, point);
+        if released {
+            end_press(hwnd, true);
+        }
+    }
+}
+
 pub fn is_release_message(hwnd: HWND, msg: u32) -> bool {
     pressed_mouse_route().is_some_and(|(target, _, release)| target == hwnd && release == msg)
 }
@@ -223,6 +253,9 @@ fn begin_press(hwnd: HWND, at: POINT, button: u16) {
     if let Some(old) = PRESS.take() {
         super::drag_capture::end(old.hwnd);
     }
+    POINTER.set(None);
+    POINTER_ROUTE.set(false);
+    PRESS_ID.set(PRESS_ID.get().wrapping_add(1));
     let r = win::window_rect(hwnd);
     PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, button }));
     ring::circle_drag_started();
@@ -291,6 +324,8 @@ pub fn end_press(hwnd: HWND, released: bool) {
         return;
     }
     let Some(p) = PRESS.take() else { return };
+    POINTER.set(None);
+    POINTER_ROUTE.set(false);
     super::grid_overlay::close();
     super::drag_capture::end(hwnd); // PRESS is already empty before message-pumping calls
     ring::circle_drag_finished();
@@ -325,6 +360,13 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             }
             0
         }
+        WM_DRAG_POINTER => {
+            if wparam == PRESS_ID.get() && is_pressed(hwnd) {
+                apply_pointer(hwnd);
+            }
+            0
+        }
+        WM_MOUSEMOVE if is_pressed(hwnd) && POINTER_ROUTE.get() => 0,
         WM_MOUSEMOVE => {
             // Repaint/hover messages without the active button must not advance a drag.
             let pressed = pressed_mouse_route().filter(|(target, _, _)| *target == hwnd);
@@ -345,13 +387,13 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         WM_LBUTTONUP => {
-            if is_release_message(hwnd, WM_LBUTTONUP) {
+            if is_release_message(hwnd, WM_LBUTTONUP) && !POINTER_ROUTE.get() {
                 end_press(hwnd, true);
             }
             0
         }
         WM_MBUTTONUP => {
-            if is_release_message(hwnd, WM_MBUTTONUP) {
+            if is_release_message(hwnd, WM_MBUTTONUP) && !POINTER_ROUTE.get() {
                 end_press(hwnd, true);
             }
             0
@@ -369,6 +411,8 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
         WM_DESTROY => {
             if is_pressed(hwnd) {
                 PRESS.take();
+                POINTER.set(None);
+                POINTER_ROUTE.set(false);
                 super::grid_overlay::close();
                 super::drag_capture::end(hwnd);
             }
@@ -400,5 +444,52 @@ unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             0
         }
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+#[cfg(test)]
+mod pointer_tests {
+    use super::*;
+
+    #[test]
+    fn fast_fallback_samples_coalesce_in_screen_space_and_release_is_final() {
+        // A real message-only sink lets PostMessage exercise the production queue,
+        // without injecting physical input or touching the application board.
+        let hwnd = unsafe {
+            CreateWindowExW(
+                0,
+                crate::win::wide("STATIC").as_ptr(),
+                std::ptr::null(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                HWND_MESSAGE,
+                std::ptr::null_mut(),
+                GetModuleHandleW(std::ptr::null()),
+                std::ptr::null(),
+            )
+        };
+        assert!(!hwnd.is_null());
+        POINTER.set(None);
+        for i in 0..1000 {
+            queue_pointer(hwnd, POINT { x: -1200 + i, y: 300 + i }, false);
+        }
+        let (point, released) = POINTER.get().expect("latest sample");
+        assert_eq!((point.x, point.y, released), (-201, 1299, false));
+        queue_pointer(hwnd, POINT { x: -50, y: 1400 }, true);
+        queue_pointer(hwnd, POINT { x: 800, y: 20 }, false);
+        let (point, released) = POINTER.take().expect("release sample");
+        assert_eq!((point.x, point.y, released), (-50, 1400, true));
+        let mut message: MSG = unsafe { std::mem::zeroed() };
+        assert_ne!(unsafe { PeekMessageW(&mut message, hwnd, WM_DRAG_POINTER, WM_DRAG_POINTER, PM_REMOVE) }, 0);
+        assert_eq!(
+            unsafe { PeekMessageW(&mut message, hwnd, WM_DRAG_POINTER, WM_DRAG_POINTER, PM_REMOVE) },
+            0,
+            "one notification for the entire burst"
+        );
+        POINTER_ROUTE.set(false);
+        unsafe { DestroyWindow(hwnd) };
     }
 }

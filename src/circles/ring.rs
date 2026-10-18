@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, ScreenToClient, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
@@ -125,16 +125,11 @@ fn uninstall_mouse_hook() {
 unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -> LRESULT {
     if code >= 0 {
         let kind = message as u32;
-        if let Some((anchor, button_flag, release_message)) = circle_win::pressed_mouse_route() {
+        if let Some((anchor, _, release_message)) = circle_win::pressed_mouse_route() {
             if kind == WM_MOUSEMOVE || kind == release_message {
                 if !super::drag_capture::is_active_for(anchor) {
-                    let mut point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
-                    if unsafe { ScreenToClient(anchor, &mut point) } != 0 {
-                        let msg = if kind == WM_MOUSEMOVE { WM_MOUSEMOVE } else { release_message };
-                        let keys = if kind == WM_MOUSEMOVE { button_flag } else { 0 };
-                        let packed = ((point.x as u16 as u32) | ((point.y as u16 as u32) << 16)) as isize;
-                        unsafe { PostMessageW(anchor, msg, keys, packed) };
-                    }
+                    let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
+                    circle_win::queue_pointer(anchor, point, kind == release_message);
                 }
                 return unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) };
             }

@@ -559,3 +559,38 @@ grid cleanup and saved positions without physical cursor movement. GitHub Window
 SHA256 `26FDAFAD6B981E19A8B5FD37A411DD721383107FD272C09DE514AFF7F962A609`, restarted PID
 27532, and confirmed the config hash stayed `2DE98D00BAE1122194C1DB6E8D5FE774C23C22AE9199BCD698781948C190B748`.
 Previous binary: `target/d29-middle-drag/previous-installed.exe`. Physical owner review remains pending.
+
+### D30: Stable fast pointer movement after opening a ring
+
+Owner report (2026-10-18): fast middle dragging after first hover can stick at grid
+lines or arbitrary positions; opening Print Screen appears to clear it.
+
+- [x] Preserve screen coordinates in the capture fallback and coalesce pending samples;
+      avoid replaying client coordinates relative to an already moved window.
+- [x] Keep native and fallback pointer streams from advancing the same press twice;
+      invalidate queued samples on cancellation/new presses and retain release cleanup.
+- [x] Verify rapid movement/release using isolated regressions and required MSVC checks.
+- [ ] Commit/push, confirm CI and deploy the checked release; physical review remains pending.
+
+### D31: Compact dock and hide-menu control
+
+Owner request (2026-10-18): equal side padding around the visibility row, a dropdown
+arrow at the right of the Desktop heading, and only the visibility square when hidden.
+
+- [ ] Fit the expanded dock to its native-font action label with equal outer padding.
+- [ ] Add a header arrow to collapse to the visibility square; square context menu restores
+      the menu without changing circle visibility. Keep click/hover toggle behavior.
+- [ ] Verify layout/interaction, required MSVC checks and CI; deploy checked release.
+
+D30 local evidence (2026-10-18): Windows MSVC fmt, release Clippy with -D warnings,
+64 release tests (one ignored), release build and isolated open-circle Grid=3/Topmost
+fixture passed. The new native message-queue test submits 1,000 screen samples,
+checks one pending notification, preserves negative coordinates and the final release.
+No physical input was generated. Root cause found in code: fallback client coordinates
+were captured before queuing but translated against the moved circle when processed.
+Physical owner assessment remains outstanding; Print Screen's effect is unverified.
+
+Product review recommendation: prioritize stable movement, a discoverable move affordance,
+brief first-use help and multi-monitor/DPI review. Keyboard/size accessibility and stale
+reference diagnostics are useful follow-ups. Keep topmost behavior as decided; defer
+legacy-panel removal until compatibility evidence exists. These remain proposals.
