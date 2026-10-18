@@ -454,3 +454,54 @@ repository's ignored `DeskTuk.exe`; SHA256 is
 GitHub Windows CI run 39128090469 passed release build, Clippy, unit tests, all isolated
 circle/grid/tray fixtures and the runner integration self-test. This runner result does
 not replace the owner's physical Win+D / taskbar corner / Peek assessment.
+
+### D26: Persistent circle switch and finalist visual language
+
+Owner follow-up (2026-10-18): keep the `Desktop` header, make its left click open the
+dropdown, and keep a dedicated “Daireleri göster” switch visible below it whenever the
+dock is expanded. Clicking the switch toggles immediately; hovering it for one second
+also toggles once, with the switch and dock border reflecting the active teal state. Apply
+the dark slate, subtle outline, teal circular mark and concise typography from the
+`desktuk.` finalist reference. Keep the Recent/circle list below the switch.
+
+- [x] Replace the large hover tile with a compact horizontal switch row shown on hover or
+      whenever the Desktop dropdown is open; preserve click-to-toggle and add one-second
+      hover-to-toggle without repeated firing.
+- [x] Restyle the dock with the dark `desktuk.` finalist palette, teal outline and circle
+      mark; keep the Recent and user-circle rows in the expanded menu.
+- [x] Run the required MSVC fmt, Clippy and release-test checks before committing.
+- [x] Build and deploy to the existing DeskTuk.exe location; preserve the user config.
+- [ ] Ask the owner to assess the hover dwell, switch, menu persistence and visual scale.
+
+Local evidence (2026-10-18): `cargo fmt`, `cargo check --release --locked` and
+`git diff --check` passed; release build passed. Deployed the refreshed executable at
+`D:/CodeSpace/desktuk/DeskTuk.exe`, SHA256
+`46B34738737B07B63020ADB6450ED163F5B4954B7B428FF7CE7EFE3012CC3A3D`, and restarted PID
+19940. User config SHA256 remained
+`A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90EF0D2778C6F`. Clippy, release
+tests, CI and physical interaction review remain outstanding.
+
+### D27: Fixed dock with a square circle toggle
+
+Owner follow-up (2026-10-18): remove hover expansion and the pill switch. Keep a fixed
+right-edge dock with the circle list always visible. Use a `DeskTuk` heading with subtle
+4 px corner rounding, and a compact square tile below it as the only circle visibility
+control. Tile click toggles immediately; hovering for 300 ms toggles once. Stop border
+flicker by keeping geometry stable and repainting only changed rows/the tile.
+
+- [x] Keep the menu visible and stationary; replace header expansion with a `DeskTuk`
+      heading, small-radius border and always-visible Recent/circle list.
+- [x] Remove the separate pill switch and make the square tile below the heading toggle
+      circles by click or a single 300 ms hover dwell.
+- [x] Avoid full-dock invalidation on pointer movement; limit repaint to changed rows and
+      the state tile so the outline remains stable.
+- [x] Run required MSVC fmt, Clippy and release tests before commit (63 passed, one ignored).
+- [ ] Ask the owner to assess the fixed menu, tile, hover timing and border rendering.
+- [x] Build/deploy at the existing DeskTuk.exe location and preserve the user config.
+
+Local evidence (2026-10-18): fmt, release Clippy with `-D warnings`, release tests
+(63 passed, one ignored), release build and `git diff --check` passed. Deployed
+`D:/CodeSpace/desktuk/DeskTuk.exe`, SHA256
+`8676BF6F0360C0002876BAFAB55634F7CFF6AC564F3E8D736FD4851D2379B85D`, restarted PID 10860;
+user config SHA256 stayed `A88F308BBFA7295903F757CB1BF51CA52B8B3BDCFDC3274609E90EF0D2778C6F`.
+GitHub CI and physical interaction review remain outstanding for D27.

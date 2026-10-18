@@ -1,5 +1,4 @@
 # Repository context
-
 Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshots.
 
 ## Start here
@@ -11,10 +10,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and D through D24 are installed; D25 is implemented, locally checked, deployed and
-  passed GitHub Windows CI. The owner's physical Show Desktop assessment is pending.
-  B1/B2 and C were superseded by circles;
-  tray/startup (B3) was delivered through D9. Do not start postponed plans.
+- A and D through D24 are installed; D25 is implemented, checked, deployed and CI-passed.
+  D26/D27 dock changes are built/deployed; fmt, release check/build and diff pass;
+  Clippy/tests/CI pending. B1/B2/C were superseded; B3 was delivered through D9.
 - Owner confirmed circles should always remain topmost, including open rings. D25 removes
   the older desktop-order default and makes the current dock compact and blue.
 
@@ -24,26 +22,24 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - D25 deployed `DeskTuk.exe` SHA256 `5FC17D25D611E06A2476BBC42026B50AEBF09DA8CD9CC5C55B203693B3AEC230`;
   runtime enumeration confirmed the compact dock and all three circles visible/topmost.
+- D27 keeps a fixed `DeskTuk` heading and Recent/circle list, with a square click/300 ms
+  hover visibility tile. The pill switch is removed and row-only invalidation limits flicker.
+  Deployed `DeskTuk.exe` SHA256 `8676BF6F0360C0002876BAFAB55634F7CFF6AC564F3E8D736FD4851D2379B85D`;
+  source uncommitted.
 - D25 MSVC release checks, isolated circle/grid/topmost/tray fixtures and GitHub Windows
   CI run 39128090469 passed; physical Win+D, taskbar corner and Peek still need assessment.
-- Installed runtime source: `9876047` (D24 dock). CI 39124382613 caught stale topmost
-  assumptions in tray and circle-drag fixtures; follow-up 39124809152 passed checks,
-  fixture modes and runner integration. D23 CI 39118544698 and local tray/open-centre/
-  grid/missing-reference fixtures passed.
-- Required MSVC checks for D24: 62 passing tests, one ignored preview; the preview was also
-  run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
+- D24 runtime source: `9876047`. CI 39124382613 caught stale topmost fixtures; 39124809152
+  passed. D23 CI 39118544698 and D24's 62 tests/ignored preview passed; rim checks passed
+  at 96/120/144/192 DPI.
 - Pointer entry opens immediately: no hover dwell or opening animation. Closing
   remains 110 ms. Topmost circles reject minimize/demotion; stale focus events skip.
 - Internal item drag shows a click-through icon. Right-click Izgara selects Off /
   2x2 / 3x3 / 4x4; release snaps to cell centres in that monitor's taskbar-free work
   area. Grid defaults Off; holding a circle shows cell/landing guides until release.
-- Closed circles, ring centres and group discs now use centered pixel-coverage
-  blending. The outer premultiplied alpha mask remains; text/icons retain native
-  rendering. No new dependencies, idle timers, threads or persistent buffers.
-- Installation/restart succeeded; responding process, visible topmost/no-activate dock,
-  unchanged configuration and desktop visibility preference were verified.
-- Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Full release SHA256,
-  preview paths and deployment evidence are recorded under Plan D D15/D16/D20/D23/D24.
+- Circle surfaces use centered pixel-coverage blending; text/icons retain native rendering.
+  No new dependencies, idle timers, threads or persistent buffers.
+- Install/restart and no-activate topmost dock were verified. Deployment/preview evidence
+  and full hashes are recorded under Plan D D15/D16/D20/D23/D24.
 - The reported hard inner edge was reproduced in a native regression and fixed;
   the owner's final visual assessment on the running desktop is still pending.
 
@@ -83,7 +79,7 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
-- Active follow-up: D25 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar corner
+- Active follow-up: D27 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar corner
   click, Peek, hover/menu behavior and visual scale remain pending owner assessment.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.

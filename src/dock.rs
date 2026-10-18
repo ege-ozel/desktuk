@@ -8,8 +8,8 @@ use std::cell::Cell;
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, InvalidateRect, ScreenToClient, SetBkMode, SetTextColor,
-    DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, PAINTSTRUCT, TRANSPARENT,
+    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SetBkMode,
+    SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
@@ -26,27 +26,29 @@ const ACCENT: u32 = crate::node::ACCENT;
 const TEXT: u32 = win::rgb(240, 240, 240);
 const SUBTEXT: u32 = win::rgb(170, 175, 185);
 const ROW_HOVER: u32 = win::rgb(44, 78, 120);
+const TEAL: u32 = win::rgb(100, 220, 190);
+const SWITCH_BG: u32 = win::rgb(45, 55, 66);
 const MAX_ROWS: usize = 7;
-const COMPACT_SIZE: i32 = 96;
-const WIDTH: i32 = 164;
-const HEADER_H: i32 = 96;
-const ACTION_SIZE: i32 = 104;
+const WIDTH: i32 = 224;
+const HEADER_H: i32 = 40;
+const ACTION_SIZE: i32 = 48;
 const GAP: i32 = 4;
 const ROW_H: i32 = 28;
+const ACTION_TIMER: usize = 1;
+const ACTION_DWELL_MS: u32 = 300;
 
 #[derive(Clone, Copy)]
 enum Entry {
-    Toggle,
     Target(Which),
 }
 
 thread_local! {
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static SCROLL: Cell<usize> = const { Cell::new(0) };
-    static EXPANDED: Cell<bool> = const { Cell::new(false) };
-    static MENU_OPEN: Cell<bool> = const { Cell::new(false) };
     static TRACKING: Cell<bool> = const { Cell::new(false) };
     static ACTION_HOVER: Cell<bool> = const { Cell::new(false) };
+    static ACTION_INSIDE: Cell<bool> = const { Cell::new(false) };
+    static HOVER_ROW: Cell<isize> = const { Cell::new(-1) };
 }
 
 fn scale(value: i32, dpi: u32) -> i32 {
@@ -54,20 +56,29 @@ fn scale(value: i32, dpi: u32) -> i32 {
 }
 
 fn rows() -> Vec<(Entry, String)> {
-    let Ok(board) = app::app().board.try_borrow() else { return vec![(Entry::Toggle, "Daireleri göster".to_string())] };
-    let mut rows = Vec::with_capacity(board.circles.len() + 2);
-    rows.push((Entry::Toggle, if circles::any_visible() { "Daireleri gizle" } else { "Daireleri göster" }.to_string()));
+    let Ok(board) = app::app().board.try_borrow() else { return Vec::new() };
+    let mut rows = Vec::with_capacity(board.circles.len() + 1);
     rows.push((Entry::Target(Which::Recent), "Recent".to_string()));
     rows.extend(board.circles.iter().enumerate().map(|(i, circle)| (Entry::Target(Which::User(i)), circle.name.clone())));
     rows
 }
 
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
-    if !EXPANDED.get() {
-        return (scale(COMPACT_SIZE, dpi), scale(HEADER_H, dpi));
-    }
-    let visible = if MENU_OPEN.get() { visible_row_count(dpi, count) as i32 } else { 0 };
+    let visible = visible_row_count(dpi, count) as i32;
     (scale(WIDTH, dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H, dpi))
+}
+
+fn action_rect(dpi: u32) -> RECT {
+    let size = scale(ACTION_SIZE, dpi);
+    let left = scale(8, dpi);
+    let top = scale(HEADER_H + GAP, dpi);
+    win::rect(left, top, left + size, top + size)
+}
+
+fn row_rect(dpi: u32, index: usize) -> RECT {
+    let scroll = SCROLL.with(Cell::get);
+    let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi) + index.saturating_sub(scroll) as i32 * scale(ROW_H, dpi);
+    win::rect(scale(8, dpi), top, scale(WIDTH - 8, dpi), top + scale(ROW_H, dpi))
 }
 
 fn visible_row_count(dpi: u32, count: usize) -> usize {
@@ -157,7 +168,7 @@ pub fn create() {
         return;
     }
     WINDOW.with(|w| w.set(hwnd));
-    let corner: i32 = 1; // DWMWCP_DONOTROUND: closed state is a square Desktop tile.
+    let corner: i32 = 3; // DWMWCP_ROUNDSMALL: fixed, subtly rounded dock corners.
     unsafe {
         DwmSetWindowAttribute(
             hwnd,
@@ -210,74 +221,54 @@ fn paint(hwnd: HWND) {
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let entries = rows();
     let count = entries.len();
-    let visible_count = if EXPANDED.get() && MENU_OPEN.get() { visible_row_count(dpi, count) } else { 0 };
+    let visible_count = visible_row_count(dpi, count);
     let scroll = SCROLL.with(Cell::get).min(count.saturating_sub(visible_count));
     let row_h = scale(ROW_H, dpi);
     let header_h = scale(HEADER_H, dpi);
-    let action_h = scale(ACTION_SIZE, dpi);
-    let expanded = EXPANDED.get();
-    let menu_open = MENU_OPEN.get();
+    let action_size = scale(ACTION_SIZE, dpi);
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
+    let teal = unsafe { CreateSolidBrush(TEAL) };
     let hover = unsafe { CreateSolidBrush(ROW_HOVER) };
-    let action_bg = unsafe { CreateSolidBrush(ROW_HOVER) };
-    let header_left = client.right - header_h;
-    let header_tile = win::rect(header_left, 0, client.right, header_h);
-    let stripe = win::rect(header_left, 0, header_left + scale(3, dpi), header_h);
-    let mut cursor = POINT { x: 0, y: 0 };
+    let switch_bg = unsafe { CreateSolidBrush(SWITCH_BG) };
+    let switch_on = circles::any_visible();
+    let header_tile = win::rect(0, 0, client.right, header_h);
+    let switch_top = header_h + scale(GAP, dpi);
+    let switch_bottom = switch_top + action_size;
+    let switch_left = scale(8, dpi);
+    let switch_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
+    let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
         FillRect(hdc, &header_tile, hover);
-        FillRect(hdc, &stripe, accent);
+        FrameRect(hdc, &border, accent);
         SetBkMode(hdc, TRANSPARENT as i32);
+        SetTextColor(hdc, TEAL);
+        let mut mark_glyph = win::wide("◉");
+        let mut mark_rect = win::rect(scale(10, dpi), 0, scale(38, dpi), header_h);
+        DrawTextW(hdc, mark_glyph.as_mut_ptr(), -1, &mut mark_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         SetTextColor(hdc, TEXT);
-        let mut title = win::wide("Desktop");
-        let mut title_rect = win::rect(header_left + scale(8, dpi), scale(2, dpi), client.right - scale(26, dpi), header_h - scale(2, dpi));
+        let mut title = win::wide("DeskTuk");
+        let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(8, dpi), header_h - scale(2, dpi));
         DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        SetTextColor(hdc, ACCENT);
-        let mut arrow = win::wide(if menu_open { "^" } else { "v" });
-        let mut arrow_rect = win::rect(client.right - scale(22, dpi), 0, client.right - scale(6, dpi), header_h);
-        DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        if !expanded {
-            DeleteObject(bg);
-            DeleteObject(accent);
-            DeleteObject(hover);
-            DeleteObject(action_bg);
-            EndPaint(hwnd, &ps);
-            return;
-        }
-        let action_top = header_h + scale(GAP, dpi);
-        let action_bottom = action_top + action_h;
-        let action_left = client.right - action_h;
-        let action_rect = win::rect(action_left, action_top, action_left + action_h, action_bottom);
-        FillRect(hdc, &action_rect, action_bg);
-        SetTextColor(hdc, ACCENT);
-        let mut glyph = win::wide(if circles::any_visible() { "●" } else { "○" });
-        let mut glyph_rect = win::rect(action_left, action_top + scale(2, dpi), action_left + action_h, action_top + scale(42, dpi));
-        DrawTextW(hdc, glyph.as_mut_ptr(), -1, &mut glyph_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        FillRect(hdc, &switch_rect, if switch_on { teal } else { switch_bg });
+        FrameRect(hdc, &switch_rect, if switch_on { teal } else { accent });
+        SetTextColor(hdc, if switch_on { BG } else { TEAL });
+        let mut toggle_glyph = win::wide(if switch_on { "●" } else { "○" });
+        let mut toggle_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
+        DrawTextW(hdc, toggle_glyph.as_mut_ptr(), -1, &mut toggle_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         SetTextColor(hdc, TEXT);
-        let mut action = win::wide(if circles::any_visible() { "Daireleri gizle" } else { "Daireleri göster" });
+        let mut action = win::wide(if switch_on { "Daireleri gizle" } else { "Daireleri göster" });
         let mut action_text =
-            win::rect(action_left + scale(2, dpi), action_top + scale(42, dpi), action_left + action_h - scale(2, dpi), action_bottom);
-        DrawTextW(hdc, action.as_mut_ptr(), -1, &mut action_text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        if !menu_open {
-            DeleteObject(bg);
-            DeleteObject(accent);
-            DeleteObject(hover);
-            DeleteObject(action_bg);
-            EndPaint(hwnd, &ps);
-            return;
-        }
+            win::rect(switch_left + action_size + scale(10, dpi), switch_top, client.right - scale(8, dpi), switch_bottom);
+        DrawTextW(hdc, action.as_mut_ptr(), -1, &mut action_text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         SetTextColor(hdc, SUBTEXT);
-        for visible_index in 0..visible_count {
+        for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
             let index = scroll + visible_index;
-            let top = action_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
+            let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
             let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
-            if GetCursorPos(&mut cursor) != 0 {
-                let mut local = cursor;
-                if ScreenToClient(hwnd, &mut local) != 0 && win::rect_contains(&row, local) {
-                    FillRect(hdc, &row, hover);
-                }
+            if HOVER_ROW.with(Cell::get) == index as isize {
+                FillRect(hdc, &row, hover);
             }
             let mut label = win::wide(&entries[index].1);
             let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
@@ -285,8 +276,9 @@ fn paint(hwnd: HWND) {
         }
         DeleteObject(bg);
         DeleteObject(accent);
+        DeleteObject(teal);
         DeleteObject(hover);
-        DeleteObject(action_bg);
+        DeleteObject(switch_bg);
         EndPaint(hwnd, &ps);
     }
 }
@@ -310,48 +302,96 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                     unsafe { TrackMouseEvent(&mut tme) };
                 }
             });
-            if !EXPANDED.get() {
-                EXPANDED.set(true);
-                place(hwnd);
-            }
+            let x = win::x_lparam(lparam);
             let y = win::y_lparam(lparam);
             let dpi = GetDpiForWindow(hwnd).max(96);
             let action_top = scale(HEADER_H + GAP, dpi);
             let action_bottom = action_top + scale(ACTION_SIZE, dpi);
-            let hovering_action = !MENU_OPEN.get() && y >= action_top && y < action_bottom;
-            if hovering_action && !ACTION_HOVER.replace(true) {
-                circles::toggle_visibility();
+            let action_left = scale(8, dpi);
+            let action_right = action_left + scale(ACTION_SIZE, dpi);
+            let hovering_action = x >= action_left && x < action_right && y >= action_top && y < action_bottom;
+            if hovering_action && !ACTION_INSIDE.replace(true) {
+                unsafe { SetTimer(hwnd, ACTION_TIMER, ACTION_DWELL_MS, None) };
             } else if !hovering_action {
+                unsafe { KillTimer(hwnd, ACTION_TIMER) };
                 ACTION_HOVER.set(false);
+                ACTION_INSIDE.set(false);
             }
-            unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+            let entries = rows();
+            let list_top = action_bottom + scale(GAP, dpi);
+            let scroll = SCROLL.with(Cell::get);
+            let list_index =
+                if y >= list_top { Some(scroll.saturating_add(((y - list_top) / scale(ROW_H, dpi).max(1)) as usize)) } else { None };
+            let next_hover =
+                list_index.filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len())).map_or(-1, |i| i as isize);
+            let previous_hover = HOVER_ROW.replace(next_hover);
+            if previous_hover != next_hover {
+                if previous_hover >= 0 {
+                    let rect = row_rect(dpi, previous_hover as usize);
+                    unsafe { InvalidateRect(hwnd, &rect, 0) };
+                }
+                if next_hover >= 0 {
+                    let rect = row_rect(dpi, next_hover as usize);
+                    unsafe { InvalidateRect(hwnd, &rect, 0) };
+                }
+            }
             0
         }
         WM_MOUSELEAVE => {
             TRACKING.set(false);
+            unsafe { KillTimer(hwnd, ACTION_TIMER) };
+            ACTION_INSIDE.set(false);
             ACTION_HOVER.set(false);
-            EXPANDED.set(false);
-            MENU_OPEN.set(false);
-            SCROLL.set(0);
-            place(hwnd);
-            unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+            let old_hover = HOVER_ROW.replace(-1);
+            if old_hover >= 0 {
+                let dpi = GetDpiForWindow(hwnd).max(96);
+                let rect = row_rect(dpi, old_hover as usize);
+                unsafe { InvalidateRect(hwnd, &rect, 0) };
+            }
+            0
+        }
+        WM_TIMER if wparam == ACTION_TIMER => {
+            let mut cursor = POINT { x: 0, y: 0 };
+            let dpi = GetDpiForWindow(hwnd).max(96);
+            let action_top = scale(HEADER_H + GAP, dpi);
+            let action_bottom = action_top + scale(ACTION_SIZE, dpi);
+            let action_left = scale(8, dpi);
+            let action_right = action_left + scale(ACTION_SIZE, dpi);
+            let inside = unsafe { GetCursorPos(&mut cursor) != 0 && ScreenToClient(hwnd, &mut cursor) != 0 }
+                && cursor.x >= action_left
+                && cursor.x < action_right
+                && cursor.y >= action_top
+                && cursor.y < action_bottom;
+            unsafe { KillTimer(hwnd, ACTION_TIMER) };
+            if inside && !ACTION_HOVER.replace(true) {
+                circles::toggle_visibility();
+                let rect = action_rect(dpi);
+                unsafe { InvalidateRect(hwnd, &rect, 0) };
+            } else if !inside {
+                ACTION_INSIDE.set(false);
+                ACTION_HOVER.set(false);
+            }
             0
         }
         WM_LBUTTONUP => {
             let dpi = GetDpiForWindow(hwnd).max(96);
+            let x = win::x_lparam(lparam);
             let y = win::y_lparam(lparam);
-            let header_end = scale(HEADER_H, dpi);
-            let action_end = scale(HEADER_H + GAP + ACTION_SIZE, dpi);
-            if y < header_end {
-                MENU_OPEN.set(!MENU_OPEN.get());
-                EXPANDED.set(true);
-                ACTION_HOVER.set(false);
-                SCROLL.set(0);
-                place(hwnd);
-                unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
-            } else if MENU_OPEN.get() && y >= action_end {
+            let action_top = scale(HEADER_H + GAP, dpi);
+            let action_bottom = action_top + scale(ACTION_SIZE, dpi);
+            let action_left = scale(8, dpi);
+            let action_right = action_left + scale(ACTION_SIZE, dpi);
+            if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
+                unsafe { KillTimer(hwnd, ACTION_TIMER) };
+                if !ACTION_HOVER.replace(true) {
+                    circles::toggle_visibility();
+                    let rect = action_rect(dpi);
+                    unsafe { InvalidateRect(hwnd, &rect, 0) };
+                }
+                ACTION_INSIDE.set(true);
+            } else if y >= action_bottom + scale(GAP, dpi) {
                 let entries = rows();
-                let start = action_end + scale(GAP, dpi);
+                let start = action_bottom + scale(GAP, dpi);
                 let visible = visible_row_count(dpi, entries.len());
                 let row_height = scale(ROW_H, dpi).max(1);
                 let offset = ((y - start).max(0) / row_height) as usize;
@@ -359,22 +399,14 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 if offset < visible {
                     if let Some((entry, _)) = entries.get(index).cloned() {
                         match entry {
-                            Entry::Toggle => circles::toggle_visibility(),
                             Entry::Target(which) => circles::open_target(which),
                         }
-                        MENU_OPEN.set(false);
-                        ACTION_HOVER.set(false);
-                        place(hwnd);
-                        unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
                     }
                 }
             }
             0
         }
         WM_MOUSEWHEEL => {
-            if !MENU_OPEN.get() {
-                return 0;
-            }
             let delta = ((wparam >> 16) as i16).signum();
             if delta == 0 {
                 return 0;
@@ -385,7 +417,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 let next = if delta > 0 { scroll.get().saturating_sub(1) } else { (scroll.get() + 1).min(max) };
                 scroll.set(next);
             });
-            unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+            let old_hover = HOVER_ROW.replace(-1);
+            if old_hover >= 0 {
+                let rect = row_rect(GetDpiForWindow(hwnd).max(96), old_hover as usize);
+                unsafe { InvalidateRect(hwnd, &rect, 0) };
+            }
+            let list_top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, GetDpiForWindow(hwnd).max(96));
+            let mut client: RECT = unsafe { std::mem::zeroed() };
+            unsafe { GetClientRect(hwnd, &mut client) };
+            let list_rect = win::rect(0, list_top, client.right, client.bottom);
+            unsafe { InvalidateRect(hwnd, &list_rect, 0) };
             0
         }
         WM_WINDOWPOSCHANGING => {
@@ -431,15 +472,10 @@ mod tests {
 
     #[test]
     fn dock_dimensions_scale_with_dpi() {
-        EXPANDED.set(false);
-        MENU_OPEN.set(false);
-        assert_eq!(dimensions(96, 1), (96, 96));
-        EXPANDED.set(true);
-        MENU_OPEN.set(true);
-        assert_eq!(dimensions(192, 8).0, 328);
+        assert_eq!(dimensions(96, 1).0, 224);
+        assert_eq!(dimensions(192, 8).0, 448);
+        assert_eq!(scale(ACTION_DWELL_MS as i32, 192), 600);
         assert_eq!(scale(ROW_H, 192), 56);
-        EXPANDED.set(false);
-        MENU_OPEN.set(false);
     }
 
     #[test]
