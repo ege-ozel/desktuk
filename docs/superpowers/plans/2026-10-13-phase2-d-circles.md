@@ -338,3 +338,29 @@ must rerun physical Win+D and the taskbar corner button. Windows CI 39032509588 
 the deployed runtime, including release checks, all fixture modes and runner integration.
 Z-order native fixture tests are serialized to avoid their shared Windows desktop; the
 updated test harness is pushed and its Windows CI run is pending.
+
+### D23: Preserve desktop-only circles during Shell Show Desktop
+
+Owner follow-up (2026-10-18): after interacting with circles, Win+D and the taskbar
+Show Desktop button can appear to toggle only the circles while other windows stay
+unchanged. The installed configuration selects desktop-only mode. D22 only blocked
+Shell hide positioning in always-on-top mode, and taskbar foreground was ignored even
+when a circle had been hidden.
+
+- [x] Recover a desktop-only circle when the taskbar/overflow surface becomes
+      foreground, preserving normal-band desktop ordering.
+- [x] Reject a late Shell hide request after desktop ordering has been established;
+      keep normal app foreground changes lowering the circle as before.
+- [x] Run required MSVC checks and commit/push the host regression fix. Physical
+      Win+D and corner-button validation remains an owner-machine check; do not run
+      windows-integration-test.ps1 or generate physical input here.
+- [ ] Deploy the checked release and record the running executable/preferences;
+      owner-machine Win+D and corner-button validation remains pending.
+
+D23.1 evidence: desktop-only Shell hide positioning is rejected after the host has
+entered desktop ordering, including a late hide after the foreground event. Taskbar
+and overflow foreground now restore a hidden circle into the normal band. Native
+regressions cover both paths and existing tests confirm ordinary app focus lowers
+the circles. Required MSVC fmt/clippy pass; release tests pass (59 passed, one ignored).
+Physical Win+D, corner-button and Peek behavior remain unverified; no physical input
+or Desktop writes were performed.

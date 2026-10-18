@@ -14,8 +14,10 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - A and D through D22 are implemented/installed; evidence is in Plan D.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- D21 drag guide and D22 owner-reported hide recovery are installed. The saved
-  preference selects desktop-only mode; right-click to change. See active Plan D.
+- D21 drag guide and D22 owner-reported hide recovery are installed. D23 fixes the
+  reported desktop-only Show Desktop path and has passed local MSVC checks; release
+  deployment and owner physical checks remain. The saved preference selects
+  desktop-only mode; right-click to change. See active Plan D.
 
 ## Delivered behavior and evidence
 
@@ -45,8 +47,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 
 ## Observed unresolved behavior and unperformed checks
 
-- Owner reported Win+D toggling circles and corner-button problems. D22 changes
-  ordering and Peek exclusion; physical Win+D / corner click / Peek remain unverified.
+- Owner reports Win+D and taskbar Show Desktop can appear to toggle only circles
+  after interaction. D23 addresses desktop-only Shell hide ordering and taskbar
+  foreground recovery; physical Win+D / corner click / Peek remain unverified.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.
@@ -78,6 +81,8 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
+- Active follow-up: D23 in 2026-10-13-phase2-d-circles.md; release deployment and
+  physical Win+D / taskbar corner click remain pending.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Original implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

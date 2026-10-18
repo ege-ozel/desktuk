@@ -62,6 +62,13 @@ impl WindowHost {
     fn to_topmost(node: HWND) {
         unsafe { SetWindowPos(node, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER) };
     }
+
+    fn raise_normal(node: HWND) {
+        unsafe {
+            SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SetWindowPos(node, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+    }
 }
 
 impl DesktopHost for WindowHost {
@@ -137,6 +144,10 @@ impl DesktopHost for WindowHost {
             if wp.flags & SWP_NOZORDER == 0 {
                 wp.hwndInsertAfter = HWND_TOPMOST;
             }
+        } else if self.raised.get() && wp.flags & SWP_HIDEWINDOW != 0 {
+            // Shell can deliver its hide positioning after the foreground event
+            // for Show Desktop. Preserve the desktop reveal until an app is active.
+            wp.flags = (wp.flags & !SWP_HIDEWINDOW) | SWP_SHOWWINDOW;
         } else if !self.raised.get() && wp.flags & SWP_NOZORDER == 0 {
             wp.hwndInsertAfter = HWND_BOTTOM;
         } else if wp.flags & SWP_NOZORDER == 0 && wp.hwndInsertAfter == HWND_TOPMOST {
@@ -158,9 +169,26 @@ impl DesktopHost for WindowHost {
             }
             return;
         }
-        // Ignore our own node, hidden controllers, menus and the taskbar/overflow surface.
-        if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" || Self::desktop_overlay(fg)
-        {
+        // Ignore our own node, hidden controllers and menus.
+        if fg == node || fg.is_null() || unsafe { IsWindowVisible(fg) } == 0 || win::class_name(fg) == "#32768" {
+            return;
+        }
+        if Self::desktop_overlay(fg) {
+            // Clicking Show Desktop can leave the taskbar as foreground. Recover
+            // a shell-hidden circle and keep it in the normal band over desktop.
+            if unsafe { IsWindowVisible(node) } == 0 || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsIconic(node) } != 0 {
+                unsafe {
+                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
+                        node,
+                        windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
+                    )
+                };
+            }
+            if !self.raised.get() {
+                self.raised.set(true);
+                Self::raise_normal(node);
+                dlog!("host[window] taskbar is foreground -> node raised");
+            }
             return;
         }
         if unsafe { IsWindowVisible(node) } == 0 || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsIconic(node) } != 0 {
@@ -174,7 +202,7 @@ impl DesktopHost for WindowHost {
         if shell::is_desktop_window(fg) {
             if !self.raised.get() {
                 self.raised.set(true);
-                unsafe { SetWindowPos(node, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                Self::raise_normal(node);
                 dlog!("host[window] desktop is foreground -> node raised");
             }
         } else if self.raised.get() {
@@ -386,6 +414,40 @@ mod tests {
         unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node.0, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
         host.foreground_changed(node.0, application.0);
         assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "opening an app must recover a hidden circle");
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+    }
+
+    #[test]
+    fn desktop_only_keeps_a_late_shell_hide_from_reversing_show_desktop() {
+        let _serial = serial_z_order_test();
+        let node = window("DeskTuk.TestLateShowDesktopHide", std::ptr::null_mut());
+        let desktop = window("Progman", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.set_always_on_top(node.0, false);
+        host.foreground_changed(node.0, desktop.0);
+        assert!(host.raised.get());
+
+        // The Shell can submit its hide position after the desktop foreground event.
+        let mut hide = WINDOWPOS { flags: SWP_HIDEWINDOW | SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE, ..unsafe { std::mem::zeroed() } };
+        host.window_pos_changing(node.0, &mut hide);
+        assert_eq!(hide.flags & SWP_HIDEWINDOW, 0);
+        assert_ne!(hide.flags & SWP_SHOWWINDOW, 0);
+        assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+        assert!(host.raised.get());
+    }
+
+    #[test]
+    fn desktop_only_recovers_when_the_taskbar_owns_show_desktop() {
+        let _serial = serial_z_order_test();
+        let node = window("DeskTuk.TestTaskbarShowDesktop", std::ptr::null_mut());
+        let tray = window("Shell_TrayWnd", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.set_always_on_top(node.0, false);
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node.0, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+
+        host.foreground_changed(node.0, tray.0);
+        assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "taskbar Show Desktop must recover a Shell-hidden circle");
+        assert!(host.raised.get(), "taskbar focus preserves desktop ordering");
         assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
     }
 
