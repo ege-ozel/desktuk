@@ -190,6 +190,14 @@ try {
         $freeX=[Math]::Min($work.right-$diameter,[Math]::Max($work.left,$sourceX+$dx))
         $freeY=[Math]::Min($work.bottom-$diameter,[Math]::Max($work.top,$sourceY+$dy))
         if ($during.left -ne $freeX -or $during.top -ne $freeY) { throw 'Circle should move freely inside the work area while held' }
+        # Background Desktop refresh must not restore the old saved position during a
+        # live drag. The idle cleanup timer must also skip this interaction.
+        [void][OpenCircleDragWin]::SendMessage($controller,0x113,[IntPtr]8,[IntPtr]::Zero)
+        [void][OpenCircleDragWin]::SendMessage($controller,0x113,[IntPtr]7,[IntPtr]::Zero)
+        $afterRefresh=[OpenCircleDragWin]::Rectangle($anchor)
+        if ($afterRefresh.left -ne $freeX -or $afterRefresh.top -ne $freeY) { throw 'Background refresh reset a moving circle to its saved position' }
+        if ((Get-Content -LiteralPath $log -Raw) -notmatch 'idle cleanup deferred during circle interaction') { throw 'Idle cleanup did not defer during dragging' }
+
         [OpenCircleDragWin]::MiddleMouse($anchor,0x208,$atX-$dx,$atY-$dy)
         $afterRelease=[OpenCircleDragWin]::Rectangle($anchor)
         if ($afterRelease.left -ne $expectedX -or $afterRelease.top -ne $expectedY) { throw 'Circle did not snap to the active grid cell on release' }

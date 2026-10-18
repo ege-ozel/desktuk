@@ -66,6 +66,8 @@ struct State {
 }
 
 thread_local! {
+    static DESKTOP_PENDING: Cell<bool> = const { Cell::new(false) };
+    static REFRESH_PENDING: Cell<bool> = const { Cell::new(false) };
     static STATE: Cell<Option<&'static State>> = const { Cell::new(None) };
 }
 
@@ -207,8 +209,36 @@ pub fn open_target(which: Which) {
     ring::open(hwnd, target);
 }
 
+pub fn drag_active() -> bool {
+    circle_win::pressed_window().is_some() || ring::item_drag_pending()
+}
+
+pub fn interaction_active() -> bool {
+    circle_win::pressed_window().is_some() || ring::is_open()
+}
+
+pub fn defer_refresh() {
+    REFRESH_PENDING.set(true);
+}
+
+pub fn interaction_ended() {
+    if !drag_active() {
+        if DESKTOP_PENDING.replace(false) {
+            refresh_desktop();
+        } else if REFRESH_PENDING.replace(false) {
+            refresh_all();
+        }
+        crate::app::schedule_trim();
+    }
+}
+
 /// Repaints every circle (names, counts) and the open ring.
 pub fn refresh_all() {
+    if drag_active() {
+        defer_refresh();
+        return;
+    }
+    REFRESH_PENDING.set(false);
     let Some(st) = state() else { return };
     let list: Vec<(HWND, Which)> = match st.windows.try_borrow() {
         Ok(w) => w.iter().map(|w| (w.hwnd, w.which)).collect(),
@@ -316,6 +346,10 @@ pub fn on_desktop_signal(i: usize) {
 pub fn refresh_desktop() {
     let Some(st) = state() else { return };
     unsafe { KillTimer(app().controller.get(), TIMER_DESKTOP) };
+    if drag_active() {
+        DESKTOP_PENDING.set(true);
+        return;
+    }
     let entries = desktop::list(&st.dirs);
     dlog!("desktop changed: {} entries", entries.len());
     if let Ok(mut e) = st.entries.try_borrow_mut() {

@@ -33,7 +33,11 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 
 - D32 repairs item press cancellation on denied capture, outside-ring release/dismissal
   and overlap-covered drop targets. Isolated cross-circle/group/Back/Recent/cancel tests
-  pass; referenced files remain unchanged. D33 optimization is next.
+  pass; referenced files remain unchanged. D33 grid/cleanup optimization passes local checks.
+
+- D33 uploads grid lines once and moves a reusable target-cell window. Circle/Desktop
+  refresh, metadata repaint and memory cleanup defer until interaction ends. Native
+  geometry/reuse tests, held-refresh regression and explicit 500-cell/4K probe pass.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.

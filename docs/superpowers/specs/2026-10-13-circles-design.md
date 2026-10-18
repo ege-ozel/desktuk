@@ -71,6 +71,16 @@ of the Desktop heading hides the menu, leaving only the visibility square. Squar
 or its existing hover dwell still toggles circles. Right-click offers Menüyü göster /
 Menüyü gizle; tray/show recovery restores the full menu. Collapse is session-only.
 
+**Owner follow-up (2026-10-19, D32/D33):** prioritize fluid movement and reliable
+internal item transfer. A file press survives denied foreground capture and leaving its
+source disc; release resolves visible destination-circle geometry, including underneath
+the source ring. Group/Back and Recent drops keep reference-only semantics. Cancel or an
+invalid drop keeps the assignment. Input fallback coalesces screen-coordinate samples.
+Grid lines upload once per layout; a separate reusable target-cell surface moves between
+cells. Background enumeration/repainting and shell/working-set cleanup defer until input
+finishes. Keep grid Off available and snap only on release. Physical feel remains an
+owner acceptance check; synthetic input/submit timing cannot establish displayed smoothness.
+
 **Open ring**, one at a time, centred on its circle (shifted inwards
 near a screen edge):
 

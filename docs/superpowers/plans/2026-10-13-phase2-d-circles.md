@@ -637,11 +637,11 @@ to another. Treat physical owner feedback as a failure of the current interactio
 
 ### D33: Remove expensive work from live dragging
 
-- [ ] Draw the grid frame once per layout; move a separate reusable target-cell surface
+- [x] Draw the grid frame once per layout; move a separate reusable target-cell surface
       instead of rebuilding a monitor-sized bitmap at each cell crossing.
-- [ ] Defer shell unloading/working-set trimming until interaction ends; avoid rendering
+- [x] Defer shell unloading/working-set trimming until interaction ends; avoid rendering
       a moving circle back at its saved position during background refresh.
-- [ ] Verify native guide reuse/geometry and measure repeated cell crossings, retain
+- [x] Verify native guide reuse/geometry and measure repeated cell crossings, retain
       grid Off and release-only snapping; run required MSVC checks and regressions.
 - [ ] Push, confirm code CI, deploy the checked release and preserve configuration;
       record evidence and leave real pointer feel for owner assessment.
@@ -655,3 +655,23 @@ item release/cancel; pending fallback samples are invalidated on cancellation/ne
 An initial fixture settle let physical outside-pointer dismissal close the ring before
 press; the item fixture now starts pressing immediately after opening, and passes.
 Actual physical fallback-hook delivery/drag feel remains an owner check.
+
+D33 local evidence (2026-10-19): Windows MSVC fmt, release Clippy (-D warnings),
+64 release tests (two ignored: image preview and explicit performance probe), release
+build, updated Grid=3/Topmost open-circle fixture and the item-drag fixture passed.
+The open-circle fixture now fires Desktop-refresh and cleanup timers while held;
+position remains free and cleanup reports deferral. Background enumeration, redraws and
+metadata repaints are deferred until release, preventing saved-position restoration.
+Shell unload was moved from synchronous ring destruction to the existing idle cleanup;
+cleanup skips open rings/active drags with no recurring idle timer. Hook item ownership
+is copied into a Cell so callback routing does not depend on borrowing the ring.
+
+Grid frame and target are separate click-through windows. The frame uploads only when
+work area/divisions/diameter change; an equal-shaped target moves via SetWindowPos.
+Fractional cell-size changes can repaint the smaller target, never the full frame.
+Native regressions cover exact snap-centre geometry, negative/non-divisible work areas,
+monitor-layout changes, no focus theft and destruction of both transient windows.
+Explicit 4K offscreen probe: initial setup 30.4108 ms; 500 native cell updates 113.9386 ms,
+with one frame upload and one target upload. This measures submission cost in an isolated
+fixture, not displayed frame rate or physical pointer latency. Physical feel is unverified.
+Grid remains optional and snaps on release; no dependency or idle bitmap was added.

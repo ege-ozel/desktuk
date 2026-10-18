@@ -122,6 +122,10 @@ pub fn create(which: Which, pos: (i32, i32)) -> Option<CircleWin> {
 /// (clamped to the nearest work area) and shows it. Uses a temporary surface: the
 /// system keeps the presented pixels, so nothing stays allocated here.
 pub fn render(hwnd: HWND, which: Which) {
+    if is_pressed(hwnd) {
+        super::defer_refresh();
+        return;
+    }
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let m = geom::metrics(dpi);
     let recent_count = if which == Which::Recent { super::recent_paths().len() } else { 0 };
@@ -342,6 +346,7 @@ pub fn end_press(hwnd: HWND, released: bool) {
     } else if released && p.button == VK_LBUTTON {
         ring::open(hwnd, which.target());
     }
+    super::interaction_ended();
 }
 
 unsafe extern "system" fn circle_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {

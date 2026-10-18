@@ -115,7 +115,7 @@ impl App {
     }
 }
 
-/// Drops start-up/ring pages from the working set in a second (`TIMER_TRIM`).
+/// Schedules shell/working-set cleanup after input settles; never runs on a drag/close path.
 pub fn schedule_trim() {
     unsafe { SetTimer(app().controller.get(), TIMER_TRIM, 1000, None) };
 }
@@ -623,9 +623,14 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
                 }
                 TIMER_TRIM => {
                     KillTimer(hwnd, TIMER_TRIM);
-                    // Start-up touches shell32/ole32/gdi code once; drop those pages from the
-                    // working set so the idle footprint reflects what the Node really needs.
-                    EmptyWorkingSet(GetCurrentProcess());
+                    // Ring close and drag input must never unload shell code or evict
+                    // working pages. Closing/releasing schedules a fresh idle cleanup.
+                    if !circles::interaction_active() {
+                        windows_sys::Win32::System::Com::CoFreeUnusedLibrariesEx(0, 0);
+                        EmptyWorkingSet(GetCurrentProcess());
+                    } else {
+                        dlog!("idle cleanup deferred during circle interaction");
+                    }
                 }
                 TIMER_IDLE_METRICS => {
                     KillTimer(hwnd, TIMER_IDLE_METRICS);

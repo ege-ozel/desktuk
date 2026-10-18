@@ -93,6 +93,7 @@ thread_local! {
     static RING: RefCell<Option<Ring>> = const { RefCell::new(None) };
     static NEXT_LOAD: Cell<u64> = const { Cell::new(0) };
     static OPENING: Cell<bool> = const { Cell::new(false) };
+    static ITEM_WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static ITEM_POINTER: Cell<Option<(POINT, bool)>> = const { Cell::new(None) };
     static ITEM_ROUTE: Cell<bool> = const { Cell::new(false) };
     static ITEM_PRESS_ID: Cell<usize> = const { Cell::new(0) };
@@ -161,10 +162,20 @@ unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -
 }
 
 fn item_pressed_window() -> Option<HWND> {
-    with(|r| r.press.as_ref().map(|_| r.hwnd)).flatten()
+    let hwnd = ITEM_WINDOW.get();
+    (!hwnd.is_null()).then_some(hwnd)
+}
+
+pub fn is_open() -> bool {
+    with(|_| true).unwrap_or(false)
+}
+
+pub fn item_drag_pending() -> bool {
+    item_pressed_window().is_some()
 }
 
 fn reset_item_pointer() {
+    ITEM_WINDOW.set(std::ptr::null_mut());
     ITEM_POINTER.set(None);
     ITEM_ROUTE.set(false);
     ITEM_PRESS_ID.set(ITEM_PRESS_ID.get().wrapping_add(1));
@@ -398,7 +409,11 @@ pub fn apply_batch(batch: items::RingBatch) {
             }
         }
         if any && !closing(r) {
-            redraw(r);
+            if r.press.is_some() {
+                super::defer_refresh();
+            } else {
+                redraw(r);
+            }
         }
     });
 }
@@ -418,8 +433,6 @@ pub fn close_now() {
         unsafe {
             KillTimer(h, TIMER_ANIM);
             DestroyWindow(h);
-            // Let COM unload shell extensions the icons pulled in, then trim the working set.
-            windows_sys::Win32::System::Com::CoFreeUnusedLibrariesEx(0, 0);
         }
         crate::app::schedule_trim();
     }
@@ -464,6 +477,10 @@ pub fn circle_drag_finished() {
 
 /// Re-reads the slots (after the board or the Desktop changed) and repaints.
 pub fn refresh() {
+    if item_drag_pending() {
+        super::defer_refresh();
+        return;
+    }
     let to_load = with(|r| {
         let (refs, suggestions) = super::slots_for(r.target);
         r.suggestions = suggestions;
@@ -506,7 +523,11 @@ pub fn apply_metas(metas: Vec<(PathBuf, Meta)>) {
             }
         }
         if any && !closing(r) {
-            redraw(r);
+            if r.press.is_some() {
+                super::defer_refresh();
+            } else {
+                redraw(r);
+            }
         }
     });
 }
@@ -806,6 +827,7 @@ fn on_left_down(lparam: LPARAM) {
             RingHit::Slot(k) => match &r.page[k].r {
                 SlotRef::Item(p) => {
                     r.press = Some(Press { path: p.clone(), cursor: circle_win::mouse_point(r.hwnd, lparam), active: false });
+                    ITEM_WINDOW.set(r.hwnd);
                     Some(LeftPress::Item(r.hwnd))
                 }
                 _ => None,
@@ -861,6 +883,7 @@ fn on_left_up_at(at: POINT) {
     super::drag_capture::end(hwnd);
     if !press.as_ref().is_some_and(|p| p.active) && with(|r| hit_screen(r, at) == RingHit::Outside).unwrap_or(false) {
         begin_close();
+        super::interaction_ended();
         return;
     }
     let action = match press {
@@ -897,6 +920,7 @@ fn on_left_up_at(at: POINT) {
         .unwrap_or(Action::None),
     };
     run(action);
+    super::interaction_ended();
 }
 
 fn run(action: Action) {
@@ -1110,6 +1134,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
                 reset_item_pointer();
                 super::drag_preview::close();
                 super::drag_capture::end(hwnd);
+                super::interaction_ended();
             }
             0
         }
@@ -1122,6 +1147,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             reset_item_pointer();
             super::drag_preview::close();
             super::drag_capture::end(hwnd);
+            super::interaction_ended();
             close_if_outside();
             0
         }
@@ -1146,6 +1172,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             0
         }
         WM_DESTROY => {
+            reset_item_pointer();
             if circle_win::pressed_window().is_none() {
                 uninstall_mouse_hook();
             }
