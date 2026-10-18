@@ -521,5 +521,12 @@ press when the pointer leaves the ring and its outside-dismiss hook closes.
       capture and fallback hook on release/cancel/capture loss.
 - [x] Verify open-ring drag and grid lifecycle with the isolated Windows fixture and the
       required MSVC fmt, Clippy and release test commands.
-- [ ] Commit the fix and evidence; confirm GitHub Windows CI passes.
+- [x] Commit the fix and evidence; confirm GitHub Windows CI passes.
 - [ ] Owner assesses physical open-ring circle dragging and grid snap.
+
+D28 verification (2026-10-18): MSVC `cargo fmt`, release Clippy with `-D warnings`,
+release tests (63 passed, one ignored), and release build passed. The isolated
+`open-circle-drag-regression-test.ps1 -Grid 3 -Topmost` passed movement, cell snapping,
+grid release/cancel, persistence and restart checks without physical cursor movement.
+GitHub Windows CI run 39160762962 passed, including open-circle drag, grid, tray and
+runner integration fixtures. Physical drag feel on the owner's desktop remains unverified.
