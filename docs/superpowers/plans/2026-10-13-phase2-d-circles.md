@@ -394,5 +394,23 @@ The circles' former topmost preference remains an explicit opt-in.
 - [x] Add regressions for Shell hide/z-order requests and explicit circle hiding.
       Run required MSVC checks, release build and relevant fixtures; do not generate
       physical input.
-- [ ] Deploy/restart only after the checked binary is ready and record evidence;
+- [x] Deploy/restart only after the checked binary is ready and record evidence;
       leave physical Win+D, corner-click and Peek assessment to the owner.
+
+D24 evidence (Windows MSVC, 2026-10-18): fmt, fmt --check, locked release clippy
+with -D warnings, 62 passing release tests (one ignored preview), release build and
+git diff --check pass. New regressions verify the dock rejects Shell hide/z-order
+requests and explicit circle hiding remains hidden through foreground recovery until
+the dock reveals it. No physical input or Desktop writes were generated.
+
+D24 deployment: commit 9876047 was pushed to main. Installed the checked release at
+D:/CodeSpace/desktuk/DeskTuk.exe after posting normal WM_CLOSE to the controller;
+previous binary is retained at target/persistent-dock-9876047/previous-installed.exe.
+Installed SHA256: 748196090B2F369B77FD9D2713691C917CE3F7D3FF7D0359B90CD6BF77C4C92E.
+Running PID 18100 responds. DeskTuk.Dock was visible at 2150,631..2388,809 with
+WS_EX_TOPMOST and WS_EX_NOACTIVATE; three DeskTuk.Circle windows were visible. Config
+SHA256 remained EB398553552B6DC2C544735C28B118D62A6E46A76ED5759E166B25993C0ACB47
+(ui=circles, always_on_top=0). Windows CI run 39124382613 caught a tray fixture that
+still assumed omitted topmost meant enabled; the fixture/workflow now exercise the new
+desktop default, explicit desktop-only mode and topmost opt-in. Follow-up CI is pending.
+Owner physical Win+D, corner-click and Peek assessment remains outstanding.

@@ -11,13 +11,10 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and D through D23 are implemented/installed; D24 recovery-dock code is checked and
-  awaiting deployment.
+- A and D through D24 are installed; owner physical Win+D/corner/Peek checks remain.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
-- D21 drag guide, D22 hide recovery and D23 desktop-only Show Desktop recovery are
-  installed. Physical Win+D / corner click / Peek still need owner assessment. The
-  saved preference selects desktop-only mode; right-click to change. See active Plan D.
+- Circles default to desktop ordering; right-click opts into topmost. See Plan D.
 
 ## Delivered behavior and evidence
 
@@ -25,11 +22,12 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
 - Circles default to desktop ordering (apps cover circles); a global option keeps
   topmost mode available. The right-edge recovery dock stays topmost, lists Recent and
-  circles, opens a selected circle, and toggles board visibility. D24 deployment is pending.
-- Installed runtime source: `569865d` (D23 desktop-only Show Desktop recovery). Windows CI
-  39118544698 passed; z-order test serialization is on main;
+  circles, opens a selected circle, and toggles board visibility.
+- Installed runtime source: `9876047` (D24 persistent dock). Windows CI 39124382613
+  caught a stale tray-fixture expectation; its follow-up now covers default, desktop-only
+  and topmost modes. D23 run 39118544698 passed; z-order serialization is on main.
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
-- Required MSVC checks: 59 passing tests, one ignored preview; the preview was also
+- Required MSVC checks for D24: 62 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
 - Pointer entry opens immediately: no hover dwell or opening animation. Closing
   remains 110 ms. Topmost circles reject minimize/demotion; stale focus events skip.
@@ -39,18 +37,17 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Closed circles, ring centres and group discs now use centered pixel-coverage
   blending. The outer premultiplied alpha mask remains; text/icons retain native
   rendering. No new dependencies, idle timers, threads or persistent buffers.
-- Installation/restart succeeded; responding process/tray and unchanged
-  configuration, startup command and desktop visibility preference were verified.
+- Installation/restart succeeded; responding process, visible topmost/no-activate dock,
+  unchanged configuration and desktop visibility preference were verified.
 - Installed executable: D:/CodeSpace/desktuk/DeskTuk.exe. Full release SHA256,
-  preview paths and deployment evidence are recorded under Plan D D15/D16/D20/D23.
+  preview paths and deployment evidence are recorded under Plan D D15/D16/D20/D23/D24.
 - The reported hard inner edge was reproduced in a native regression and fixed;
   the owner's final visual assessment on the running desktop is still pending.
 
 ## Observed unresolved behavior and unperformed checks
 
-- Owner reports D23 did not fix physical Win+D/taskbar Show Desktop behavior. D24 adds
-  a persistent topmost recovery dock; physical Win+D / corner click / Peek assessment
-  remains pending.
+- Owner reports D23 failed physical Win+D/taskbar Show Desktop. D24 adds a topmost
+  recovery dock; physical Win+D / corner click / Peek assessment remains pending.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.
