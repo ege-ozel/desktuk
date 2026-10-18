@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D31 are delivered; D30/D31 address fast dragging and the dock.
+- A and D through D31 are delivered; D32 fixes item dragging; D33 targets drag costs.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 
@@ -31,7 +31,13 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Circle surfaces use pixel-coverage blending. No new dependencies or idle polling.
 - Product proposals and priorities: ../reviews/2026-10-18-product-review.md and D30 notes.
 
+- D32 repairs item press cancellation on denied capture, outside-ring release/dismissal
+  and overlap-covered drop targets. Isolated cross-circle/group/Back/Recent/cancel tests
+  pass; referenced files remain unchanged. D33 optimization is next.
+
 ## Observed defects / checks not performed
+- Owner reports the installed D31 build is still choppy and item transfer fails.
+  Full-monitor grid repaint, shell cleanup on close and item drag defects are observed.
 - Owner reports D29 fast middle dragging after first hover can stick at grid lines
   or arbitrary positions; Print Screen appears to clear it. D30 addresses a concrete
   queued-coordinate defect; the physical symptom and Print Screen effect need assessment.
@@ -61,7 +67,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; current follow-ups D30/D31.
+- Active plan: 2026-10-13-phase2-d-circles.md; current follow-ups D32/D33.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

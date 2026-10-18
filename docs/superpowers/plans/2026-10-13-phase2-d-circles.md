@@ -622,3 +622,36 @@ Config SHA256 before/after remained
 53D1728C1392BAC076271573B835279679ED9D7FE5B919FA84E0D2C352B40A1E.
 Runtime enumeration confirmed a visible 153x180 dock and three visible 104x104 circles.
 Physical fast middle dragging after hover and owner visual assessment remain outstanding.
+
+### D32: Restore internal file dragging between circles
+
+Owner report: movement still feels choppy and a file cannot be dragged from one circle
+to another. Treat physical owner feedback as a failure of the current interaction.
+
+- [x] Preserve item presses when foreground capture is denied; coalesce fallback screen
+      samples and process movement/release outside the source ring before dismissal.
+- [x] Resolve destination circle geometry even where the source ring covers the target;
+      preserve group/Back drops, cancellation and file-reference-only semantics.
+- [x] Add isolated item-drag regressions (cross-circle, Recent, overlap, invalid drop,
+      cancellation and unchanged referenced files); run required MSVC checks and commit.
+
+### D33: Remove expensive work from live dragging
+
+- [ ] Draw the grid frame once per layout; move a separate reusable target-cell surface
+      instead of rebuilding a monitor-sized bitmap at each cell crossing.
+- [ ] Defer shell unloading/working-set trimming until interaction ends; avoid rendering
+      a moving circle back at its saved position during background refresh.
+- [ ] Verify native guide reuse/geometry and measure repeated cell crossings, retain
+      grid Off and release-only snapping; run required MSVC checks and regressions.
+- [ ] Push, confirm code CI, deploy the checked release and preserve configuration;
+      record evidence and leave real pointer feel for owner assessment.
+
+D32 local evidence (2026-10-19): isolated item fixture passes overlap-covered target,
+distant-circle drop outside the source disc, group and Back slots, Recent unassignment,
+invalid desktop drop, Escape/cancel/capture-loss cleanup and unchanged file SHA256.
+Synthetic button input intentionally denies foreground capture, exercising the formerly
+cancelled press path without physical input. Open-ring hover dismissal is blocked until
+item release/cancel; pending fallback samples are invalidated on cancellation/new presses.
+An initial fixture settle let physical outside-pointer dismissal close the ring before
+press; the item fixture now starts pressing immediately after opening, and passes.
+Actual physical fallback-hook delivery/drag feel remains an owner check.

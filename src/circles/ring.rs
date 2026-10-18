@@ -93,9 +93,13 @@ thread_local! {
     static RING: RefCell<Option<Ring>> = const { RefCell::new(None) };
     static NEXT_LOAD: Cell<u64> = const { Cell::new(0) };
     static OPENING: Cell<bool> = const { Cell::new(false) };
+    static ITEM_POINTER: Cell<Option<(POINT, bool)>> = const { Cell::new(None) };
+    static ITEM_ROUTE: Cell<bool> = const { Cell::new(false) };
+    static ITEM_PRESS_ID: Cell<usize> = const { Cell::new(0) };
     static MOUSE_HOOK: Cell<HHOOK> = const { Cell::new(std::ptr::null_mut()) };
 }
 
+const WM_ITEM_POINTER: u32 = WM_APP + 43;
 const WM_APP_OUTSIDE_POINTER: u32 = WM_APP + 41;
 
 fn install_mouse_hook() {
@@ -134,6 +138,13 @@ unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -
                 return unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) };
             }
         }
+        if let Some(hwnd) = item_pressed_window() {
+            if matches!(kind, WM_MOUSEMOVE | WM_LBUTTONUP) && !super::drag_capture::is_active_for(hwnd) {
+                let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
+                queue_item_pointer(hwnd, point, kind == WM_LBUTTONUP);
+            }
+            return unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) };
+        }
         if matches!(kind, WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN) {
             let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
             let outside = with(|ring| hit_screen(ring, point) == RingHit::Outside).unwrap_or(false);
@@ -147,6 +158,29 @@ unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -
         }
     }
     unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) }
+}
+
+fn item_pressed_window() -> Option<HWND> {
+    with(|r| r.press.as_ref().map(|_| r.hwnd)).flatten()
+}
+
+fn reset_item_pointer() {
+    ITEM_POINTER.set(None);
+    ITEM_ROUTE.set(false);
+    ITEM_PRESS_ID.set(ITEM_PRESS_ID.get().wrapping_add(1));
+}
+
+fn queue_item_pointer(hwnd: HWND, point: POINT, released: bool) {
+    if ITEM_POINTER.get().is_some_and(|(_, released)| released) {
+        return;
+    }
+    ITEM_ROUTE.set(true);
+    if ITEM_POINTER.replace(Some((point, released))).is_none()
+        && unsafe { PostMessageW(hwnd, WM_ITEM_POINTER, ITEM_PRESS_ID.get(), 0) } == 0
+    {
+        ITEM_POINTER.set(None);
+        ITEM_ROUTE.set(false);
+    }
 }
 
 struct Opening;
@@ -214,6 +248,9 @@ pub fn close_target(anchor: HWND, target: Target) -> bool {
 
 /// Opens the ring for `target` over the circle window `anchor`, closing any other ring.
 pub fn open(anchor: HWND, target: Target) {
+    if item_pressed_window().is_some() {
+        return;
+    }
     if OPENING.with(|busy| busy.replace(true)) {
         return;
     }
@@ -314,7 +351,14 @@ pub fn open(anchor: HWND, target: Target) {
         SetTimer(hwnd, TIMER_ANIM, FRAME_MS, None);
     }
     install_mouse_hook();
-    dlog!("ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size}", m.icon, m.per_page());
+    dlog!(
+        "ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size} inner_slots={} inner_r={} outer_r={}",
+        m.icon,
+        m.per_page(),
+        m.inner_slots,
+        m.inner_r,
+        m.outer_r
+    );
 }
 
 fn spawn_loader(paths: Vec<PathBuf>) {
@@ -361,6 +405,7 @@ pub fn apply_batch(batch: items::RingBatch) {
 
 /// Destroys the ring immediately (no animation). Safe to call when none is open.
 pub fn close_now() {
+    reset_item_pointer();
     let taken = RING.with(|cell| cell.try_borrow_mut().ok().and_then(|mut g| g.take()));
     if let Some(r) = taken {
         let h = r.hwnd;
@@ -381,7 +426,7 @@ pub fn close_now() {
 }
 
 fn begin_close() {
-    if circle_win::pressed_window().is_some() {
+    if circle_win::pressed_window().is_some() || item_pressed_window().is_some() {
         return;
     }
     with(|r| {
@@ -656,12 +701,18 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
         }
         return;
     }
+    if let Some(hwnd) = item_pressed_window() {
+        if wparam & 1 != 0 && !ITEM_ROUTE.get() {
+            move_item(circle_win::mouse_point(hwnd, lparam));
+        }
+        return;
+    }
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     if with(|r| hit(r, x, y) == RingHit::Outside).unwrap_or(false) {
         begin_close();
         return;
     }
-    let preview = with(|r| {
+    with(|r| {
         if closing(r) {
             return None;
         }
@@ -675,12 +726,22 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
             unsafe { TrackMouseEvent(&mut tme) };
             r.tracking = true;
         }
+        let hover = match hit(r, x, y) {
+            RingHit::Slot(k) => Some(k),
+            _ => None,
+        };
+        if hover != r.hover {
+            r.hover = hover;
+            redraw(r);
+        }
+        None::<()>
+    });
+}
+
+fn move_item(c: POINT) {
+    let preview = with(|r| {
         let dpi = r.dpi;
         if let Some(p) = r.press.as_mut() {
-            if wparam & 1 == 0 {
-                return None;
-            } // MK_LBUTTON
-            let c = circle_win::mouse_point(r.hwnd, lparam);
             let (dx, dy) = (c.x - p.cursor.x, c.y - p.cursor.y);
             let started = !p.active
                 && unsafe { dx.abs() > GetSystemMetricsForDpi(SM_CXDRAG, dpi) || dy.abs() > GetSystemMetricsForDpi(SM_CYDRAG, dpi) };
@@ -701,18 +762,9 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
             }
             return None;
         }
-        let hover = match hit(r, x, y) {
-            RingHit::Slot(k) => Some(k),
-            _ => None,
-        };
-        if hover != r.hover {
-            r.hover = hover;
-            redraw(r);
-        }
         None
     })
     .flatten();
-    // Creating/moving/destroying the preview can pump messages: RING is released.
     if let Some((owner, at, dpi, surface)) = preview {
         if let Some(surface) = surface {
             super::drag_preview::show(surface, owner, at, dpi);
@@ -736,7 +788,14 @@ enum LeftPress {
 }
 
 fn on_left_down(lparam: LPARAM) {
+    dlog!(
+        "ring item press client=({}, {}) hit={:?}",
+        win::x_lparam(lparam),
+        win::y_lparam(lparam),
+        with(|r| (hit(r, win::x_lparam(lparam), win::y_lparam(lparam)), closing(r)))
+    );
     super::rename::commit_active();
+    reset_item_pointer();
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let capture = with(|r| {
         if closing(r) {
@@ -757,8 +816,9 @@ fn on_left_down(lparam: LPARAM) {
     .flatten();
     match capture {
         Some(LeftPress::Item(h)) if !super::drag_capture::begin(h) => {
-            with(|r| r.press = None);
-            dlog!("ring drag foreground capture unavailable");
+            // Keep the press: the already installed hook routes screen samples.
+            install_mouse_hook();
+            dlog!("ring drag foreground capture unavailable; using pointer fallback");
         }
         Some(LeftPress::Item(_)) | None => {}
     }
@@ -775,21 +835,36 @@ fn on_middle_down(lparam: LPARAM) {
 }
 
 fn on_left_up(lparam: LPARAM) {
+    if ITEM_ROUTE.get() {
+        return;
+    }
+    let point = with(|r| circle_win::mouse_point(r.hwnd, lparam));
+    if let Some(point) = point {
+        on_left_up_at(point);
+    }
+}
+
+fn on_left_up_at(at: POINT) {
     let anchor = with(|r| circle_win::is_release_message(r.anchor, WM_LBUTTONUP).then_some(r.anchor)).flatten();
     if let Some(anchor) = anchor {
         circle_win::end_press(anchor, true);
         return;
     }
-    let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
-    if with(|r| hit(r, x, y) == RingHit::Outside).unwrap_or(false) {
+    let (x, y) = with(|r| {
+        let tl = top_left(r);
+        (at.x - tl.x, at.y - tl.y)
+    })
+    .unwrap_or((0, 0));
+    let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
+    reset_item_pointer();
+    super::drag_preview::close();
+    super::drag_capture::end(hwnd);
+    if !press.as_ref().is_some_and(|p| p.active) && with(|r| hit_screen(r, at) == RingHit::Outside).unwrap_or(false) {
         begin_close();
         return;
     }
-    let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
-    super::drag_preview::close();
-    super::drag_capture::end(hwnd);
     let action = match press {
-        Some(p) if p.active => Action::Drop { path: p.path, at: circle_win::mouse_point(hwnd, lparam) },
+        Some(p) if p.active => Action::Drop { path: p.path, at },
         _ => with(|r| {
             if closing(r) {
                 return Action::None;
@@ -843,12 +918,19 @@ fn run(action: Action) {
 /// An item dragged out of a slot was released at `at` (screen). Dropping it on a group
 /// slot, the Back slot, another circle or the Recent circle moves it there.
 fn finish_drag(path: PathBuf, at: POINT) {
-    let under = unsafe { WindowFromPoint(at) };
-    let own = with(|r| (r.hwnd == under).then(|| (r.target, hit_screen(r, at), r.page.iter().map(|s| s.r.clone()).collect::<Vec<_>>())));
+    let anchor = with(|r| r.anchor).unwrap_or(std::ptr::null_mut());
+    if let Some(which) = super::circle_at(at, anchor) {
+        super::assign(&[path], view::drop_place(which.target(), None));
+        return;
+    }
+    let own = with(|r| {
+        (hit_screen(r, at) != RingHit::Outside)
+            .then(|| (r.target, hit_screen(r, at), r.page.iter().map(|s| s.r.clone()).collect::<Vec<_>>()))
+    });
     let place = match own.flatten() {
         Some((target, RingHit::Slot(k), refs)) => Some(view::drop_place(target, refs.get(k))),
         Some(_) => None, // released on the ring itself but not on a slot: nothing to do
-        None => super::which_of(under).map(|w| view::drop_place(w.target(), None)),
+        None => None,
     };
     if let Some(place) = place {
         super::assign(&[path], place);
@@ -977,6 +1059,17 @@ fn on_drop_files(wparam: WPARAM) {
 unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_MOUSEACTIVATE => MA_NOACTIVATE as LRESULT,
+        WM_ITEM_POINTER => {
+            if wparam == ITEM_PRESS_ID.get() && item_pressed_window() == Some(hwnd) {
+                if let Some((point, released)) = ITEM_POINTER.take() {
+                    move_item(point);
+                    if released {
+                        on_left_up_at(point);
+                    }
+                }
+            }
+            0
+        }
         WM_MOUSEMOVE => {
             on_mouse_move(wparam, lparam);
             0
@@ -1014,6 +1107,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             // Capture taken away mid-drag (e.g. Alt+Tab): forget the drag.
             if lparam as HWND != hwnd {
                 with(|r| r.press = None);
+                reset_item_pointer();
                 super::drag_preview::close();
                 super::drag_capture::end(hwnd);
             }
@@ -1025,6 +1119,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
                 circle_win::end_press(anchor, false);
             }
             with(|r| r.press = None);
+            reset_item_pointer();
             super::drag_preview::close();
             super::drag_capture::end(hwnd);
             close_if_outside();

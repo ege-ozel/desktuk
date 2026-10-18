@@ -43,6 +43,10 @@ jobs:
         shell: powershell
         run: ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe
 
+      - name: Internal item dragging with isolated TEMP references
+        shell: powershell
+        run: ./scripts/item-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe
+
       - name: Grid snapping and persistence with isolated TEMP fixtures
         shell: powershell
         run: ./scripts/open-circle-drag-regression-test.ps1 -Exe target/release/DeskTuk.exe -Grid 3

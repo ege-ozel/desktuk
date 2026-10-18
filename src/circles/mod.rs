@@ -225,6 +225,22 @@ pub fn which_of(hwnd: HWND) -> Option<Which> {
     state()?.windows.try_borrow().ok()?.iter().find(|w| w.hwnd == hwnd).map(|w| w.which)
 }
 
+/// Internal drop targets are our visible circular discs, even underneath an open ring.
+/// Snapshot handles before Win32 calls: no state borrow spans message-pumping work.
+pub fn circle_at(at: POINT, exclude: HWND) -> Option<Which> {
+    let windows = state()?.windows.try_borrow().ok()?.iter().map(|w| (w.hwnd, w.which)).collect::<Vec<_>>();
+    windows.into_iter().rev().find_map(|(hwnd, which)| {
+        if hwnd == exclude || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd) } == 0 {
+            return None;
+        }
+        let rect = crate::win::window_rect(hwnd);
+        let radius = (rect.right - rect.left) / 2;
+        let dx = i64::from(at.x - rect.left - radius);
+        let dy = i64::from(at.y - rect.top - radius);
+        (dx * dx + dy * dy <= i64::from(radius) * i64::from(radius)).then_some(which)
+    })
+}
+
 pub fn host_of(hwnd: HWND) -> Option<Rc<dyn DesktopHost>> {
     state()?.windows.try_borrow().ok()?.iter().find(|w| w.hwnd == hwnd).map(|w| w.host.clone())
 }
