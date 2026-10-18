@@ -23,6 +23,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use super::circle_win::{self, Which};
 use super::draw::{self, RingView, SlotLook, SlotView};
 use super::geom::{self, RingHit};
+use super::model::Place;
 use super::suggest::Suggestion;
 use super::surface::Surface;
 use super::view::{self, SlotRef, Target};
@@ -801,7 +802,7 @@ enum Action {
     Open(PathBuf),
     Load(Vec<PathBuf>),
     Accept(Suggestion),
-    Drop { path: PathBuf, at: POINT },
+    Drop { path: PathBuf, destination: Option<Option<Place>> },
 }
 
 enum LeftPress {
@@ -878,6 +879,9 @@ fn on_left_up_at(at: POINT) {
     })
     .unwrap_or((0, 0));
     let (press, hwnd) = with(|r| (r.press.take(), r.hwnd)).unwrap_or((None, std::ptr::null_mut()));
+    // Capture release/restoring focus can pump messages. Resolve the destination
+    // against the source ring before those calls can replace its view/state.
+    let destination = if press.as_ref().is_some_and(|p| p.active) { drop_destination(at) } else { None };
     reset_item_pointer();
     super::drag_preview::close();
     super::drag_capture::end(hwnd);
@@ -887,7 +891,7 @@ fn on_left_up_at(at: POINT) {
         return;
     }
     let action = match press {
-        Some(p) if p.active => Action::Drop { path: p.path, at },
+        Some(p) if p.active => Action::Drop { path: p.path, destination },
         _ => with(|r| {
             if closing(r) {
                 return Action::None;
@@ -932,32 +936,30 @@ fn run(action: Action) {
         }
         Action::Load(paths) => spawn_loader(paths),
         Action::Accept(s) => super::accept_suggestion(&s),
-        Action::Drop { path, at } => {
-            finish_drag(path, at);
+        Action::Drop { path, destination } => {
+            if let Some(place) = destination {
+                super::assign(&[path], place);
+            }
             close_if_outside();
         }
     }
 }
 
 /// An item dragged out of a slot was released at `at` (screen). Dropping it on a group
-/// slot, the Back slot, another circle or the Recent circle moves it there.
-fn finish_drag(path: PathBuf, at: POINT) {
+/// slot, the Back slot, another circle or Recent resolves a reference destination.
+fn drop_destination(at: POINT) -> Option<Option<Place>> {
     let anchor = with(|r| r.anchor).unwrap_or(std::ptr::null_mut());
     if let Some(which) = super::circle_at(at, anchor) {
-        super::assign(&[path], view::drop_place(which.target(), None));
-        return;
+        return Some(view::drop_place(which.target(), None));
     }
     let own = with(|r| {
         (hit_screen(r, at) != RingHit::Outside)
             .then(|| (r.target, hit_screen(r, at), r.page.iter().map(|s| s.r.clone()).collect::<Vec<_>>()))
     });
-    let place = match own.flatten() {
+    match own.flatten() {
         Some((target, RingHit::Slot(k), refs)) => Some(view::drop_place(target, refs.get(k))),
         Some(_) => None, // released on the ring itself but not on a slot: nothing to do
         None => None,
-    };
-    if let Some(place) = place {
-        super::assign(&[path], place);
     }
 }
 

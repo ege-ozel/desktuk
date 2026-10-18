@@ -697,3 +697,11 @@ Item-fixture setup also explicitly dismisses the previous ring before each logic
 case, so a group view does not carry over after dropping on Back when the runner's
 stationary pointer remains inside the source disc. This changes only test setup;
 production circle/group navigation is unchanged.
+
+CI 39167008466 passed overlap/distant/group/Back/cancel transfers, then exposed the
+predicted fixture view carry-over: the next item index addressed empty group space after
+Back. Commit 914e1e0 makes each case explicitly reopen its circle view. Updated local
+item tests pass. D32 release review also snapshots the resolved destination before
+preview destruction/capture release/focus restoration can pump messages; assignment no
+longer consults potentially replaced ring state after release cleanup. Required MSVC
+checks and the item fixture pass for this final release-ordering fix.
