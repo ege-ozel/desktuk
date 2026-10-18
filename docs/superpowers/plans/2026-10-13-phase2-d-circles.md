@@ -354,7 +354,7 @@ when a circle had been hidden.
 - [x] Run required MSVC checks and commit/push the host regression fix. Physical
       Win+D and corner-button validation remains an owner-machine check; do not run
       windows-integration-test.ps1 or generate physical input here.
-- [ ] Deploy the checked release and record the running executable/preferences;
+- [x] Deploy the checked release and record the running executable/preferences;
       owner-machine Win+D and corner-button validation remains pending.
 
 D23.1 evidence: desktop-only Shell hide positioning is rejected after the host has
@@ -364,3 +364,13 @@ regressions cover both paths and existing tests confirm ordinary app focus lower
 the circles. Required MSVC fmt/clippy pass; release tests pass (59 passed, one ignored).
 Physical Win+D, corner-button and Peek behavior remain unverified; no physical input
 or Desktop writes were performed.
+
+D23.2 deployment: implementation commit 569865d passed Windows CI 39118544698,
+including release checks and the runner integration self-test. Installed the checked
+release at D:/CodeSpace/desktuk/DeskTuk.exe after normal WM_CLOSE; previous executable
+is backed up at target/show-desktop-d23/previous-installed.exe. Running PID 20580
+responds; its circle window is visible, non-minimized and in the normal (not topmost)
+band, matching saved always_on_top=0. Config SHA256 remained
+EB398553552B6DC2C544735C28B118D62A6E46A76ED5759E166B25993C0ACB47. Installed binary
+SHA256: C3E4819CE134701B136D7E2FA6A1C725844524CACE3AD736EE8ECECA83C24682. The owner
+still needs to assess physical Win+D, corner click and Peek; no input was generated.
