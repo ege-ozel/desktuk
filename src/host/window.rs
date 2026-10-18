@@ -31,6 +31,7 @@ pub struct WindowHost {
     /// True while shown above the desktop in the normal (never topmost) band.
     raised: Cell<bool>,
     always_on_top: Cell<bool>,
+    intentionally_hidden: Cell<bool>,
 }
 
 /// Desktop surfaces should stay painted during Peek (distinct from Show Desktop's z-order).
@@ -95,6 +96,7 @@ impl DesktopHost for WindowHost {
     }
 
     fn reveal(&self, node: HWND) {
+        self.intentionally_hidden.set(false);
         if self.always_on_top.get() {
             unsafe {
                 windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
@@ -114,7 +116,16 @@ impl DesktopHost for WindowHost {
         }
     }
 
+    fn hide(&self, node: HWND) {
+        self.intentionally_hidden.set(true);
+        self.raised.set(false);
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+    }
+
     fn capture_finished(&self, node: HWND, foreground: HWND, _was_topmost: bool) {
+        if self.intentionally_hidden.get() {
+            return;
+        }
         if self.always_on_top.get() {
             Self::to_topmost(node);
             return;
@@ -137,6 +148,9 @@ impl DesktopHost for WindowHost {
     }
 
     fn window_pos_changing(&self, _node: HWND, wp: &mut WINDOWPOS) {
+        if self.intentionally_hidden.get() {
+            return;
+        }
         if self.always_on_top.get() {
             // Explorer's Show Desktop sends hide positioning to top-level windows.
             // Keep circles visible while preserving their non-activating style.
@@ -156,6 +170,9 @@ impl DesktopHost for WindowHost {
     }
 
     fn foreground_changed(&self, node: HWND, fg: HWND) {
+        if self.intentionally_hidden.get() {
+            return;
+        }
         if self.always_on_top.get() {
             if unsafe { IsWindowVisible(node) } == 0 || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsIconic(node) } != 0 {
                 unsafe {
@@ -415,6 +432,28 @@ mod tests {
         host.foreground_changed(node.0, application.0);
         assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "opening an app must recover a hidden circle");
         assert_eq!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
+    }
+
+    #[test]
+    fn explicit_hide_survives_show_desktop_recovery_until_dock_reveals_it() {
+        let _serial = serial_z_order_test();
+        let node = window("DeskTuk.TestExplicitCircleHide", std::ptr::null_mut());
+        let desktop = window("Progman", std::ptr::null_mut());
+        let host = WindowHost::default();
+        host.set_always_on_top(node.0, true);
+        host.reveal(node.0);
+        host.hide(node.0);
+        assert_eq!(unsafe { IsWindowVisible(node.0) }, 0);
+
+        host.foreground_changed(node.0, desktop.0);
+        assert_eq!(unsafe { IsWindowVisible(node.0) }, 0, "foreground recovery must not undo an explicit user hide");
+        let mut hide = WINDOWPOS { flags: SWP_HIDEWINDOW | SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE, ..unsafe { std::mem::zeroed() } };
+        host.window_pos_changing(node.0, &mut hide);
+        assert_ne!(hide.flags & SWP_HIDEWINDOW, 0, "an explicit hidden state must allow hide positioning");
+
+        host.reveal(node.0);
+        assert_ne!(unsafe { IsWindowVisible(node.0) }, 0, "dock reveal must restore the circle");
+        assert_ne!(unsafe { GetWindowLongW(node.0, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST, 0);
     }
 
     #[test]

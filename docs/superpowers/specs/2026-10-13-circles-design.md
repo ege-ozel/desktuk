@@ -121,12 +121,14 @@ circle lines are both preserved whichever UI runs.
   paging, disc mask, animation), `view` (board -> slots), `suggest`, `desktop::recent`.
 * Win32: each circle is a small `WS_EX_LAYERED` tool window painted once with
   `UpdateLayeredWindow` (per-pixel alpha, so the corners are click-through); the painting
-  surface is freed right after. Each circle has its own `WindowHost`: **Always on top**
-  defaults on (owner update 2026-10-17). The checked circle menu setting persists;
-  opting out restores bottom/desktop ordering, raised within the normal band during
-  "Show desktop". The panel retains its earlier desktop-only policy. Stale queued
-  foreground events are ignored. The ring is one layered window **owned by** its circle, so it
-  always stays just above it; it is created on open and destroyed on close.
+  surface is freed right after. Circles use desktop ordering by default, so applications
+  cover them; the checked circle-menu setting can explicitly opt into Always on top.
+  A compact right-edge DeskTuk dock remains in the topmost band. It lists Recent and
+  user circles, opens a selected circle, and has a separate board show/hide action; the
+  list scrolls when it exceeds the available height. This provides access after Windows
+  Show Desktop hides the circles. Stale queued foreground events are ignored. The ring
+  is one layered window **owned by** its circle, so it always stays just above it; it is
+  created on open and destroyed on close.
 * Circles and transient desktop surfaces exclude themselves from Peek fading with
   `DWMWA_EXCLUDED_FROM_PEEK`. Topmost circles reject `SC_MINIMIZE` and z-order
   demotion; reveal and capture cleanup preserve the selected band without activation.

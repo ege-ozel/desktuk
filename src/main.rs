@@ -12,6 +12,7 @@ mod circles;
 mod config;
 mod desktop_view;
 mod diag;
+mod dock;
 mod host;
 mod items;
 mod node;

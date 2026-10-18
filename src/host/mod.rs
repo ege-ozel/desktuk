@@ -100,6 +100,11 @@ pub trait DesktopHost {
         }
     }
 
+    /// Hide a node on explicit user request, distinct from Shell Show Desktop ordering.
+    fn hide(&self, node: HWND) {
+        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(node, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE) };
+    }
+
     /// Restore host ordering after temporary foreground/capture ownership.
     fn capture_finished(&self, node: HWND, foreground: HWND, _was_topmost: bool) {
         self.foreground_changed(node, foreground);

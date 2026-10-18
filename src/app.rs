@@ -125,6 +125,7 @@ pub fn quit() {
     a.quitting.set(true);
     tray::remove(a.controller.get());
     circles::shutdown();
+    crate::dock::shutdown();
     let node = a.node.get();
     if !node.is_null() {
         unsafe { DestroyWindow(node) };
@@ -140,6 +141,7 @@ pub fn show() {
     }
     if a.ui == Ui::Circles {
         circles::show();
+        crate::dock::show();
     } else if try_recreate_node() {
         let node = a.node.get();
         node::reposition(node);
@@ -292,6 +294,7 @@ pub fn run() -> i32 {
     dlog!("ui={}", ui.name());
     if ui == Ui::Circles {
         circles::start();
+        crate::dock::create();
     } else {
         node::register_class();
         if let Err(e) = node::create() {

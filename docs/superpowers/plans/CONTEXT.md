@@ -11,7 +11,8 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Use latest main directly or a plan branch when isolation helps; follow AGENTS.md.
 - Do not rely on hard-coded checkout paths. The normal startup workspace is
   D:/CodeSpace/desktuk; keep it synchronized with main after merging.
-- A and D through D23 are implemented/installed; evidence is in Plan D.
+- A and D through D23 are implemented/installed; D24 recovery-dock code is checked and
+  awaiting deployment.
   B1/B2 and C were superseded by circles;
   tray/startup (B3) was delivered through D9. Do not start postponed plans.
 - D21 drag guide, D22 hide recovery and D23 desktop-only Show Desktop recovery are
@@ -22,8 +23,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 
 - Circles group Desktop file references; Recent, groups, suggestions, hover rings,
   paging, native-sized shell icons, menus, persistence, tray and startup are present.
-- Capture cleanup preserves the selected circle band: always-on-top (default) or
-  desktop-only (apps cover circles). Panel ordering is unchanged.
+- Circles default to desktop ordering (apps cover circles); a global option keeps
+  topmost mode available. The right-edge recovery dock stays topmost, lists Recent and
+  circles, opens a selected circle, and toggles board visibility. D24 deployment is pending.
 - Installed runtime source: `569865d` (D23 desktop-only Show Desktop recovery). Windows CI
   39118544698 passed; z-order test serialization is on main;
   local tray/open-centre/grid/missing-reference runtime fixtures passed.
@@ -46,9 +48,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 
 ## Observed unresolved behavior and unperformed checks
 
-- Owner reports Win+D and taskbar Show Desktop can appear to toggle only circles
-  after interaction. D23 addresses desktop-only Shell hide ordering and taskbar
-  foreground recovery; physical Win+D / corner click / Peek remain unverified.
+- Owner reports D23 did not fix physical Win+D/taskbar Show Desktop behavior. D24 adds
+  a persistent topmost recovery dock; physical Win+D / corner click / Peek assessment
+  remains pending.
 
 - Physical mouse capture/drag, including an open ring and tray recovery.
 - Actual reboot/login with startup enabled.
@@ -80,7 +82,7 @@ the affected functions. Do not split stable code solely to reduce whole-file rea
 
 ## Bounded reading
 
-- Active follow-up: D23 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar
+- Active follow-up: D24 in 2026-10-13-phase2-d-circles.md; physical Win+D / taskbar
   corner click and Peek remain pending on the owner machine.
 - Active plan: 2026-10-13-phase2-d-circles.md in this directory (short index).
 - Product decisions: ../specs/2026-10-13-circles-design.md.

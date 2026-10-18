@@ -141,6 +141,7 @@ pub fn rebuild() {
     for (h, which) in list {
         circle_win::render(h, which);
     }
+    crate::dock::refresh();
 }
 
 /// Explicit tray recovery: recreate missing windows, clamp positions and reveal the circles.
@@ -164,6 +165,44 @@ pub fn show() {
     }
 }
 
+/// Hide desktop circles while leaving the always-on-top recovery dock available.
+pub fn hide() {
+    let Some(st) = state() else { return };
+    ring::close_now();
+    let list: Vec<(HWND, Rc<dyn DesktopHost>)> = match st.windows.try_borrow() {
+        Ok(windows) => windows.iter().map(|w| (w.hwnd, w.host.clone())).collect(),
+        Err(_) => return,
+    };
+    for (hwnd, host) in list {
+        host.hide(hwnd);
+    }
+}
+
+/// Toggle the circle board from the recovery dock. Visibility is queried live because
+/// Explorer may have hidden the circles during Show Desktop without changing our state.
+pub fn toggle_visibility() {
+    if any_visible() {
+        hide();
+    } else {
+        show();
+    }
+    crate::dock::refresh();
+}
+
+pub fn any_visible() -> bool {
+    state()
+        .and_then(|st| st.windows.try_borrow().ok().map(|windows| windows.iter().any(|w| unsafe { IsWindowVisible(w.hwnd) != 0 })))
+        .unwrap_or(false)
+}
+
+/// Reveal the board and open one selected circle from the recovery dock.
+pub fn open_target(which: Which) {
+    show();
+    if let Some(hwnd) = window_of(which) {
+        ring::open(hwnd, which.target());
+    }
+}
+
 /// Repaints every circle (names, counts) and the open ring.
 pub fn refresh_all() {
     let Some(st) = state() else { return };
@@ -175,6 +214,7 @@ pub fn refresh_all() {
         circle_win::render(h, which);
     }
     ring::refresh();
+    crate::dock::refresh();
 }
 
 pub fn which_of(hwnd: HWND) -> Option<Which> {

@@ -374,3 +374,25 @@ band, matching saved always_on_top=0. Config SHA256 remained
 EB398553552B6DC2C544735C28B118D62A6E46A76ED5759E166B25993C0ACB47. Installed binary
 SHA256: C3E4819CE134701B136D7E2FA6A1C725844524CACE3AD736EE8ECECA83C24682. The owner
 still needs to assess physical Win+D, corner click and Peek; no input was generated.
+
+### D24: Persistent recovery dock for Show Desktop
+
+Owner follow-up (2026-10-18): the installed D23 executable still exhibits the
+reported Win+D/taskbar behavior. Replace reliance on Shell z-order recovery with a
+right-edge Always-on-Top DeskTuk dock. The dock contains both a board visibility
+toggle and a scrollable list of Recent/user circles; selecting a row opens that circle.
+Circles remain desktop-ordered while the dock stays reachable after Show Desktop.
+The circles' former topmost preference remains an explicit opt-in.
+
+- [x] Keep a compact, DPI-aware, right-edge dock visible in the topmost band; show the
+      Recent/circle list and its toggle action; prevent Shell hide/minimize/demotion and
+      exclude the dock from Peek.
+- [x] Let dock actions open a selected circle or toggle the board based on live
+      visibility; close open rings when hiding and preserve saved board/file references.
+- [x] Make desktop ordering the default for circles while retaining explicit topmost
+      opt-in. Update design and compact context.
+- [x] Add regressions for Shell hide/z-order requests and explicit circle hiding.
+      Run required MSVC checks, release build and relevant fixtures; do not generate
+      physical input.
+- [ ] Deploy/restart only after the checked binary is ready and record evidence;
+      leave physical Win+D, corner-click and Peek assessment to the owner.
