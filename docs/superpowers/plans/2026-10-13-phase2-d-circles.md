@@ -547,6 +547,15 @@ mouse button for moving circles.
 - [x] Draw dock text with the Windows icon-title font at the window's DPI to match desktop labels.
 - [x] Extend the isolated fixture to check free movement, release snapping and grid cleanup.
 - [x] Pass local MSVC fmt, Clippy, release tests/build and the isolated grid=3 open-circle fixture.
-- [ ] Pass GitHub Windows CI; deploy the checked build at the existing executable path and
+- [x] Pass GitHub Windows CI; deploy the checked build at the existing executable path and
       record the preserved config hash.
 - [ ] Owner verifies middle-button open-ring dragging and release snapping physically.
+
+D29 evidence (2026-10-18): MSVC fmt, release Clippy (`-D warnings`), 63 release tests
+(one ignored), release build, diff check and open-circle `-Grid 3 -Topmost` fixture passed.
+The fixture verified free movement while held, snap on release, centre left-click paging,
+grid cleanup and saved positions without physical cursor movement. GitHub Windows CI run
+39163071663 passed all jobs. Deployed the release to `D:/CodeSpace/desktuk/DeskTuk.exe`,
+SHA256 `26FDAFAD6B981E19A8B5FD37A411DD721383107FD272C09DE514AFF7F962A609`, restarted PID
+27532, and confirmed the config hash stayed `2DE98D00BAE1122194C1DB6E8D5FE774C23C22AE9199BCD698781948C190B748`.
+Previous binary: `target/d29-middle-drag/previous-installed.exe`. Physical owner review remains pending.

@@ -57,7 +57,9 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
   existing `DeskTuk.exe` path; the prior binary is backed up under target/d28-drag-fallback.
 - Owner reports D28 still cannot move an open circle and asks for gentler grid behavior.
   D29 uses middle-button drag and defers snap until release; free-move/snap fixture and local
-  MSVC checks pass. Dock labels use the Windows icon-title font. CI and deployment pending.
+  MSVC checks pass. GitHub CI 39163071663 passes. Dock labels use the Windows icon-title
+  font. D29 release is installed at DeskTuk.exe; prior binary is backed up under
+  target/d29-middle-drag. Physical owner review remains pending.
 - Owner requested a review list before choosing later product changes; proposals are recorded
   in `docs/superpowers/reviews/2026-10-18-product-review.md`.
 - Actual reboot/login with startup enabled.
