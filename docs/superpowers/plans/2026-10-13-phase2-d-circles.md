@@ -692,3 +692,8 @@ machine, excluding first guide setup. D33 reported line_uploads=1, target_upload
 cell_moves=120. App CPU time also fell (6203.12 ms to 46.88 ms in the paired verification).
 Subsequent attempts during pointer activity correctly aborted rather than reporting a
 misleading speed. These are synchronous routed-input costs, not frame-rate guarantees.
+
+Item-fixture setup also explicitly dismisses the previous ring before each logical
+case, so a group view does not carry over after dropping on Back when the runner's
+stationary pointer remains inside the source disc. This changes only test setup;
+production circle/group navigation is unchanged.

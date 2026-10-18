@@ -82,6 +82,12 @@ function Slot-Point([IntPtr]$ring,[int]$index) {
       [int][Math]::Round(($rect.bottom-$rect.top)/2+$radius*[Math]::Sin($angle*[Math]::PI/180)))
 }
 function Open-At([int]$x,[int]$y) {
+    # Start each logical case in its circle view. Do not depend on the real cursor
+    # dismissing the previous ring after a drop (notably after a Back-slot drop).
+    $previousRing=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0)
+    if ($previousRing -ne [IntPtr]::Zero) {
+        [void][ItemDragWin]::SendMessage($previousRing,0x200,[IntPtr]::Zero,[ItemDragWin]::Point(-1000,-1000))
+    }
     $anchor=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$x,$y)
     $until=[DateTime]::UtcNow.AddSeconds(6)
     do {
