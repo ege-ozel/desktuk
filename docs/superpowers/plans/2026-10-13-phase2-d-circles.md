@@ -413,5 +413,6 @@ SHA256 remained EB398553552B6DC2C544735C28B118D62A6E46A76ED5759E166B25993C0ACB47
 (ui=circles, always_on_top=0). CI 39124382613 caught a tray fixture that assumed omitted
 topmost meant enabled; run 39124625142 confirmed tray recovery after its update but found
 the same stale default in the circle-drag fixture. Both fixtures/workflow now exercise the
-desktop default, explicit desktop-only mode and topmost opt-in; follow-up CI is pending.
+desktop default, explicit desktop-only mode and topmost opt-in. Follow-up Windows CI
+39124809152 passed release checks, all fixture modes and the runner integration self-test.
 Owner physical Win+D, corner-click and Peek assessment remains outstanding.

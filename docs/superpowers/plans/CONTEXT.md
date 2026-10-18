@@ -23,10 +23,10 @@ Keep this guide under 100 lines. It routes reading; live Git/CI outrank snapshot
 - Circles default to desktop ordering (apps cover circles); a global option keeps
   topmost mode available. The right-edge recovery dock stays topmost, lists Recent and
   circles, opens a selected circle, and toggles board visibility.
-- Installed runtime source: `9876047` (D24 persistent dock). Windows CI 39124382613
-  caught stale default-topmost assumptions in tray and circle-drag fixtures; follow-up
-  covers desktop default, desktop-only and topmost modes. D23 run 39118544698 passed.
-  local tray/open-centre/grid/missing-reference runtime fixtures passed.
+- Installed runtime source: `9876047` (D24 dock). CI 39124382613 caught stale topmost
+  assumptions in tray and circle-drag fixtures; follow-up 39124809152 passed checks,
+  fixture modes and runner integration. D23 CI 39118544698 and local tray/open-centre/
+  grid/missing-reference fixtures passed.
 - Required MSVC checks for D24: 62 passing tests, one ignored preview; the preview was also
   run explicitly and inspected. Inner rim blending/symmetry pass at 96/120/144/192 DPI.
 - Pointer entry opens immediately: no hover dwell or opening animation. Closing
