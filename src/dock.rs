@@ -325,13 +325,44 @@ pub fn shutdown() {
     });
 }
 
-unsafe fn rounded_fill(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, brush: windows_sys::Win32::Graphics::Gdi::HBRUSH, radius: i32) {
-    use windows_sys::Win32::Graphics::Gdi::{GetStockObject, RoundRect, NULL_PEN};
-    let old_brush = SelectObject(dc, brush);
-    let old_pen = SelectObject(dc, GetStockObject(NULL_PEN));
-    RoundRect(dc, r.left, r.top, r.right, r.bottom, radius * 2, radius * 2);
-    SelectObject(dc, old_pen);
-    SelectObject(dc, old_brush);
+/// Composite coverage into the known opaque dock background, just like circle rims.
+/// The small surface is transient; text remains native GDI at the original DPI.
+fn rounded_surface(w: i32, h: i32, radius: i32, color: u32) -> Option<circles::surface::Surface> {
+    let mut surface = circles::surface::Surface::new(w, h)?;
+    let radius = radius.clamp(0, w.min(h) / 2) as f32;
+    let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
+    let pixels = surface.pixels();
+    for y in 0..h {
+        for x in 0..w {
+            let dx = ((x as f32 + 0.5 - cx).abs() - (cx - radius)).max(0.0);
+            let dy = ((y as f32 + 0.5 - cy).abs() - (cy - radius)).max(0.0);
+            let coverage = if radius == 0.0 { 255 } else { circles::geom::coverage(dx, dy, radius) as u32 };
+            let channel = |shift: u32| (((color >> shift) & 255) * coverage + ((BG >> shift) & 255) * (255 - coverage) + 127) / 255;
+            // COLORREF is BBGGRR; opaque DIB pixels are AARRGGBB.
+            pixels[(y * w + x) as usize] = 0xff00_0000 | channel(0) << 16 | channel(8) << 8 | channel(16);
+        }
+    }
+    Some(surface)
+}
+
+unsafe fn rounded_fill(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, color: u32, radius: i32) {
+    use windows_sys::Win32::Graphics::Gdi::{BitBlt, GetStockObject, RoundRect, NULL_PEN, SRCCOPY};
+    let (w, h) = (r.right - r.left, r.bottom - r.top);
+    if w <= 0 || h <= 0 {
+        return;
+    }
+    if let Some(surface) = rounded_surface(w, h, radius, color) {
+        BitBlt(dc, r.left, r.top, w, h, surface.dc(), 0, 0, SRCCOPY);
+    } else {
+        // Preserve a usable control even under GDI resource exhaustion.
+        let brush = CreateSolidBrush(color);
+        let old_brush = SelectObject(dc, brush);
+        let old_pen = SelectObject(dc, GetStockObject(NULL_PEN));
+        RoundRect(dc, r.left, r.top, r.right, r.bottom, radius * 2, radius * 2);
+        SelectObject(dc, old_pen);
+        SelectObject(dc, old_brush);
+        DeleteObject(brush);
+    }
 }
 
 fn paint(hwnd: HWND) {
@@ -349,9 +380,7 @@ fn paint(hwnd: HWND) {
 
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
-    let teal = unsafe { CreateSolidBrush(TEAL) };
     let hover = unsafe { CreateSolidBrush(ROW_HOVER) };
-    let switch_bg = unsafe { CreateSolidBrush(SWITCH_BG) };
     let switch_on = circles::any_visible();
     let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
@@ -397,7 +426,7 @@ fn paint(hwnd: HWND) {
             let mut arrow_area = arrow_rect(dpi);
             DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
-        rounded_fill(hdc, switch_rect, if switch_on { teal } else { switch_bg }, scale(8, dpi));
+        rounded_fill(hdc, switch_rect, if switch_on { TEAL } else { SWITCH_BG }, scale(8, dpi));
         SetTextColor(hdc, if switch_on { BG } else { TEAL });
         let mut toggle_glyph = win::wide(if switch_on { "●" } else { "○" });
         let mut toggle_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
@@ -414,7 +443,7 @@ fn paint(hwnd: HWND) {
                 let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
                 let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
                 if HOVER_ROW.with(Cell::get) == index as isize {
-                    rounded_fill(hdc, row, hover, scale(6, dpi));
+                    rounded_fill(hdc, row, ROW_HOVER, scale(6, dpi));
                 }
                 let mut label = win::wide(&entries[index].1);
                 let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
@@ -423,9 +452,7 @@ fn paint(hwnd: HWND) {
         }
         DeleteObject(bg);
         DeleteObject(accent);
-        DeleteObject(teal);
         DeleteObject(hover);
-        DeleteObject(switch_bg);
         if !font.is_null() {
             if !old_font.is_null() {
                 SelectObject(hdc, old_font);
@@ -679,6 +706,38 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rounded_controls_blend_corners_symmetrically_at_desktop_dpis() {
+        let dib = |c: u32| 0xff00_0000 | (c & 255) << 16 | (c & 0xff00) | (c >> 16) & 255;
+        for dpi in [96, 120, 144, 192] {
+            for (width, height, radius, color) in [(48, 48, 8, TEAL), (48, 48, 8, SWITCH_BG), (137, 28, 6, ROW_HOVER)] {
+                let (w, h) = (scale(width, dpi), scale(height, dpi));
+                let mut surface = rounded_surface(w, h, scale(radius, dpi), color).expect("native control surface");
+                let pixels = surface.pixels();
+                assert_eq!(pixels[0], dib(BG), "outside corner must retain the dock background");
+                assert_eq!(pixels[(h / 2 * w + w / 2) as usize], dib(color));
+                assert_eq!(pixels[(w / 2) as usize], dib(color), "straight edge must stay crisp");
+                let mut blended = 0;
+                for y in 0..h {
+                    for x in 0..w {
+                        let p = pixels[(y * w + x) as usize];
+                        assert_eq!(p, pixels[(y * w + w - 1 - x) as usize]);
+                        assert_eq!(p, pixels[((h - 1 - y) * w + x) as usize]);
+                        if p != dib(BG) && p != dib(color) {
+                            blended += 1;
+                            for shift in [0, 8, 16] {
+                                let channel = (p >> shift) & 255;
+                                let (a, b) = ((dib(BG) >> shift) & 255, (dib(color) >> shift) & 255);
+                                assert!((a.min(b)..=a.max(b)).contains(&channel), "no dark/color fringes");
+                            }
+                        }
+                    }
+                }
+                assert!(blended >= 8, "rounded corners must contain intermediate coverage pixels at {dpi} DPI");
+            }
+        }
+    }
 
     #[test]
     fn dock_dimensions_scale_with_dpi() {

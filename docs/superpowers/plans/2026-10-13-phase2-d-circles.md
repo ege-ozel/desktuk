@@ -783,3 +783,30 @@ E97105CF4994A8DD99E259628A35B04E43AA283E50BEDCBC7CBC7DDF3BE6DFB2; PID 23948.
 Backup: target/d35-brand/previous-installed.exe. Configuration remained byte-identical:
 9B4486CD54EA77FCC0B7601D0EE10048040B6233E5706B627AB997B1FD0DC28C.
 Dock (153x180 at system DPI) and all three circles were visible after restart.
+
+### D36: Antialias the native menu's rounded controls
+
+Owner request (2026-10-19): inspect and smooth the toggle square and hover-row corners,
+using the same edge quality as Desktop circles. D35 uses aliased GDI RoundRect there.
+
+- [x] Replace normal toggle/hover corner drawing with pixel-coverage compositing onto
+      the opaque dock background; retain native text, dimensions and hit targets.
+- [x] Verify mixed edge pixels, symmetry and no dark fringes at 96/120/144/192 DPI;
+      inspect expanded/collapsed native previews and run required MSVC checks.
+- [ ] Commit/push and install the checked release with preserved config; record CI
+      and installation evidence. Physical visual assessment remains an owner check.
+
+D36 local evidence (2026-10-19): confirmed D35's toggle/hover controls used GDI
+RoundRect, which supplies no antialiasing. Normal rendering now blends the circle
+coverage function into the dock background on a small temporary DIB, then BitBlts
+through the existing paint clip. No persistent bitmap, dependency, timer, geometry
+or input change. The old native fill remains only as an allocation-failure fallback.
+The pixel regression covers toggle on/off and hover rows at 96/120/144/192 DPI:
+intermediate edge shades, horizontal/vertical symmetry, crisp straight edges and
+background-preserving corners without black/color fringes. Expanded, collapsed and
+hover PrintWindow previews in target/d36-corner-preview were inspected. Required
+Windows MSVC fmt, release Clippy (-D warnings), 66 release tests (two explicit ignored
+probes), release build and Grid=3/Topmost menu/open-circle interaction fixture pass.
+Fixture covers collapse/recovery, rail drag/cancel/restart and unchanged references;
+no physical input generated. Owner's physical visual assessment is unperformed.
+

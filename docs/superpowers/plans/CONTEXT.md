@@ -45,6 +45,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 
 - D35 shares Segoe UI and slate/periwinkle/mint styling across dock/circles/rings;
   original logo/card and icon rebuild instructions are in res/brand/README.md.
+- D36 smooths toggle/hover corners with circle pixel coverage; four-DPI pixel
+  checks and native menu/drag/restart fixture pass. Installation/CI pending.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.
@@ -78,7 +80,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D35.
+- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D36.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
@@ -91,6 +93,7 @@ Short names share the preceding directory. Tests live with their Rust module.
   target/, dist/, captures, logs, executables and bundles are generated/local artifacts.
 - AGENTS.md governs safety, branches, commits and required Windows MSVC checks.
   Keep evidence in the plan; update changed facts here in the same commit.
+
 
 
 
