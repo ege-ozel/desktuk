@@ -59,6 +59,8 @@ thread_local! {
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static SCROLL: Cell<usize> = const { Cell::new(0) };
     static TRACKING: Cell<bool> = const { Cell::new(false) };
+    static ACTION_TARGET: Cell<Option<bool>> = const { Cell::new(None) };
+    static PAINT_BUFFER: RefCell<Option<circles::surface::Surface>> = const { RefCell::new(None) };
     static ACTION_START: Cell<Option<f64>> = const { Cell::new(None) };
     static ACTION_HOVER: Cell<bool> = const { Cell::new(false) };
     static ACTION_INSIDE: Cell<bool> = const { Cell::new(false) };
@@ -105,6 +107,25 @@ fn toggle_lock(hwnd: HWND) {
         circles::ring::close_now();
         app::app().save_config();
         unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+    }
+}
+
+// Freeze the completed icon while showing/hiding windows pumps nested paints.
+// Never expose a partially updated board or reset to the old dwell endpoint.
+fn finish_visibility(hwnd: HWND) {
+    unsafe { KillTimer(hwnd, ACTION_TIMER) };
+    ACTION_START.set(None);
+    ACTION_TARGET.set(Some(!circles::any_visible()));
+    circles::toggle_visibility();
+    ACTION_TARGET.set(None);
+    let rect = action_rect(unsafe { GetDpiForWindow(hwnd) }.max(96));
+    unsafe { InvalidateRect(hwnd, &rect, 0) };
+}
+
+fn visibility_frame(visible: bool, progress: Option<f32>, target: Option<bool>) -> (bool, Option<f32>) {
+    match target {
+        Some(target) => (target, None),
+        None => (visible, progress),
     }
 }
 
@@ -530,9 +551,16 @@ unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u3
 
 fn paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
-    let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
+    let window_dc = unsafe { BeginPaint(hwnd, &mut ps) };
     let mut client: RECT = unsafe { std::mem::zeroed() };
     unsafe { GetClientRect(hwnd, &mut client) };
+    // Own the buffer locally: painting/layout may pump messages, so no RefCell
+    // borrow may span the render. Reuse its allocation until the client resizes.
+    let mut buffer = PAINT_BUFFER.with(|slot| slot.borrow_mut().take());
+    if buffer.as_ref().is_none_or(|s| s.w != client.right || s.h != client.bottom) {
+        buffer = circles::surface::Surface::new(client.right, client.bottom);
+    }
+    let hdc = buffer.as_ref().map_or(window_dc, |s| s.dc());
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let entries = rows();
     let count = entries.len();
@@ -589,6 +617,7 @@ fn paint(hwnd: HWND) {
         let is_locked = locked();
         let progress =
             ACTION_START.get().map(|start| ((crate::diag::since_start_ms() - start) / ACTION_DWELL_MS as f64).clamp(0.0, 1.0) as f32);
+        let (switch_on, progress) = visibility_frame(switch_on, progress, ACTION_TARGET.get());
         let key = VisibilityKey {
             size: switch_rect.right - switch_rect.left,
             dpi,
@@ -634,6 +663,13 @@ fn paint(hwnd: HWND) {
             }
             DeleteObject(font);
         }
+        if let Some(surface) = buffer.as_ref() {
+            use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+            let r = ps.rcPaint;
+            // The window sees only completed frames, through BeginPaint's clip.
+            BitBlt(window_dc, r.left, r.top, r.right - r.left, r.bottom - r.top, surface.dc(), r.left, r.top, SRCCOPY);
+        }
+        PAINT_BUFFER.with(|slot| *slot.borrow_mut() = buffer);
         EndPaint(hwnd, &ps);
     }
 }
@@ -649,9 +685,7 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
         cancel_dwell(hwnd);
         if !locked() && !ACTION_HOVER.replace(true) {
-            circles::toggle_visibility();
-            let rect = action_rect(dpi);
-            unsafe { InvalidateRect(hwnd, &rect, 0) };
+            finish_visibility(hwnd);
         }
         ACTION_INSIDE.set(true);
     } else if !locked() && EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
@@ -677,6 +711,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             paint(hwnd);
             0
         }
+        // paint() supplies an opaque completed frame; erase must never flash first.
+        WM_ERASEBKGND => 1,
         WM_MOUSEACTIVATE => MA_NOACTIVATE as isize,
         WM_MOUSEMOVE => {
             if dock_drag::active() {
@@ -754,6 +790,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_TIMER if wparam == ACTION_TIMER => {
+            if ACTION_START.get().is_none() {
+                return 0; // A killed timer may already have a message queued.
+            }
             if dock_drag::active() || locked() {
                 cancel_dwell(hwnd);
                 return 0;
@@ -770,9 +809,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 ACTION_INSIDE.set(false);
                 ACTION_HOVER.set(false);
             } else if ACTION_START.get().is_some_and(|t| crate::diag::since_start_ms() - t >= ACTION_DWELL_MS as f64) {
-                cancel_dwell(hwnd);
                 if !ACTION_HOVER.replace(true) {
-                    circles::toggle_visibility();
+                    finish_visibility(hwnd);
+                } else {
+                    cancel_dwell(hwnd);
                 }
             }
             InvalidateRect(hwnd, &action, 0);
@@ -880,6 +920,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_DESTROY => {
+            cancel_dwell(hwnd);
+            PAINT_BUFFER.with(|slot| slot.borrow_mut().take());
+            VISIBILITY_CACHE.with(|slot| slot.borrow_mut().take());
             dock_drag::shutdown();
             WINDOW.with(|window| {
                 if window.get() == hwnd {
@@ -974,6 +1017,18 @@ mod tests {
             assert_ne!(render(true, None, true), shown);
             assert_eq!(hidden[0], shown[0]);
             assert!(shown.iter().all(|p| p >> 24 == 255));
+        }
+    }
+
+    #[test]
+    fn completed_dwell_never_flashes_old_or_partial_board_state() {
+        for target in [false, true] {
+            for actual in [false, true] {
+                for progress in [None, Some(0.0), Some(0.5), Some(1.0)] {
+                    assert_eq!(visibility_frame(actual, progress, Some(target)), (target, None));
+                    assert_eq!(visibility_frame(actual, progress, None), (actual, progress));
+                }
+            }
         }
     }
 

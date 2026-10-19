@@ -9,7 +9,6 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - A and D through D34 are delivered; D35 delivers the original DeskTuk identity.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
-
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
   native shell icons, context menus, persistence, tray and startup are implemented.
@@ -17,8 +16,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D38 installed SHA256: B79A61235A81DEC29B07D6309CA0DFCE702C930E714535BEF977BA4795164F80.
-  D38 CI pending; D36 passed. Prior binary: target/d38-visibility/previous-installed.exe.
+- D39 installed SHA256: D4CB484429BC47D63CE5F682AC0CA06CF1F1063F025456AD0E94C663E0736E35.
+  D39 CI pending; D38 passed. Prior binary: target/d39-hover/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -51,6 +50,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D37 adds fixed-slot reference reordering in circles/groups and Name/Type/Added sorts.
   Local 68 tests and native transfer/reorder/cancel fixture pass; CI 39249068153 passed.
 - D38 adds persisted lock, cached glow/dwell state icon and smooth lock joins; 70 tests pass.
+- D39 buffers hover frames/holds endpoints; 71 tests and both native fixtures pass.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.
@@ -84,7 +84,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D38 approved and installed; CI pending.
+- Active plan: 2026-10-13-phase2-d-circles.md; D39 addresses reported hover flicker.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

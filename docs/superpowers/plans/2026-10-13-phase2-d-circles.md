@@ -884,3 +884,36 @@ Normal controller close/restart succeeded (PID 22948); dock and three circles vi
 Configuration hash before/after is identical. Previous installed binary is backed up
 at `target/d38-visibility/previous-installed.exe`. D37 ordering/sorts are included.
 D38 CI will run on push; no unperformed check is claimed complete.
+
+
+### D39: Present complete hover frames without flashing
+
+Owner request (2026-10-19): fix intermittent hover flicker, retain the approved
+appearance and keep hover inexpensive. No new visual design is introduced.
+
+- [x] Buffer dock painting and keep the completed visibility endpoint stable while
+      show/hide pumps window messages; ignore queued inactive dwell timers.
+- [x] Verify release MSVC checks and native dock/lock/drag/restart behavior.
+- [x] Commit/push and install the checked release; record evidence.
+
+Observed cause: dock WM_PAINT filled the on-screen background before calculating
+and copying the hover icon, exposing an intermediate blank frame. Dwell completion
+also discarded its endpoint before visibility changes could pump nested paints.
+The dock now reuses one client-sized DIB and copies only the completed dirty region.
+No RefCell borrow spans rendering/window calls. An explicit target holds the final
+icon across show/hide; stale killed-timer messages cannot restart/repaint a dwell.
+No new dependency or idle timer. At 153x180/96 DPI the buffer uses 110,160 pixel
+bytes; it is reused until resize and released on destruction. Physical flicker
+assessment remains the owner's check; no performance timing is claimed.
+
+D39 evidence: Windows MSVC fmt, release Clippy with warnings denied, release tests
+(71 passed, two explicit ignored probes) and release build pass. The TEMP-only
+Grid=3/topmost native fixture passes dock drag/collapse/lock/visibility/restart and
+24 queued inactive timer/paint repetitions without reversing visibility. Native
+hover-settled.png was inspected; icon and rounded edges remain intact. The item
+transfer/reorder/group/cancel fixture also passes; physical cursor untouched and
+reference contents preserved. These checks do not establish physical hover feel.
+Installed SHA256 D4CB484429BC47D63CE5F682AC0CA06CF1F1063F025456AD0E94C663E0736E35,
+PID 2488; previous binary: target/d39-hover/previous-installed.exe. Normal shutdown
+and restart preserved the production config byte-for-byte. D38 CI 39273818981
+passed; D39 CI will run on push and is not claimed passed here.

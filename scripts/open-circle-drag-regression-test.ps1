@@ -210,6 +210,15 @@ try {
     if ((Get-Content -LiteralPath $cfg -Raw) -match '(?m)^dock_locked=1') { throw 'Compact unlock did not work' }
     [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Compact visibility click failed after unlocking' }
+    # No physical pointer movement: an already queued, cancelled dwell must be inert.
+    for ($frame=0; $frame -lt 24; $frame++) {
+        [void][OpenCircleDragWin]::SendMessage($dock,0x113,[IntPtr]1,[IntPtr]::Zero)
+        [void][OpenCircleDragWin]::SendMessage($dock,0xF,[IntPtr]::Zero,[IntPtr]::Zero)
+    }
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Stale hover timer reversed completed visibility' }
+    Save-DockPreview $dock 'hover-settled.png'
+    Write-Host 'Completed hover survives queued timers and repeated native paints : PASS'
+
     [void][OpenCircleDragWin]::SendMessage($controller,0x8006,[IntPtr]::Zero,[IntPtr]::Zero)
     Write-Host 'Lock blocks visible/hidden actions and circle hover; compact unlock works : PASS'
 
