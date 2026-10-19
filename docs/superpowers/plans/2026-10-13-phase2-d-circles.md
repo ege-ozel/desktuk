@@ -793,7 +793,7 @@ using the same edge quality as Desktop circles. D35 uses aliased GDI RoundRect t
       the opaque dock background; retain native text, dimensions and hit targets.
 - [x] Verify mixed edge pixels, symmetry and no dark fringes at 96/120/144/192 DPI;
       inspect expanded/collapsed native previews and run required MSVC checks.
-- [ ] Commit/push and install the checked release with preserved config; record CI
+- [x] Commit/push and install the checked release with preserved config; record CI
       and installation evidence. Physical visual assessment remains an owner check.
 
 D36 local evidence (2026-10-19): confirmed D35's toggle/hover controls used GDI
@@ -803,10 +803,19 @@ through the existing paint clip. No persistent bitmap, dependency, timer, geomet
 or input change. The old native fill remains only as an allocation-failure fallback.
 The pixel regression covers toggle on/off and hover rows at 96/120/144/192 DPI:
 intermediate edge shades, horizontal/vertical symmetry, crisp straight edges and
-background-preserving corners without black/color fringes. Expanded, collapsed and
-hover PrintWindow previews in target/d36-corner-preview were inspected. Required
+background-preserving corners without black/color fringes. Expanded/collapsed PrintWindow previews in target/d36-corner-preview were inspected. Required
 Windows MSVC fmt, release Clippy (-D warnings), 66 release tests (two explicit ignored
 probes), release build and Grid=3/Topmost menu/open-circle interaction fixture pass.
 Fixture covers collapse/recovery, rail drag/cancel/restart and unchanged references;
 no physical input generated. Owner's physical visual assessment is unperformed.
 
+
+D36 installation (2026-10-19): commit 6c36ee6 pushed to main; installed checked MSVC
+release SHA256 1486D155E9D77647F6CBD11CBF3B61B34114FE9A8F1EC8F7CD91AF5D3C293FBF,
+PID 20368. Dock and three circles visible; prior binary is retained at
+ target/d36-corners/previous-installed.exe. Configuration hash unchanged:
+9B4486CD54EA77FCC0B7601D0EE10048040B6233E5706B627AB997B1FD0DC28C.
+Required local checks passed; additional Windows CI 39234184134 was still running
+at delivery (not claimed as passed). Hover-row pixel rendering is covered by the
+native DIB regression; an attempted routed hover screenshot lost its hover state to
+normal outside-pointer dismissal, so only expanded/collapsed captures are evidence.

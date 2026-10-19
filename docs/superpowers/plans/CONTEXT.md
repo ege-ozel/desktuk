@@ -17,8 +17,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D35 installed SHA256: E97105CF4994A8DD99E259628A35B04E43AA283E50BEDCBC7CBC7DDF3BE6DFB2.
-  Code CI 39229246790 passed. Prior binary: target/d35-brand/previous-installed.exe.
+- D36 installed SHA256: 1486D155E9D77647F6CBD11CBF3B61B34114FE9A8F1EC8F7CD91AF5D3C293FBF.
+  D36 CI 39234184134 pending. Prior binary: target/d36-corners/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -46,7 +46,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D35 shares Segoe UI and slate/periwinkle/mint styling across dock/circles/rings;
   original logo/card and icon rebuild instructions are in res/brand/README.md.
 - D36 smooths toggle/hover corners with circle pixel coverage; four-DPI pixel
-  checks and native menu/drag/restart fixture pass. Installation/CI pending.
+  checks and native menu/drag/restart fixture pass. Installed; CI pending.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.
@@ -93,7 +93,3 @@ Short names share the preceding directory. Tests live with their Rust module.
   target/, dist/, captures, logs, executables and bundles are generated/local artifacts.
 - AGENTS.md governs safety, branches, commits and required Windows MSVC checks.
   Keep evidence in the plan; update changed facts here in the same commit.
-
-
-
-
