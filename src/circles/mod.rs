@@ -186,6 +186,9 @@ pub fn hide() {
 /// Toggle the circle board from the recovery dock. Visibility is queried live because
 /// Explorer may have hidden the circles during Show Desktop without changing our state.
 pub fn toggle_visibility() {
+    if crate::dock::locked() {
+        return;
+    }
     if any_visible() {
         hide();
     } else {
@@ -202,6 +205,9 @@ pub fn any_visible() -> bool {
 
 /// Reveal the board and open one selected circle from the recovery dock.
 pub fn open_target(which: Which) {
+    if crate::dock::locked() {
+        return;
+    }
     let Some(hwnd) = window_of(which) else { return };
     let target = which.target();
     if ring::close_target(hwnd, target) {

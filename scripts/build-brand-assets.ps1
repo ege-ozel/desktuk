@@ -3,13 +3,31 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $repo = Split-Path $PSScriptRoot -Parent
 $logo = [Drawing.Image]::FromFile((Join-Path $repo 'res/brand/logo.png'))
+# Swap the two original colors during native resource conversion, without
+# redrawing the source. RGB reflection retains shading; alpha is unchanged.
+$blue = @(111.0,159.0,251.0)
+$mint = @(107.0,223.0,197.0)
+$direction = 0..2 | ForEach-Object { $mint[$_] - $blue[$_] }
+$norm = ($direction | ForEach-Object { $_ * $_ } | Measure-Object -Sum).Sum
+$midDot = 0.0
+foreach ($i in 0..2) { $midDot += $direction[$i] * ($blue[$i] + $mint[$i]) / 2.0 }
+$palette = New-Object Drawing.Imaging.ColorMatrix
+foreach ($i in 0..2) {
+    foreach ($j in 0..2) {
+        $identity = if ($i -eq $j) { 1.0 } else { 0.0 }
+        $palette."Matrix$i$j" = [single]($identity - 2.0 * $direction[$i] * $direction[$j] / $norm)
+    }
+    $palette."Matrix4$i" = [single](2.0 * $direction[$i] * $midDot / $norm / 255.0)
+}
+$attributes = New-Object Drawing.Imaging.ImageAttributes
+$attributes.SetColorMatrix($palette)
 $frames = @()
 try {
     foreach ($size in @(16,20,24,32,40,48,64,128,256)) {
         $bitmap = New-Object Drawing.Bitmap $size,$size
         $g = [Drawing.Graphics]::FromImage($bitmap)
         $g.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $g.DrawImage($logo,0,0,$size,$size)
+        $g.DrawImage($logo,([Drawing.Rectangle]::new(0,0,$size,$size)),0,0,$logo.Width,$logo.Height,[Drawing.GraphicsUnit]::Pixel,$attributes)
         $stream = New-Object IO.MemoryStream
         $bitmap.Save($stream,[Drawing.Imaging.ImageFormat]::Png)
         $frames += ,@($size,$stream.ToArray())
@@ -45,7 +63,7 @@ try {
     $border = New-Object Drawing.Pen ([Drawing.ColorTranslator]::FromHtml('#2B3C4E')),2
     $g.FillPath($surface,$path); $g.DrawPath($border,$path)
     $g.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $g.DrawImage($logo,432,60,256,256)
+    $g.DrawImage($logo,([Drawing.Rectangle]::new(432,60,256,256)),0,0,$logo.Width,$logo.Height,[Drawing.GraphicsUnit]::Pixel,$attributes)
     $titleFont = New-Object Drawing.Font 'Segoe UI Semibold',38,([Drawing.FontStyle]::Regular),([Drawing.GraphicsUnit]::Pixel)
     $bodyFont = New-Object Drawing.Font 'Segoe UI',21,([Drawing.FontStyle]::Regular),([Drawing.GraphicsUnit]::Pixel)
     $text = New-Object Drawing.SolidBrush ([Drawing.ColorTranslator]::FromHtml('#ECF2F8'))
@@ -56,4 +74,4 @@ try {
     $g.DrawString('Her şey kendi çemberinde.',$bodyFont,$muted,([Drawing.RectangleF]::new(32,366,1056,40)),$format)
     $card.Save((Join-Path $repo 'res/brand/card.png'),[Drawing.Imaging.ImageFormat]::Png)
     foreach ($resource in @($format,$text,$muted,$titleFont,$bodyFont,$border,$surface,$path,$g,$card)) { $resource.Dispose() }
-} finally { $logo.Dispose() }
+} finally { $attributes.Dispose(); $logo.Dispose() }

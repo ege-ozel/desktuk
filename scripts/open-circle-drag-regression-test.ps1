@@ -1,9 +1,10 @@
-param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$Topmost, [string]$PreviewDir)
+﻿param([string]$Exe, [ValidateSet(0,2,3,4)][int]$Grid = 0, [switch]$Topmost, [string]$PreviewDir)
 $ErrorActionPreference = 'Stop'
 function Save-DockPreview([IntPtr]$window,[string]$name) {
     if (-not $PreviewDir) { return }
     Add-Type -AssemblyName System.Drawing
     $null=New-Item -ItemType Directory -Path $PreviewDir -Force
+    [void][OpenCircleDragWin]::SendMessage($window,0xF,[IntPtr]::Zero,[IntPtr]::Zero)
     $r=[OpenCircleDragWin]::Rectangle($window)
     $bitmap=New-Object Drawing.Bitmap ($r.right-$r.left),($r.bottom-$r.top)
     $graphics=[Drawing.Graphics]::FromImage($bitmap)
@@ -87,7 +88,8 @@ function Open-Ring($p,[IntPtr]$anchor) {
         throw 'Pointer entry must create the ring synchronously without hover dwell'
     }
     Wait-Check { [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero } 'Ring opens'
-    Start-Sleep -Milliseconds 400
+    # Begin routed interaction immediately: the real pointer stays outside this
+    # isolated fixture and can legitimately dismiss an idle ring during a sleep.
     [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0)
 }
 
@@ -163,7 +165,7 @@ try {
     $movedDock=[OpenCircleDragWin]::Rectangle($dock)
     if (($vertical -and ($movedDock.left -ne $beforeDock.left -or $movedDock.top -eq $beforeDock.top)) -or (-not $vertical -and ($movedDock.top -ne $beforeDock.top -or $movedDock.left -eq $beforeDock.left))) { throw 'Collapsed menu did not move along its taskbar rail' }
     if ([OpenCircleDragWin]::GetForegroundWindow() -ne $fg) { throw 'Moving menu took focus' }
-    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or (Get-Content -LiteralPath $cfg -Raw) -notmatch '(?m)^dock_pos=') { throw 'Menu drag changed visibility or failed to persist' }
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or (Get-Content -LiteralPath $cfg -Raw) -notmatch '(?m)^dock_pos=') { throw ('Menu drag changed visibility or failed to persist; visible='+[OpenCircleDragWin]::IsWindowVisible($anchor)+' saved='+(Get-Content -LiteralPath $cfg -Raw)) }
     Write-Host 'Collapsed DeskTuk drag, rail constraint, hover suppression and persistence : PASS'
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::SendMessage($controller,0x8006,[IntPtr]::Zero,[IntPtr]::Zero)
@@ -182,6 +184,35 @@ try {
     if ($headingRestored.left -ne $beforeHeading.left -or $headingRestored.top -ne $beforeHeading.top -or $savedDock -ne (Get-Content -LiteralPath $cfg | Where-Object { $_ -like 'dock_pos=*' })) { throw 'Cancelling heading drag did not restore the saved position' }
     Write-Host 'Expanded heading drag and cancellation restore saved position : PASS'
     Write-Host 'Compact dock collapse, visibility square and menu recovery : PASS'
+    # Lock both native click and hover routes without moving the physical pointer.
+    $lockX=[Math]::Round(114*$dpi/96); $lockY=[Math]::Round(20*$dpi/96)
+    $tileX=[Math]::Round(76*$dpi/96); $tileY=[Math]::Round(68*$dpi/96)
+    $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
+    Save-DockPreview $dock 'locked.png'
+    if ((Get-Content -LiteralPath $cfg -Raw) -notmatch '(?m)^dock_locked=1') { throw 'Lock did not persist' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$tileX,$tileY)
+    [OpenCircleDragWin]::Mouse($dock,0x200,$tileX,$tileY)
+    [void][OpenCircleDragWin]::SendMessage($dock,0x113,[IntPtr]1,[IntPtr]::Zero)
+    [OpenCircleDragWin]::Mouse($dock,0x202,[Math]::Round(30*$dpi/96),[Math]::Round(108*$dpi/96))
+    [OpenCircleDragWin]::Mouse($anchor,0x200,20,20)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero) { throw 'Locked click/hover changed the visible board' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$tileX,$tileY)
+    if ([OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Unlocked visibility click did not hide circles' }
+    Save-DockPreview $dock 'hidden.png'
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$tileX,$tileY)
+    if ([OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Locked click revealed hidden circles' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$arrowX,$arrowY)
+    Save-DockPreview $dock 'compact-locked.png'
+    [OpenCircleDragWin]::Mouse($dock,0x202,[Math]::Round(53*$dpi/96),[Math]::Round(11*$dpi/96))
+    if ((Get-Content -LiteralPath $cfg -Raw) -match '(?m)^dock_locked=1') { throw 'Compact unlock did not work' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Compact visibility click failed after unlocking' }
+    [void][OpenCircleDragWin]::SendMessage($controller,0x8006,[IntPtr]::Zero,[IntPtr]::Zero)
+    Write-Host 'Lock blocks visible/hidden actions and circle hover; compact unlock works : PASS'
+
     foreach ($sourceX in @($recentX,$musicX)) {
         $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sourceX,$sourceY)
         [void][OpenCircleDragWin]::ShowWindow($anchor,0)
@@ -266,6 +297,7 @@ try {
     $ring=Open-Ring $p $anchor | Select-Object -Last 1
     [void][OpenCircleDragWin]::SendMessage($ring,0x200,[IntPtr]::Zero,[OpenCircleDragWin]::Point(0,0))
     Wait-Check { -not [OpenCircleDragWin]::IsWindow($ring) } 'Pointer outside the ring disc eases closed'
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
     $controller=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
     [void][OpenCircleDragWin]::PostMessage($controller,0x10,[IntPtr]::Zero,[IntPtr]::Zero)
     if (-not $p.WaitForExit(8000) -or $p.ExitCode -ne 0) { throw 'Fixture did not exit cleanly' }
@@ -277,7 +309,12 @@ try {
     [OpenCircleDragWin]::Mouse($dock,0x202,($r.right-$r.left-[Math]::Round(18*$dpi/96)),[Math]::Round(20*$dpi/96))
     $restoredDock=[OpenCircleDragWin]::Rectangle($dock)
     if ($restoredDock.left -ne $movedDock.left -or $restoredDock.top -ne $movedDock.top) { throw 'Collapsed DeskTuk position did not survive restart' }
-    Write-Host 'DeskTuk rail position survives restart : PASS'
+    $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedMusicX,$expectedY)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($anchor,0x200,20,20)
+    if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero) { throw 'Restart did not preserve the lock' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,[Math]::Round(53*$dpi/96),[Math]::Round(11*$dpi/96))
+    Write-Host 'DeskTuk rail position and lock survive restart : PASS'
     $hashesAfter=@($files | ForEach-Object { (Get-FileHash -LiteralPath $_).Hash })
     if (@(Compare-Object $hashes $hashesAfter).Count -ne 0) { throw 'Referenced fixture files changed' }
     Write-Host 'All file references preserved : PASS'

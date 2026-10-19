@@ -261,6 +261,9 @@ pub fn close_target(anchor: HWND, target: Target) -> bool {
 
 /// Opens the ring for `target` over the circle window `anchor`, closing any other ring.
 pub fn open(anchor: HWND, target: Target) {
+    if crate::dock::locked() {
+        return;
+    }
     if item_pressed_window().is_some() {
         return;
     }

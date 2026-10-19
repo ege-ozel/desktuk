@@ -845,11 +845,42 @@ visual target assessment and CI remain unperformed. No new dependency or idle ti
 
 ### D38: Lock and expressive visibility control
 
-Owner approval (2026-10-19): a lock disables hover reveal and the visibility action.
-Replace the visibility label with an antialiased periwinkle D/circle and mint folder;
-hidden state is muted/slashed, visible is stronger/filled. Show the 300ms dwell through
-color fill, reverse it for hiding. Keep original brand colors; no animated blur/shadow.
+Owner-approved final design (2026-10-19): small open/closed lock in the heading,
+centred folder-in-circle visibility control, 300ms reversible dwell color fill.
+Hidden folder/ring are grey, slash is teal-to-periwinkle with a subtle static red
+halo. Lock blocks hover reveal, dock row opening and visibility actions. Keep the
+original logo geometry; swap color roles to teal outer D and blue inner dots.
+Owner reviewed simpler/palette/glow previews before implementation and then asked
+for smoother, shorter lock joins. Earlier separate labelled lock tile is superseded.
 
-- [ ] Add accessible lock/unlock in expanded and compact menu, persist it.
-- [ ] Draw state icon and transient dwell fill; no idle timer or new dependency.
-- [ ] Verify native input/state/rendering and checks; commit/push and install checked release.
+- [x] Add accessible lock/unlock in expanded and compact menu, persist it.
+- [x] Draw approved state icon, static cached glow and transient dwell fill.
+- [x] Verify native input/state/rendering and checks; commit/push and install checked release.
+
+Implementation: dock_locked=1 persists the lock; visibility itself is session-only.
+Right-click menu also exposes lock/unlock. One bounded cached DIB stores the current
+visibility/DPI/progress state; stable redraws reuse it. Only the active dwell uses a
+16ms timer, killed on leave, click, drag or lock; no continuous glow animation.
+The lock uses a single union mask: rounded body, shorter tangent shackle/stems,
+and 4x4 subpixel coverage blended once. Integer mirrored sample addresses prevent
+asymmetric half-pixel ties at 125% DPI. Four-DPI tests cover intermediate pixels,
+closed symmetry, connected joints, open gap and reversible dwell endpoints.
+
+The existing brand source is unchanged. Resource conversion reflects RGB between
+its two original hues with a ColorMatrix; no generative replacement is used. All
+nine ICO alpha planes (16..256px) are pixel-identical to pre-change resources.
+No new dependency, user-file change or physical-input test. Required Windows MSVC
+fmt/Clippy/tests pass: 70 passed, 2 ignored. Native Grid=3/topmost dock/lock/restart
+and item transfer/reorder/group/cancel fixtures pass on the final build. Initial
+attempts were interrupted by outside-pointer routing state: file/log reads could
+outlast the ring closing animation before a synthetic item press. The fixture now
+refreshes entry and starts that press in one C# helper, returning the live handle.
+No production dismissal change. Physical smoothness still needs owner assessment;
+fixtures use TEMP configs/references and routed messages, without moving the cursor.
+
+Installed checked release SHA256:
+`B79A61235A81DEC29B07D6309CA0DFCE702C930E714535BEF977BA4795164F80`.
+Normal controller close/restart succeeded (PID 22948); dock and three circles visible.
+Configuration hash before/after is identical. Previous installed binary is backed up
+at `target/d38-visibility/previous-installed.exe`. D37 ordering/sorts are included.
+D38 CI will run on push; no unperformed check is claimed complete.

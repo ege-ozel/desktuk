@@ -17,8 +17,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D36 installed SHA256: 1486D155E9D77647F6CBD11CBF3B61B34114FE9A8F1EC8F7CD91AF5D3C293FBF.
-  D36 CI 39234184134 passed. Prior binary: target/d36-corners/previous-installed.exe.
+- D38 installed SHA256: B79A61235A81DEC29B07D6309CA0DFCE702C930E714535BEF977BA4795164F80.
+  D38 CI pending; D36 passed. Prior binary: target/d38-visibility/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -49,7 +49,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   checks and native menu/drag/restart fixture pass. Installed; CI passed.
 
 - D37 adds fixed-slot reference reordering in circles/groups and Name/Type/Added sorts.
-  Local 68 tests and extended native transfer/reorder/cancel fixture pass; CI pending.
+  Local 68 tests and native transfer/reorder/cancel fixture pass; CI 39249068153 passed.
+- D38 adds persisted lock, cached glow/dwell state icon and smooth lock joins; 70 tests pass.
 
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.
@@ -83,7 +84,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D38.
+- Active plan: 2026-10-13-phase2-d-circles.md; D38 approved and installed; CI pending.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

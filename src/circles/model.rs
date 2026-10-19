@@ -30,6 +30,7 @@ pub struct Circle {
 pub struct Board {
     /// Stable first assignment order; independent of custom display order.
     pub added_order: Vec<PathBuf>,
+    pub dock_locked: bool,
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
@@ -42,7 +43,15 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self { added_order: Vec::new(), circles: Vec::new(), recent_pos: None, dock_pos: None, grid: 0, always_on_top: true }
+        Self {
+            added_order: Vec::new(),
+            dock_locked: false,
+            circles: Vec::new(),
+            recent_pos: None,
+            dock_pos: None,
+            grid: 0,
+            always_on_top: true,
+        }
     }
 }
 
@@ -304,6 +313,7 @@ impl Board {
             "grid" => {
                 self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
             }
+            "dock_locked" => self.dock_locked = value.trim() == "1",
             "added_order" => {
                 let path = PathBuf::from(value);
                 if self.is_assigned(&path) {
@@ -380,6 +390,9 @@ impl Board {
     pub fn render(&self) -> String {
         let mut s = String::new();
         s += "always_on_top=1\n";
+        if self.dock_locked {
+            s += "dock_locked=1\n";
+        }
         if self.grid != 0 {
             s += &format!("grid={}\n", self.grid);
         }
@@ -545,6 +558,7 @@ mod tests {
         b.add_circle("Books", (5, 6));
         b.recent_pos = Some((1600, 80));
         b.dock_pos = Some((-1900, 400));
+        b.dock_locked = true;
         let text = b.render();
         assert!(text.contains("circle=Music|120|-40\n"));
         assert!(text.contains("citem=Music||C:\\Users\\x\\Desktop\\notes.txt\n"));

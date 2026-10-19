@@ -1,4 +1,4 @@
-﻿<# Isolated TEMP config and references only; no physical input or Desktop writes. #>
+<# Isolated TEMP config and references only; no physical input or Desktop writes. #>
 param([string]$Exe = 'target/release/DeskTuk.exe')
 $ErrorActionPreference='Stop'
 $build=(Resolve-Path -LiteralPath $Exe).Path
@@ -47,6 +47,16 @@ public static class ItemDragWin {
     public static IntPtr Point(int x,int y) { return new IntPtr(unchecked((int)((uint)(ushort)x | ((uint)(ushort)y << 16)))); }
     public static void Mouse(IntPtr h,uint message,int x,int y) { SendMessage(h,message,new IntPtr(message==0x202 ? 0 : 1),Point(x,y)); }
     public static void MiddleMouse(IntPtr h,uint message,int x,int y) { SendMessage(h,message,new IntPtr(message==0x200 ? 0x10 : 0),Point(x,y)); }
+    public static IntPtr BeginItem(uint pid, IntPtr anchor, int x, int y) {
+        // File/log reads in the caller can outlast the idle dismissal animation.
+        // Refresh entry and start the routed press together; never move the cursor.
+        SendMessage(anchor,0x200,IntPtr.Zero,Point(20,20));
+        var ring=Find(pid,"DeskTuk.Ring",Int32.MinValue,0);
+        if (ring==IntPtr.Zero || GetWindow(ring,4)!=anchor) throw new Exception("Source ring not ready");
+        Mouse(ring,0x201,x,y);
+        Mouse(ring,0x200,x+15,y+15);
+        return ring;
+    }
 }
 '@
 
@@ -101,11 +111,12 @@ function Open-At([int]$x,[int]$y) {
     throw 'Requested source ring did not become ready'
 }
 function Begin-Item([IntPtr]$ring,[int]$slot) {
+    $anchor=[ItemDragWin]::GetWindow($ring,4)
     $point=Slot-Point $ring $slot
-    [ItemDragWin]::Mouse($ring,0x201,$point[0],$point[1])
-    [ItemDragWin]::Mouse($ring,0x200,($point[0]+15),($point[1]+15))
+    $ring=[ItemDragWin]::BeginItem([uint32]$p.Id,$anchor,$point[0],$point[1])
     $preview=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.DragPreview',[int]::MinValue,0)
     if ($preview -eq [IntPtr]::Zero) { throw 'Item drag failed to start when foreground capture was denied' }
+    $ring
 }
 function Release-At([IntPtr]$ring,[int]$x,[int]$y) {
     $r=[ItemDragWin]::Rectangle($ring)
@@ -143,30 +154,30 @@ try {
     $processes+=$p
     Wait-Check { [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$sx,$sy) -ne [IntPtr]::Zero -and [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Dock',[int]::MinValue,0) -ne [IntPtr]::Zero } 'All fixture windows ready'
     $ring=Open-At $sx $sy
-    Begin-Item $ring 1
+    $ring=Begin-Item $ring 1
     Release-At $ring ($nearX+$d/2) ($sy+$d/2)
     Assert-Place 'Near|' 'Drop onto a circle underneath the source ring'
     $ring=Open-At $nearX $sy
-    Begin-Item $ring 0
+    $ring=Begin-Item $ring 0
     Release-At $ring ($farX+$d/2) ($sy+$d/2)
     Assert-Place 'Far|' 'Drop outside the source ring into a distant circle'
     foreach ($cancel in @(0x1F,0x215,0x100)) {
         $ring=Open-At $farX $sy
-        Begin-Item $ring 0
+        $ring=Begin-Item $ring 0
         [void][ItemDragWin]::SendMessage($ring,$cancel,[IntPtr]27,[IntPtr]::Zero)
         if ([ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.DragPreview',[int]::MinValue,0) -ne [IntPtr]::Zero) { throw 'Preview survived cancellation' }
         Assert-Place 'Far|' 'Cancel/capture loss/Escape keeps the assignment'
     }
     $ring=Open-At $farX $sy
-    Begin-Item $ring 0
+    $ring=Begin-Item $ring 0
     Release-At $ring ($work.right-10) ($work.bottom-10)
     Assert-Place 'Far|' 'Invalid desktop drop keeps the assignment'
     $ring=Open-At $farX $sy
-    Begin-Item $ring 0
+    $ring=Begin-Item $ring 0
     Release-At $ring ($sx+$d/2) ($sy+$d/2)
     Assert-Place 'Source|' 'Return to source circle'
     $ring=Open-At $sx $sy
-    Begin-Item $ring 1
+    $ring=Begin-Item $ring 1
     $slot=Slot-Point $ring 0
     $rect=[ItemDragWin]::Rectangle($ring)
     Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
@@ -174,13 +185,13 @@ try {
     $ring=Open-At $sx $sy
     $slot=Slot-Point $ring 0
     [ItemDragWin]::Mouse($ring,0x202,$slot[0],$slot[1])
-    Begin-Item $ring 1
+    $ring=Begin-Item $ring 1
     $slot=Slot-Point $ring 0
     $rect=[ItemDragWin]::Rectangle($ring)
     Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
     Assert-Place 'Source|' 'Drop onto Back slot'
     $ring=Open-At $sx $sy
-    Begin-Item $ring 1
+    $ring=Begin-Item $ring 1
     Release-At $ring ($recentX+$d/2) ($recentY+$d/2)
     Assert-Place '' 'Drop onto Recent unassigns the reference'
     if ($hash -ne (Get-FileHash -LiteralPath $file).Hash) { throw 'Referenced file changed' }
@@ -202,28 +213,28 @@ try {
         Wait-Check { $actual=@(Get-Content -LiteralPath $cfg | Where-Object { $_.StartsWith($prefix) } | ForEach-Object { $_.Substring($prefix.Length) }); ($actual -join '|') -eq ($expected -join '|') } $label
     }
     $ring=Open-At $sx $sy
-    Begin-Item $ring 4
+    $ring=Begin-Item $ring 4
     $slot=Slot-Point $ring 1; $rect=[ItemDragWin]::Rectangle($ring)
     Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
     Assert-Order '' @($other3,$file,$other1,$other2) 'Circle reorder inserts before the fixed target'
     $ring=Open-At $sx $sy
-    Begin-Item $ring 1
+    $ring=Begin-Item $ring 1
     $slot=Slot-Point $ring 4; $rect=[ItemDragWin]::Rectangle($ring)
     $dx=$slot[0]-($rect.right-$rect.left)/2; $dy=$slot[1]-($rect.bottom-$rect.top)/2
     $length=[Math]::Sqrt($dx*$dx+$dy*$dy)
     Release-At $ring ([int]($rect.left+$slot[0]-16*$dy/$length)) ([int]($rect.top+$slot[1]+16*$dx/$length))
     Assert-Order '' @($file,$other1,$other2,$other3) 'Circle reorder appends after the last fixed target'
-    $ring=Open-At $sx $sy; Begin-Item $ring 3
+    $ring=Open-At $sx $sy; $ring=Begin-Item $ring 3
     [void][ItemDragWin]::SendMessage($ring,0x100,[IntPtr]27,[IntPtr]::Zero)
     Assert-Order '' @($file,$other1,$other2,$other3) 'Escape preserves custom order'
     foreach ($index in @(4,3)) {
-        $ring=Open-At $sx $sy; Begin-Item $ring $index
+        $ring=Open-At $sx $sy; $ring=Begin-Item $ring $index
         $slot=Slot-Point $ring 0; $rect=[ItemDragWin]::Rectangle($ring)
         Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
     }
     $ring=Open-At $sx $sy
     $slot=Slot-Point $ring 0; [ItemDragWin]::Mouse($ring,0x202,$slot[0],$slot[1])
-    Begin-Item $ring 2
+    $ring=Begin-Item $ring 2
     $slot=Slot-Point $ring 1; $rect=[ItemDragWin]::Rectangle($ring)
     Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
     Assert-Order 'Group' @($other2,$other3) 'Group reorder uses the same fixed-slot drag'

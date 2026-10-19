@@ -5,6 +5,11 @@ The open D gathers three circles: files finding a place on the desktop.
 imagegen skill. `card.png` redesigns the supplied brand-card reference.
 The logo also supplies the executable/tray icon and native menu heading.
 
+The approved palette revision swaps the two color roles: teal outer D and blue
+inner dots. The build script applies a deterministic RGB reflection to the original
+source during resource conversion, preserving its geometry, alpha and shading.
+`logo.png` remains the original source; do not replace it with the generated mock.
+
 Run `powershell -NoProfile -File scripts/build-brand-assets.ps1` to regenerate
 the card and ICO (16–256 px). No application dependency is required.
 

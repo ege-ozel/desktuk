@@ -3,14 +3,13 @@
 //! Windows' Show Desktop commands can hide desktop-organiser windows. The dock stays
 //! in the topmost band and gives the user a direct way to reveal or hide the circles.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
-use windows_sys::Win32::Foundation::{HWND, POINT, RECT, SIZE};
+use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, GetDC, GetTextExtentPoint32W, InvalidateRect,
-    ReleaseDC, ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_RIGHT, DT_SINGLELINE, DT_VCENTER,
-    HFONT, PAINTSTRUCT, TRANSPARENT,
+    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SelectObject,
+    SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -33,7 +32,6 @@ const TEAL: u32 = crate::theme::MINT;
 const SWITCH_BG: u32 = crate::theme::SURFACE;
 const MAX_ROWS: usize = 7;
 const PAD: i32 = 8;
-const LABEL_GAP: i32 = 10;
 const HEADER_H: i32 = 40;
 const ACTION_SIZE: i32 = 48;
 const GAP: i32 = 4;
@@ -46,15 +44,26 @@ enum Entry {
     Target(Which),
 }
 
+#[derive(PartialEq)]
+struct VisibilityKey {
+    size: i32,
+    dpi: u32,
+    visible: bool,
+    progress: Option<u8>,
+    locked: bool,
+}
+
 thread_local! {
     static POSITION: Cell<Option<(i32,i32)>> = const { Cell::new(None) };
     static EXPANDED: Cell<bool> = const { Cell::new(true) };
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static SCROLL: Cell<usize> = const { Cell::new(0) };
     static TRACKING: Cell<bool> = const { Cell::new(false) };
+    static ACTION_START: Cell<Option<f64>> = const { Cell::new(None) };
     static ACTION_HOVER: Cell<bool> = const { Cell::new(false) };
     static ACTION_INSIDE: Cell<bool> = const { Cell::new(false) };
     static HOVER_ROW: Cell<isize> = const { Cell::new(-1) };
+    static VISIBILITY_CACHE: RefCell<Option<(VisibilityKey, circles::surface::Surface)>> = const { RefCell::new(None) };
 }
 
 fn scale(value: i32, dpi: u32) -> i32 {
@@ -74,30 +83,46 @@ fn icon_title_font(dpi: u32) -> HFONT {
 }
 
 fn expanded_width(dpi: u32) -> i32 {
-    let hdc = unsafe { GetDC(std::ptr::null_mut()) };
-    if hdc.is_null() {
-        return scale(208, dpi);
+    scale(153, dpi)
+}
+
+pub fn locked() -> bool {
+    app::app().board.try_borrow().map(|b| b.dock_locked).unwrap_or(true)
+}
+
+fn toggle_lock(hwnd: HWND) {
+    cancel_dwell(hwnd);
+    ACTION_INSIDE.set(false);
+    ACTION_HOVER.set(false);
+    HOVER_ROW.set(-1);
+    let changed = if let Ok(mut board) = app::app().board.try_borrow_mut() {
+        board.dock_locked = !board.dock_locked;
+        true
+    } else {
+        false
+    };
+    if changed {
+        circles::ring::close_now();
+        app::app().save_config();
+        unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
     }
-    let font = icon_title_font(dpi);
-    let old = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
-    let mut text_width = 0;
-    for label in ["Daireleri gizle", "Daireleri göster"] {
-        let text = win::wide(label);
-        let mut size: SIZE = unsafe { std::mem::zeroed() };
-        if unsafe { GetTextExtentPoint32W(hdc, text.as_ptr(), (text.len() - 1) as i32, &mut size) } != 0 {
-            text_width = text_width.max(size.cx);
-        }
+}
+
+fn cancel_dwell(hwnd: HWND) {
+    unsafe { KillTimer(hwnd, ACTION_TIMER) };
+    if ACTION_START.take().is_none() {
+        return;
     }
-    unsafe {
-        if !old.is_null() {
-            SelectObject(hdc, old);
-        }
-        if !font.is_null() {
-            DeleteObject(font);
-        }
-        ReleaseDC(std::ptr::null_mut(), hdc);
+    let rect = action_rect(unsafe { GetDpiForWindow(hwnd) }.max(96));
+    unsafe { InvalidateRect(hwnd, &rect, 0) };
+}
+
+fn lock_rect(dpi: u32) -> RECT {
+    if EXPANDED.get() {
+        win::rect(scale(103, dpi), scale(9, dpi), scale(125, dpi), scale(31, dpi))
+    } else {
+        win::rect(scale(43, dpi), scale(1, dpi), scale(63, dpi), scale(21, dpi))
     }
-    scale(PAD * 2 + ACTION_SIZE + LABEL_GAP, dpi) + if text_width > 0 { text_width } else { scale(96, dpi) }
 }
 
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
@@ -111,19 +136,19 @@ fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
 
 fn action_rect(dpi: u32) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
-    let left = scale(PAD, dpi);
+    let left = if EXPANDED.get() { (expanded_width(dpi) - size) / 2 } else { scale(PAD, dpi) };
     let top = scale(if EXPANDED.get() { HEADER_H + GAP } else { PAD }, dpi);
     win::rect(left, top, left + size, top + size)
 }
 
 fn arrow_rect(dpi: u32) -> RECT {
     let width = expanded_width(dpi);
-    win::rect(width - scale(36, dpi), 0, width, scale(HEADER_H, dpi))
+    win::rect(width - scale(26, dpi), 0, width, scale(HEADER_H, dpi))
 }
 
 fn set_expanded(hwnd: HWND, expanded: bool) {
     EXPANDED.set(expanded);
-    unsafe { KillTimer(hwnd, ACTION_TIMER) };
+    cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
     ACTION_HOVER.set(false);
     HOVER_ROW.set(-1);
@@ -199,6 +224,7 @@ pub fn save_position() {
 
 pub fn after_drag() {
     // Require a fresh hover entry after moving, while allowing a deliberate click.
+    ACTION_START.set(None);
     ACTION_INSIDE.set(true);
     ACTION_HOVER.set(false);
     HOVER_ROW.set(-1);
@@ -365,6 +391,143 @@ unsafe fn rounded_fill(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, colo
     }
 }
 
+fn mix_color(a: u32, b: u32, amount: f32) -> u32 {
+    let alpha = (amount.clamp(0.0, 1.0) * 255.0).round() as u32;
+    let channel = |shift: u32| (((a >> shift) & 255) * (255 - alpha) + ((b >> shift) & 255) * alpha + 127) / 255;
+    channel(0) | channel(8) << 8 | channel(16) << 16
+}
+
+fn blend_pixel(pixel: &mut u32, color: u32, alpha: f32) {
+    let a = (alpha.clamp(0.0, 1.0) * 255.0).round() as u32;
+    let channel = |dst: u32, src: u32| (((*pixel >> dst) & 255) * (255 - a) + ((color >> src) & 255) * a + 127) / 255;
+    *pixel = 0xff00_0000 | channel(16, 0) << 16 | channel(8, 8) << 8 | channel(0, 16);
+}
+
+fn line_distance(x: f32, y: f32, a: (f32, f32), b: (f32, f32)) -> f32 {
+    let (vx, vy) = (b.0 - a.0, b.1 - a.1);
+    let t = (((x - a.0) * vx + (y - a.1) * vy) / (vx * vx + vy * vy).max(0.001)).clamp(0.0, 1.0);
+    ((x - a.0 - t * vx).powi(2) + (y - a.1 - t * vy).powi(2)).sqrt()
+}
+
+/// Analytic coverage, no glyph/font dependence or animated blur. Work is bounded
+/// to the 48-DIP control and only repeated during the 300ms dwell.
+fn visibility_surface(size: i32, dpi: u32, visible: bool, progress: Option<f32>, is_locked: bool) -> Option<circles::surface::Surface> {
+    let level = match progress {
+        Some(p) if visible => 1.0 - p,
+        Some(p) => p,
+        None => {
+            if visible {
+                1.0
+            } else {
+                0.0
+            }
+        }
+    };
+    let color = mix_color(SWITCH_BG, crate::theme::ACCENT, if is_locked { 0.0 } else { 0.19 * level });
+    let mut surface = rounded_surface(size, size, scale(8, dpi), color)?;
+    let factor = size as f32 / 48.0;
+    let strength = if is_locked { 0.0 } else { level };
+    let arc = mix_color(SUBTEXT, crate::theme::ACCENT, strength);
+    let folder = mix_color(SUBTEXT, TEAL, strength);
+    let points = [(16.5, 20.0), (22.0, 20.0), (24.5, 23.0), (32.5, 23.0), (32.5, 32.5), (16.5, 32.5), (16.5, 20.0)];
+    let pixels = surface.pixels();
+    for y in 0..size {
+        for x in 0..size {
+            let (px, py) = ((x as f32 + 0.5) / factor, (y as f32 + 0.5) / factor);
+            let pixel = &mut pixels[(y * size + x) as usize];
+            let (dx, dy) = (px - 24.0, py - 24.0);
+            let distance = ((dx * dx + dy * dy).sqrt() - 15.3).abs();
+            {
+                let coverage = ((1.0 + 0.2 * level - distance) * factor + 0.5).clamp(0.0, 1.0);
+                blend_pixel(pixel, arc, coverage * if is_locked { 0.55 } else { 0.60 + 0.40 * level });
+            }
+            let edge = points.windows(2).map(|p| line_distance(px, py, p[0], p[1])).fold(f32::INFINITY, f32::min);
+            let mut inside = false;
+            for p in points.windows(2) {
+                if (p[0].1 > py) != (p[1].1 > py) && px < (p[1].0 - p[0].0) * (py - p[0].1) / (p[1].1 - p[0].1) + p[0].0 {
+                    inside = !inside;
+                }
+            }
+            if inside {
+                blend_pixel(pixel, folder, level * 0.25);
+            }
+            blend_pixel(
+                pixel,
+                folder,
+                ((0.85 + 0.15 * level - edge) * factor + 0.5).clamp(0.0, 1.0) * if is_locked { 0.55 } else { 0.70 + 0.30 * level },
+            );
+            let fold = line_distance(px, py, (17.0, 25.5), (31.5, 25.5));
+            blend_pixel(pixel, folder, ((0.65 - fold) * factor + 0.5).clamp(0.0, 1.0) * 0.65);
+            let slash = line_distance(px, py, (15.0, 15.0), (34.0, 34.0));
+            // A background halo makes the hidden slash readable through the folder.
+            blend_pixel(pixel, color, ((1.9 - slash) * factor + 0.5).clamp(0.0, 1.0) * (1.0 - level));
+            let hidden = 1.0 - level;
+            let glow = 0.22 * (-slash * slash / 12.5).exp() * hidden;
+            blend_pixel(pixel, win::rgb(246, 87, 104), glow);
+            let gradient = mix_color(TEAL, crate::theme::ACCENT, ((py - 15.0) / 19.0).clamp(0.0, 1.0));
+            blend_pixel(pixel, gradient, ((0.9 - slash) * factor + 0.5).clamp(0.0, 1.0) * hidden);
+        }
+    }
+    Some(surface)
+}
+
+fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<circles::surface::Surface> {
+    let mut surface = circles::surface::Surface::new(size, size)?;
+    let factor = size as f32 / 20.0;
+    let pixels = surface.pixels();
+    for y in 0..size {
+        for x in 0..size {
+            let pixel = &mut pixels[(y * size + x) as usize];
+            *pixel = 0xff00_0000 | (color & 255) << 16 | color & 0xff00 | (color >> 16) & 255;
+            // One union mask avoids double blending where the tangent shackle
+            // stems meet the rounded body. Subpixel coverage includes both joins.
+            let mut covered = 0;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let sub_x = x * 4 + sx;
+                    // Mirror integer sample addresses before float conversion:
+                    // half-pixel ties stay identical on both sides at 125% DPI.
+                    let sub_x = if is_locked { sub_x.min(size * 4 - 1 - sub_x) } else { sub_x };
+                    let px = (sub_x as f32 + 0.5) / (4.0 * factor);
+                    let py = (y as f32 + (sy as f32 + 0.5) / 4.0) / factor;
+                    if lock_distance(px, py, is_locked) <= 0.7 {
+                        covered += 1;
+                    }
+                }
+            }
+            blend_pixel(pixel, if is_locked { TEAL } else { SUBTEXT }, covered as f32 / 16.0);
+        }
+    }
+    Some(surface)
+}
+
+fn lock_distance(px: f32, py: f32, closed: bool) -> f32 {
+    // Rounded-rectangle centreline: 4.5..15.5 x 9..16, radius 1.5 DIP.
+    let qx = (px - 10.0).abs() - 4.0;
+    let qy = (py - 12.5).abs() - 2.0;
+    let body = (qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - 1.5).abs();
+    let (cx, cy) = if closed { (10.0, 6.8) } else { (11.8, 5.5) };
+    let radius = 3.2;
+    let arc = if py <= cy {
+        ((px - cx).hypot(py - cy) - radius).abs()
+    } else {
+        (px - cx + radius).hypot(py - cy).min((px - cx - radius).hypot(py - cy))
+    };
+    let left = line_distance(px, py, (cx - radius, cy), (cx - radius, 9.0));
+    let right = if closed { line_distance(px, py, (cx + radius, cy), (cx + radius, 9.0)) } else { f32::INFINITY };
+    let key = line_distance(px, py, (10.0, 12.0), (10.0, 13.5));
+    body.min(arc).min(left).min(right).min(key)
+}
+
+unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, is_locked: bool) {
+    let side = scale(20, dpi);
+    let color = if EXPANDED.get() { ROW_HOVER } else { BG };
+    if let Some(surface) = lock_surface(side, color, is_locked) {
+        use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+        BitBlt(dc, (r.left + r.right - side) / 2, (r.top + r.bottom - side) / 2, side, side, surface.dc(), 0, 0, SRCCOPY);
+    }
+}
+
 fn paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
     let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
@@ -386,10 +549,7 @@ fn paint(hwnd: HWND) {
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let header_tile = win::rect(0, 0, client.right, header_h);
     let switch_rect = action_rect(dpi);
-    let switch_top = switch_rect.top;
     let switch_bottom = switch_rect.bottom;
-    let switch_left = switch_rect.left;
-    let action_size = switch_rect.right - switch_left;
     let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
@@ -416,7 +576,7 @@ fn paint(hwnd: HWND) {
             }
             SetTextColor(hdc, TEXT);
             let mut title = win::wide("DeskTuk");
-            let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(36, dpi), header_h - scale(2, dpi));
+            let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), lock_rect(dpi).left - scale(2, dpi), header_h - scale(2, dpi));
             DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             SelectObject(hdc, if font.is_null() { old_font } else { font });
             if !heading_font.is_null() {
@@ -426,17 +586,32 @@ fn paint(hwnd: HWND) {
             let mut arrow_area = arrow_rect(dpi);
             DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
-        rounded_fill(hdc, switch_rect, if switch_on { TEAL } else { SWITCH_BG }, scale(8, dpi));
-        SetTextColor(hdc, if switch_on { BG } else { TEAL });
-        let mut toggle_glyph = win::wide(if switch_on { "●" } else { "○" });
-        let mut toggle_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
-        DrawTextW(hdc, toggle_glyph.as_mut_ptr(), -1, &mut toggle_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        let is_locked = locked();
+        let progress =
+            ACTION_START.get().map(|start| ((crate::diag::since_start_ms() - start) / ACTION_DWELL_MS as f64).clamp(0.0, 1.0) as f32);
+        let key = VisibilityKey {
+            size: switch_rect.right - switch_rect.left,
+            dpi,
+            visible: switch_on,
+            progress: progress.map(|p| (p * 255.0).round() as u8),
+            locked: is_locked,
+        };
+        VISIBILITY_CACHE.with(|slot| {
+            let mut cache = slot.borrow_mut();
+            if cache.as_ref().is_none_or(|(previous, _)| *previous != key) {
+                *cache = visibility_surface(key.size, key.dpi, key.visible, key.progress.map(|p| p as f32 / 255.0), key.locked)
+                    .map(|surface| (key, surface));
+            }
+            if let Some((_, surface)) = cache.as_ref() {
+                use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+                // BitBlt does not pump messages; no window/layout calls under this borrow.
+                BitBlt(hdc, switch_rect.left, switch_rect.top, surface.w, surface.h, surface.dc(), 0, 0, SRCCOPY);
+            }
+        });
+        let lock = lock_rect(dpi);
+        draw_lock(hdc, lock, dpi, is_locked);
         SetTextColor(hdc, TEXT);
         if EXPANDED.get() {
-            let mut action = win::wide(if switch_on { "Daireleri gizle" } else { "Daireleri göster" });
-            let mut action_text =
-                win::rect(switch_left + action_size + scale(10, dpi), switch_top, client.right - scale(8, dpi), switch_bottom);
-            DrawTextW(hdc, action.as_mut_ptr(), -1, &mut action_text, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             SetTextColor(hdc, SUBTEXT);
             for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
                 let index = scroll + visible_index;
@@ -467,17 +642,19 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
     let dpi = GetDpiForWindow(hwnd).max(96);
     let action = action_rect(dpi);
     let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
-    if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
+    if win::rect_contains(&lock_rect(dpi), POINT { x, y }) {
+        toggle_lock(hwnd);
+    } else if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
         set_expanded(hwnd, false);
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
-        unsafe { KillTimer(hwnd, ACTION_TIMER) };
-        if !ACTION_HOVER.replace(true) {
+        cancel_dwell(hwnd);
+        if !locked() && !ACTION_HOVER.replace(true) {
             circles::toggle_visibility();
             let rect = action_rect(dpi);
             unsafe { InvalidateRect(hwnd, &rect, 0) };
         }
         ACTION_INSIDE.set(true);
-    } else if EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
+    } else if !locked() && EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
         let entries = rows();
         let start = action_bottom + scale(GAP, dpi);
         let visible = visible_row_count(dpi, entries.len());
@@ -524,11 +701,17 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let dpi = GetDpiForWindow(hwnd).max(96);
             let action = action_rect(dpi);
             let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
-            let hovering_action = x >= action_left && x < action_right && y >= action_top && y < action_bottom;
+            let hovering_action = !locked()
+                && !win::rect_contains(&lock_rect(dpi), POINT { x, y })
+                && x >= action_left
+                && x < action_right
+                && y >= action_top
+                && y < action_bottom;
             if hovering_action && !ACTION_INSIDE.replace(true) {
-                unsafe { SetTimer(hwnd, ACTION_TIMER, ACTION_DWELL_MS, None) };
+                ACTION_START.set(Some(crate::diag::since_start_ms()));
+                unsafe { SetTimer(hwnd, ACTION_TIMER, 16, None) };
             } else if !hovering_action {
-                unsafe { KillTimer(hwnd, ACTION_TIMER) };
+                cancel_dwell(hwnd);
                 ACTION_HOVER.set(false);
                 ACTION_INSIDE.set(false);
             }
@@ -540,8 +723,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             } else {
                 None
             };
-            let next_hover =
-                list_index.filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len())).map_or(-1, |i| i as isize);
+            let next_hover = list_index
+                .filter(|_| !locked())
+                .filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len()))
+                .map_or(-1, |i| i as isize);
             let previous_hover = HOVER_ROW.replace(next_hover);
             if previous_hover != next_hover {
                 if previous_hover >= 0 {
@@ -557,7 +742,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
         }
         WM_MOUSELEAVE => {
             TRACKING.set(false);
-            unsafe { KillTimer(hwnd, ACTION_TIMER) };
+            cancel_dwell(hwnd);
             ACTION_INSIDE.set(false);
             ACTION_HOVER.set(false);
             let old_hover = HOVER_ROW.replace(-1);
@@ -569,37 +754,37 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_TIMER if wparam == ACTION_TIMER => {
-            if dock_drag::active() {
-                KillTimer(hwnd, ACTION_TIMER);
+            if dock_drag::active() || locked() {
+                cancel_dwell(hwnd);
                 return 0;
             }
             let mut cursor = POINT { x: 0, y: 0 };
             let dpi = GetDpiForWindow(hwnd).max(96);
             let action = action_rect(dpi);
-            let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
-            let inside = unsafe { GetCursorPos(&mut cursor) != 0 && ScreenToClient(hwnd, &mut cursor) != 0 }
-                && cursor.x >= action_left
-                && cursor.x < action_right
-                && cursor.y >= action_top
-                && cursor.y < action_bottom;
-            unsafe { KillTimer(hwnd, ACTION_TIMER) };
-            if inside && !ACTION_HOVER.replace(true) {
-                circles::toggle_visibility();
-                let rect = action_rect(dpi);
-                unsafe { InvalidateRect(hwnd, &rect, 0) };
-            } else if !inside {
+            let inside = GetCursorPos(&mut cursor) != 0
+                && ScreenToClient(hwnd, &mut cursor) != 0
+                && win::rect_contains(&action, cursor)
+                && !win::rect_contains(&lock_rect(dpi), cursor);
+            if !inside {
+                cancel_dwell(hwnd);
                 ACTION_INSIDE.set(false);
                 ACTION_HOVER.set(false);
+            } else if ACTION_START.get().is_some_and(|t| crate::diag::since_start_ms() - t >= ACTION_DWELL_MS as f64) {
+                cancel_dwell(hwnd);
+                if !ACTION_HOVER.replace(true) {
+                    circles::toggle_visibility();
+                }
             }
+            InvalidateRect(hwnd, &action, 0);
             0
         }
         WM_LBUTTONDOWN => {
             dock_drag::prepare_click();
-            KillTimer(hwnd, ACTION_TIMER);
+            cancel_dwell(hwnd);
             let dpi = GetDpiForWindow(hwnd).max(96);
             let point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
             let heading = EXPANDED.get() && point.y >= 0 && point.y < scale(HEADER_H, dpi) && !win::rect_contains(&arrow_rect(dpi), point);
-            if heading || win::rect_contains(&action_rect(dpi), point) {
+            if !win::rect_contains(&lock_rect(dpi), point) && (heading || win::rect_contains(&action_rect(dpi), point)) {
                 let r = win::window_rect(hwnd);
                 let action = action_rect(dpi);
                 dock_drag::begin(
@@ -630,17 +815,21 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_RBUTTONUP => {
-            KillTimer(hwnd, ACTION_TIMER);
+            cancel_dwell(hwnd);
             let menu = CreatePopupMenu();
             if !menu.is_null() {
                 let label = win::wide(if EXPANDED.get() { "Menüyü gizle" } else { "Menüyü göster" });
                 AppendMenuW(menu, MF_STRING, 1, label.as_ptr());
+                AppendMenuW(menu, MF_STRING, 2, win::wide(if locked() { "Kilidi çöz" } else { "Kilitle" }).as_ptr());
                 let mut point = POINT { x: 0, y: 0 };
                 GetCursorPos(&mut point);
                 SetForegroundWindow(hwnd);
                 let command =
                     TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, point.x, point.y, 0, hwnd, std::ptr::null());
                 DestroyMenu(menu);
+                if command == 2 {
+                    toggle_lock(hwnd);
+                }
                 if command == 1 {
                     set_expanded(hwnd, !EXPANDED.get());
                 }
@@ -740,10 +929,59 @@ mod tests {
     }
 
     #[test]
+    fn lock_joins_are_connected_rounded_and_antialiased_at_desktop_dpis() {
+        for closed in [false, true] {
+            let x = if closed { 6.8 } else { 8.6 };
+            let start = if closed { 6.8 } else { 5.5 };
+            for step in 0..=100 {
+                let y = start + (9.0 - start) * step as f32 / 100.0;
+                assert!(lock_distance(x, y, closed) < 0.01, "shackle/body joint must have no gap");
+            }
+            for dpi in [96, 120, 144, 192] {
+                let size = scale(20, dpi);
+                let pixels = lock_surface(size, BG, closed).unwrap().pixels().to_vec();
+                let dib = |c: u32| 0xff00_0000 | (c & 255) << 16 | (c & 0xff00) | (c >> 16) & 255;
+                let background = dib(BG);
+                let foreground = dib(if closed { TEAL } else { SUBTEXT });
+                let partial = pixels.iter().filter(|&&p| p != background && p != foreground).count();
+                assert!(partial > 15, "rounded edges need subpixel coverage at {dpi} DPI");
+                assert!(pixels.iter().all(|p| p >> 24 == 255));
+                if closed {
+                    for row in pixels.chunks(size as usize) {
+                        assert!(row.iter().eq(row.iter().rev()), "closed lock must remain symmetric at {dpi} DPI");
+                    }
+                }
+            }
+        }
+        assert!(lock_distance(15.0, 7.4, false) > 0.7, "open shackle must keep a visible gap");
+        assert!(lock_distance(13.2, 8.0, true) < 0.01);
+    }
+
+    #[test]
+    fn visibility_dwell_reverses_exactly_without_changing_corner_coverage() {
+        for dpi in [96, 120, 144, 192] {
+            let size = scale(48, dpi);
+            let render = |visible, progress, locked| visibility_surface(size, dpi, visible, progress, locked).unwrap().pixels().to_vec();
+            let hidden = render(false, None, false);
+            let shown = render(true, None, false);
+            assert_ne!(hidden, shown);
+            assert_eq!(render(false, Some(0.0), false), hidden);
+            assert_eq!(render(false, Some(1.0), false), shown);
+            assert_eq!(render(true, Some(0.0), false), shown);
+            assert_eq!(render(true, Some(1.0), false), hidden);
+            assert_eq!(render(true, Some(0.5), false), render(false, Some(0.5), false));
+            assert_ne!(render(false, Some(0.5), false), hidden);
+            assert_ne!(render(true, None, true), shown);
+            assert_eq!(hidden[0], shown[0]);
+            assert!(shown.iter().all(|p| p >> 24 == 255));
+        }
+    }
+
+    #[test]
     fn dock_dimensions_scale_with_dpi() {
         EXPANDED.set(true);
         let width = dimensions(96, 1).0;
-        assert!(width > ACTION_SIZE + PAD * 2 + LABEL_GAP);
+        assert!(width > ACTION_SIZE + PAD * 2);
         assert!(dimensions(192, 8).0 >= width * 2 - 4);
         EXPANDED.set(false);
         assert_eq!(dimensions(96, 8), (64, 64));
