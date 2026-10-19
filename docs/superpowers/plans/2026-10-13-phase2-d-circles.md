@@ -726,7 +726,7 @@ rail. Use the adjacent usable Desktop edge, leaving the taskbar's controls unobs
       handle all four edges/DPI/display changes and persist the rail position.
 - [x] Rename the heading to DeskTuk and verify drag, no-activation, persistence and
       bounds with pure/native regressions; run required MSVC checks and commit/push.
-- [ ] Confirm CI, deploy the checked release and record preserved config evidence;
+- [x] Confirm CI, deploy the checked release and record preserved config evidence;
       leave physical feel/taskbar placement for owner assessment.
 
 D34 local evidence (2026-10-19): required Windows MSVC fmt, release Clippy (-D warnings),
@@ -740,3 +740,22 @@ saved state on cancelled expanded-heading drag. PrintWindow previews were inspec
 target/d34-dock-preview; the heading now reads DeskTuk. No physical input was generated.
 Temporary pointer tracking coalesces screen samples and does not request foreground or
 alter Explorer's taskbar. No new dependency, persistent bitmap or idle timer was added.
+
+D34 delivery (2026-10-19): Windows CI 39168180612 passed for 36c6f96.
+Installed SHA256 5482F425EB2B695724096C80C3421B2CBD3FEB1866496E50F8DDF2C43EA8292C,
+PID 16748; backup target/d34-dock/previous-installed.exe. Config SHA256 remained
+9B4486CD54EA77FCC0B7601D0EE10048040B6233E5706B627AB997B1FD0DC28C.
+Dock and three circles were visible after restart; physical feel remains unverified.
+
+### D35: Original DeskTuk identity and native visual integration
+
+Owner request (2026-10-19): redesign the attached dark brand card, create an original
+logo and integrate typography, colors and corner treatment into the application.
+
+- [ ] Create a transparent grouping/circles logo and reproducible multi-size app icon;
+      deliver a redesigned brand card and document palette/type/radius decisions.
+- [ ] Apply shared native Segoe UI typography and slate/periwinkle/mint palette to
+      dock/circles/rings; rounded dock and control corners, resource logo in heading.
+      Preserve compact sizing, drag behavior and native file icons; no dependencies.
+- [ ] Inspect rendered card and native UI; run required MSVC checks and interaction
+      regressions, commit/push, confirm CI and deploy while preserving configuration.

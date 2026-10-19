@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D33 are delivered; D34 adds a movable DeskTuk menu/taskbar rail.
+- A and D through D34 are delivered; D35 integrates the original DeskTuk identity.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 
@@ -17,8 +17,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D32/D33 installed SHA256: B141C90B19832CE237E0625E3D4CC16D503B1B727015E461D2DB4E6D15237DDC.
-  Code CI 39167200551 passed. Prior binary: target/d33-fluid-drag/previous-installed.exe.
+- D34 installed SHA256: 5482F425EB2B695724096C80C3421B2CBD3FEB1866496E50F8DDF2C43EA8292C.
+  Code CI 39168180612 passed. Prior binary: target/d34-dock/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -75,7 +75,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D34.
+- Active plan: 2026-10-13-phase2-d-circles.md; current follow-up D35.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
@@ -88,3 +88,4 @@ Short names share the preceding directory. Tests live with their Rust module.
   target/, dist/, captures, logs, executables and bundles are generated/local artifacts.
 - AGENTS.md governs safety, branches, commits and required Windows MSVC checks.
   Keep evidence in the plan; update changed facts here in the same commit.
+
