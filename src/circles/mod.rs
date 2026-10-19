@@ -46,6 +46,10 @@ const IDM_NEW_GROUP: usize = 2;
 const IDM_RENAME: usize = 3;
 const IDM_DELETE: usize = 4;
 const IDM_EXIT: usize = 10;
+pub const IDM_SORT: usize = 30;
+pub const IDM_SORT_NAME: usize = 31;
+pub const IDM_SORT_TYPE: usize = 32;
+pub const IDM_SORT_ADDED: usize = 33;
 const IDM_GRID: usize = 20;
 const IDM_GRID_OFF: usize = 21;
 const IDM_GRID_2: usize = 22;
@@ -390,6 +394,29 @@ pub fn assign(paths: &[PathBuf], to: Option<Place>) {
     refresh_all();
 }
 
+pub fn insert_item(path: &std::path::Path, to: Place, before: Option<&std::path::Path>) {
+    let changed = app().board.try_borrow_mut().map(|mut b| b.insert_before(path, to, before)).unwrap_or(false);
+    if changed {
+        app().save_config();
+        refresh_all();
+    }
+}
+
+pub fn sort_target(target: Target, command: usize) {
+    let Some(place) = view::drop_place(target, None) else { return };
+    let order = match command {
+        IDM_SORT_NAME => model::SortOrder::Name,
+        IDM_SORT_TYPE => model::SortOrder::Type,
+        IDM_SORT_ADDED => model::SortOrder::Added,
+        _ => return,
+    };
+    let changed = app().board.try_borrow_mut().map(|mut b| b.sort_items(place, order)).unwrap_or(false);
+    if changed {
+        app().save_config();
+        refresh_all();
+    }
+}
+
 /// A circle was dragged to `pos` (screen top-left).
 pub fn moved(which: Which, pos: (i32, i32)) {
     let divisions = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
@@ -443,6 +470,18 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
         for &(id, label) in entries {
             if id == 0 {
                 AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
+            } else if id == IDM_SORT {
+                let submenu = CreatePopupMenu();
+                if !submenu.is_null() {
+                    for (command, caption) in
+                        [(IDM_SORT_NAME, "Ada göre"), (IDM_SORT_TYPE, "Türe göre"), (IDM_SORT_ADDED, "Eklenme sırası")]
+                    {
+                        AppendMenuW(submenu, MF_STRING, command, win::wide(caption).as_ptr());
+                    }
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                        DestroyMenu(submenu);
+                    }
+                }
             } else if id == IDM_GRID {
                 let grid = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
                 let submenu = CreatePopupMenu();
@@ -475,6 +514,7 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
 pub fn circle_menu(which: Which, at: POINT) {
     let mut entries = vec![(IDM_NEW_CIRCLE, "&New circle")];
     if let Which::User(_) = which {
+        entries.push((IDM_SORT, "Sırala"));
         entries.extend([(IDM_NEW_GROUP, "New &group"), (IDM_RENAME, "&Rename\u{2026}"), (IDM_DELETE, "&Delete circle")]);
     }
     entries.extend([
@@ -484,6 +524,7 @@ pub fn circle_menu(which: Which, at: POINT) {
         (IDM_EXIT, "E&xit DeskTuk"),
     ]);
     match (popup(&entries, at), which) {
+        (command @ IDM_SORT_NAME..=IDM_SORT_ADDED, _) => sort_target(which.target(), command),
         (IDM_NEW_CIRCLE, _) => new_circle(which),
         (IDM_NEW_GROUP, Which::User(ci)) => new_group(ci),
         (IDM_RENAME, Which::User(ci)) => begin_rename(rename::RenameTarget::Circle(ci)),

@@ -75,6 +75,7 @@ struct Ring {
     start: usize,
     page: Vec<PageSlot>,
     hover: Option<usize>,
+    drop_after: bool,
     wheel: i32,
     dpi: u32,
     metrics: geom::Metrics,
@@ -325,6 +326,7 @@ pub fn open(anchor: HWND, target: Target) {
         start: 0,
         page: Vec::new(),
         hover: None,
+        drop_after: false,
         wheel: 0,
         dpi,
         metrics: m,
@@ -564,6 +566,17 @@ fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
 }
 
 fn subtitle(r: &Ring) -> String {
+    if r.press.as_ref().is_some_and(|p| p.active) {
+        return if r.hover.is_some() {
+            if r.drop_after {
+                "Arkasına bırak".into()
+            } else {
+                "Önüne bırak".into()
+            }
+        } else {
+            "Taşı / sırala".into()
+        };
+    }
     let label = geom::page_label(r.refs.len(), r.start, r.metrics.per_page());
     if !label.is_empty() {
         return label;
@@ -625,7 +638,14 @@ fn render(r: &mut Ring) {
         &mut r.surface,
         r.dpi,
         &m,
-        &RingView { title: &title, subtitle: &sub, slots: &views, hover: r.hover, recent: r.target == Target::Recent },
+        &RingView {
+            title: &title,
+            subtitle: &sub,
+            slots: &views,
+            hover: r.hover,
+            recent: r.target == Target::Recent,
+            insertion: r.press.as_ref().filter(|p| p.active).and(r.hover).map(|k| (k, r.drop_after)),
+        },
     );
     let size = r.surface.w as usize;
     let px = r.surface.pixels();
@@ -761,6 +781,27 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
 }
 
 fn move_item(c: POINT) {
+    with(|r| {
+        if r.press.is_some() {
+            let next = geom::drag_slot(&r.metrics, r.page.len(), c.x - r.center.x, c.y - r.center.y, r.hover, win::scale(6, r.dpi));
+            let after = next.is_some_and(|k| {
+                let (x, y) = geom::slot_center(&r.metrics, k);
+                // Clockwise tangent divides each fixed slot into before/after halves.
+                let tangent = (c.x - r.center.x - x) as i64 * -(y as i64) + (c.y - r.center.y - y) as i64 * x as i64;
+                let band = win::scale(4, r.dpi) as i64 * (x.abs() + y.abs()) as i64;
+                if next == r.hover && tangent.abs() < band {
+                    r.drop_after
+                } else {
+                    tangent > 0
+                }
+            });
+            if next != r.hover || after != r.drop_after {
+                r.hover = next;
+                r.drop_after = after;
+                redraw(r);
+            }
+        }
+    });
     let preview = with(|r| {
         let dpi = r.dpi;
         if let Some(p) = r.press.as_mut() {
@@ -789,6 +830,7 @@ fn move_item(c: POINT) {
     .flatten();
     if let Some((owner, at, dpi, surface)) = preview {
         if let Some(surface) = surface {
+            with(redraw);
             super::drag_preview::show(surface, owner, at, dpi);
         } else {
             super::drag_preview::move_to(at);
@@ -802,7 +844,7 @@ enum Action {
     Open(PathBuf),
     Load(Vec<PathBuf>),
     Accept(Suggestion),
-    Drop { path: PathBuf, destination: Option<Option<Place>> },
+    Drop { path: PathBuf, destination: Option<DropTarget> },
 }
 
 enum LeftPress {
@@ -868,6 +910,7 @@ fn on_left_up(lparam: LPARAM) {
 }
 
 fn on_left_up_at(at: POINT) {
+    move_item(at);
     let anchor = with(|r| circle_win::is_release_message(r.anchor, WM_LBUTTONUP).then_some(r.anchor)).flatten();
     if let Some(anchor) = anchor {
         circle_win::end_press(anchor, true);
@@ -882,6 +925,10 @@ fn on_left_up_at(at: POINT) {
     // Capture release/restoring focus can pump messages. Resolve the destination
     // against the source ring before those calls can replace its view/state.
     let destination = if press.as_ref().is_some_and(|p| p.active) { drop_destination(at) } else { None };
+    with(|r| {
+        r.hover = None;
+        redraw(r);
+    });
     reset_item_pointer();
     super::drag_preview::close();
     super::drag_capture::end(hwnd);
@@ -937,8 +984,12 @@ fn run(action: Action) {
         Action::Load(paths) => spawn_loader(paths),
         Action::Accept(s) => super::accept_suggestion(&s),
         Action::Drop { path, destination } => {
-            if let Some(place) = destination {
-                super::assign(&[path], place);
+            if let Some(destination) = destination {
+                if let Some(place) = destination.place {
+                    super::insert_item(&path, place, destination.before.as_deref());
+                } else {
+                    super::assign(&[path], None);
+                }
             }
             close_if_outside();
         }
@@ -947,20 +998,40 @@ fn run(action: Action) {
 
 /// An item dragged out of a slot was released at `at` (screen). Dropping it on a group
 /// slot, the Back slot, another circle or Recent resolves a reference destination.
-fn drop_destination(at: POINT) -> Option<Option<Place>> {
+struct DropTarget {
+    place: Option<Place>,
+    before: Option<PathBuf>,
+}
+
+fn drop_destination(at: POINT) -> Option<DropTarget> {
     let anchor = with(|r| r.anchor).unwrap_or(std::ptr::null_mut());
     if let Some(which) = super::circle_at(at, anchor) {
-        return Some(view::drop_place(which.target(), None));
+        return Some(DropTarget { place: view::drop_place(which.target(), None), before: None });
     }
-    let own = with(|r| {
-        (hit_screen(r, at) != RingHit::Outside)
-            .then(|| (r.target, hit_screen(r, at), r.page.iter().map(|s| s.r.clone()).collect::<Vec<_>>()))
-    });
-    match own.flatten() {
-        Some((target, RingHit::Slot(k), refs)) => Some(view::drop_place(target, refs.get(k))),
-        Some(_) => None, // released on the ring itself but not on a slot: nothing to do
-        None => None,
-    }
+    with(|r| {
+        if hit_screen(r, at) == RingHit::Outside {
+            return None;
+        }
+        let k = r.hover?;
+        let slot = &r.page.get(k)?.r;
+        let place = view::drop_place(r.target, Some(slot));
+        let before = if let SlotRef::Item(path) = slot {
+            // Snapshot a path anchor before releasing capture; empty space remains invalid.
+            if r.drop_after {
+                let index = r.refs.iter().position(|item| item == slot)?;
+                r.refs[index + 1..].iter().find_map(|item| match item {
+                    SlotRef::Item(p) => Some(p.clone()),
+                    _ => None,
+                })
+            } else {
+                Some(path.clone())
+            }
+        } else {
+            None
+        };
+        Some(DropTarget { place, before })
+    })
+    .flatten()
 }
 
 /// Runs `f` (a menu) with the ring marked busy so leaving it does not close it.
@@ -1009,7 +1080,14 @@ fn on_right_up(lparam: LPARAM) {
             }
         }
         Some(SlotRef::Back) => {}
-        None => super::circle_menu(which_of(target), at),
+        None => {
+            if matches!(target, Target::Group(..)) {
+                let command = super::popup(&[(super::IDM_SORT, "Sırala")], at);
+                super::sort_target(target, command);
+            } else {
+                super::circle_menu(which_of(target), at);
+            }
+        }
     });
 }
 
@@ -1017,9 +1095,17 @@ fn item_menu(target: Target, path: &std::path::Path, at: POINT) {
     let removable = target != Target::Recent;
     let mut extras = vec![(crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL)];
     if removable {
+        extras.extend([
+            (super::IDM_SORT_NAME, "Ada göre sırala"),
+            (super::IDM_SORT_TYPE, "Türe göre sırala"),
+            (super::IDM_SORT_ADDED, "Eklenme sırası"),
+        ]);
+    }
+    if removable {
         extras.insert(0, (IDM_REMOVE, "Remove from circle"));
     }
     match shell_menu::show(app().controller.get(), path, at, &extras) {
+        shell_menu::Choice::Extra(command @ super::IDM_SORT_NAME..=super::IDM_SORT_ADDED) => super::sort_target(target, command),
         shell_menu::Choice::Extra(IDM_REMOVE) => super::assign(&[path.to_path_buf()], None),
         shell_menu::Choice::Extra(crate::desktop_view::MENU_ID) => crate::desktop_view::toggle_from_menu(),
         shell_menu::Choice::Failed => {
@@ -1047,6 +1133,7 @@ fn on_wheel(wparam: WPARAM) {
         if closing(r) {
             return None;
         }
+        r.hover = None;
         r.wheel += delta;
         let (pages, rest) = geom::wheel_pages(r.wheel);
         r.wheel = rest;
@@ -1132,7 +1219,13 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
         WM_CAPTURECHANGED => {
             // Capture taken away mid-drag (e.g. Alt+Tab): forget the drag.
             if lparam as HWND != hwnd {
-                with(|r| r.press = None);
+                with(|r| {
+                    let active = r.press.take().is_some_and(|p| p.active);
+                    if active {
+                        r.hover = None;
+                        redraw(r);
+                    }
+                });
                 reset_item_pointer();
                 super::drag_preview::close();
                 super::drag_capture::end(hwnd);
@@ -1145,7 +1238,13 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             if let Some(anchor) = anchor {
                 circle_win::end_press(anchor, false);
             }
-            with(|r| r.press = None);
+            with(|r| {
+                let active = r.press.take().is_some_and(|p| p.active);
+                if active {
+                    r.hover = None;
+                    redraw(r);
+                }
+            });
             reset_item_pointer();
             super::drag_preview::close();
             super::drag_capture::end(hwnd);

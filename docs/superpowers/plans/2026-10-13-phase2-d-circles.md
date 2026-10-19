@@ -819,3 +819,37 @@ Required local checks passed; additional Windows CI 39234184134 was still runnin
 at delivery (not claimed as passed). Hover-row pixel rendering is covered by the
 native DIB regression; an attempted routed hover screenshot lost its hover state to
 normal outside-pointer dismissal, so only expanded/collapsed captures are evidence.
+
+### D37: Stable reference ordering inside circles and groups
+
+Owner approval (2026-10-19): stable slot geometry, drag threshold and a target
+marker; commit reference ordering only on release, preserve cancellation and cross-circle
+transfers. Explicit Name / Type / Added-order commands; no per-move disk or metadata IO.
+
+- [x] Add atomic anchored insertion and one-shot sorting with persisted addition order.
+- [x] Reuse existing item drag, stable target hysteresis/marker and wheel paging.
+- [x] Verify model persistence/cancel/native transfers, run MSVC checks, commit/push.
+
+D37 evidence (2026-10-19): existing item drag now marks a fixed slot's leading or
+trailing position, with 6-DIP slot and 4-DIP midpoint hysteresis. Full-page path anchors
+resolve before capture teardown, so both directions and last-position insertion work
+without index drift. Wheel paging remains available during a drag; group/Back/Recent
+semantics are preserved. A one-shot sort does not auto-sort later manual moves.
+`added_order=` persists first DeskTuk assignment order; legacy configs use their initial
+reference order. Sorting uses path strings, never shell/file metadata.
+Local MSVC fmt/Clippy/tests pass (68 passed, 2 ignored). Extended TEMP-only native fixture
+passes same-circle forward/backward/end insertion, group ordering, cancel and existing
+cross-circle/Back/Recent cases; file hashes unchanged. Two initial fixture attempts were
+interrupted by outside native pointer/closing state; full rerun passed. Physical feel,
+visual target assessment and CI remain unperformed. No new dependency or idle timer.
+
+### D38: Lock and expressive visibility control
+
+Owner approval (2026-10-19): a lock disables hover reveal and the visibility action.
+Replace the visibility label with an antialiased periwinkle D/circle and mint folder;
+hidden state is muted/slashed, visible is stronger/filled. Show the 300ms dwell through
+color fill, reverse it for hiding. Keep original brand colors; no animated blur/shadow.
+
+- [ ] Add accessible lock/unlock in expanded and compact menu, persist it.
+- [ ] Draw state icon and transient dwell fill; no idle timer or new dependency.
+- [ ] Verify native input/state/rendering and checks; commit/push and install checked release.

@@ -28,6 +28,8 @@ pub struct Circle {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Board {
+    /// Stable first assignment order; independent of custom display order.
+    pub added_order: Vec<PathBuf>,
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
@@ -40,8 +42,15 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self { circles: Vec::new(), recent_pos: None, dock_pos: None, grid: 0, always_on_top: true }
+        Self { added_order: Vec::new(), circles: Vec::new(), recent_pos: None, dock_pos: None, grid: 0, always_on_top: true }
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum SortOrder {
+    Name,
+    Type,
+    Added,
 }
 
 /// Where an item lives.
@@ -122,7 +131,10 @@ impl Board {
     /// Removes a circle. Its items become unassigned (they show up in Recent again).
     pub fn remove_circle(&mut self, ci: usize) {
         if ci < self.circles.len() {
-            self.circles.remove(ci);
+            let removed = self.circles.remove(ci);
+            for path in removed.items.iter().chain(removed.groups.iter().flat_map(|g| &g.items)) {
+                remove_path(&mut self.added_order, path);
+            }
         }
     }
 
@@ -173,6 +185,11 @@ impl Board {
 
     /// Removes `path` from wherever it is. Returns whether it was assigned.
     pub fn unassign(&mut self, path: &Path) -> bool {
+        remove_path(&mut self.added_order, path);
+        self.detach(path)
+    }
+
+    fn detach(&mut self, path: &Path) -> bool {
         let mut any = false;
         for c in &mut self.circles {
             any |= remove_path(&mut c.items, path);
@@ -193,7 +210,10 @@ impl Board {
         if !valid {
             return false;
         }
-        self.unassign(path);
+        if !self.added_order.iter().any(|p| same_path(p, path)) {
+            self.added_order.push(path.to_path_buf());
+        }
+        self.detach(path);
         match to {
             Place::Circle(ci) => self.circles[ci].items.push(path.to_path_buf()),
             Place::Group(ci, gi) => self.circles[ci].groups[gi].items.push(path.to_path_buf()),
@@ -201,12 +221,63 @@ impl Board {
         true
     }
 
+    fn items_at(&self, place: Place) -> Option<&Vec<PathBuf>> {
+        match place {
+            Place::Circle(ci) => Some(&self.circles.get(ci)?.items),
+            Place::Group(ci, gi) => Some(&self.circles.get(ci)?.groups.get(gi)?.items),
+        }
+    }
+
+    fn items_at_mut(&mut self, place: Place) -> Option<&mut Vec<PathBuf>> {
+        match place {
+            Place::Circle(ci) => Some(&mut self.circles.get_mut(ci)?.items),
+            Place::Group(ci, gi) => Some(&mut self.circles.get_mut(ci)?.groups.get_mut(gi)?.items),
+        }
+    }
+
+    /// Insert before a stable path anchor (None = append). Validate before removing.
+    pub fn insert_before(&mut self, path: &Path, to: Place, before: Option<&Path>) -> bool {
+        let Some(items) = self.items_at(to) else { return false };
+        if before.is_some_and(|anchor| !items.iter().any(|p| same_path(p, anchor))) {
+            return false;
+        }
+        if before.is_some_and(|anchor| same_path(path, anchor)) {
+            return false;
+        }
+        let old = items.clone();
+        let source = self.place_of(path);
+        if !self.assign(path, to) {
+            return false;
+        }
+        let Some(items) = self.items_at_mut(to) else { return false };
+        let item = items.pop();
+        if let Some(item) = item {
+            let index = before.and_then(|anchor| items.iter().position(|p| same_path(p, anchor))).unwrap_or(items.len());
+            items.insert(index, item);
+        }
+        source != Some(to) || *items != old
+    }
+
+    /// One-shot sorting uses path strings only, never file metadata or shell calls.
+    pub fn sort_items(&mut self, place: Place, order: SortOrder) -> bool {
+        let added = self.added_order.clone();
+        let Some(items) = self.items_at_mut(place) else { return false };
+        let old = items.clone();
+        let name = |p: &Path| p.file_name().unwrap_or(p.as_os_str()).to_string_lossy().to_lowercase();
+        match order {
+            SortOrder::Name => items.sort_by_cached_key(|p| (name(p), p.to_string_lossy().to_lowercase())),
+            SortOrder::Type => items.sort_by_cached_key(|p| (p.extension().unwrap_or_default().to_string_lossy().to_lowercase(), name(p))),
+            SortOrder::Added => items.sort_by_cached_key(|p| added.iter().position(|a| same_path(a, p)).unwrap_or(usize::MAX)),
+        }
+        *items != old
+    }
+
     /// Follows a rename/move reported by the shell. Returns whether any stored path changed.
     pub fn follow(&mut self, change: &Change) -> bool {
         if !matches!(change, Change::Renamed { .. }) {
             return false;
         }
-        let mut changed = false;
+        let mut changed = !watch::apply_change(&mut self.added_order, change).is_empty();
         for c in &mut self.circles {
             changed |= !watch::apply_change(&mut c.items, change).is_empty();
             for g in &mut c.groups {
@@ -232,6 +303,13 @@ impl Board {
             "always_on_top" => self.always_on_top = true,
             "grid" => {
                 self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
+            }
+            "added_order" => {
+                let path = PathBuf::from(value);
+                if self.is_assigned(&path) {
+                    remove_path(&mut self.added_order, &path);
+                    self.added_order.push(path);
+                }
             }
             "circle" => {
                 let mut f = value.splitn(3, '|');
@@ -325,6 +403,11 @@ impl Board {
                 }
             }
         }
+        for path in &self.added_order {
+            if self.is_assigned(path) {
+                s += &format!("added_order={}\n", path.display());
+            }
+        }
         s
     }
 }
@@ -345,6 +428,39 @@ mod tests {
             }
         }
         b
+    }
+
+    #[test]
+    fn custom_order_and_sorts_preserve_identity_and_addition_order_after_restart() {
+        let mut b = Board::default();
+        let ci = b.add_circle("Apps", (0, 0));
+        let gi = b.add_group(ci, "Work").unwrap();
+        let place = Place::Circle(ci);
+        let paths = [p(r"C:\z.exe"), p(r"C:\b.txt"), p(r"C:\a.exe")];
+        for path in &paths {
+            b.assign(path, place);
+        }
+        assert!(b.insert_before(&paths[2], place, Some(&paths[0])));
+        assert_eq!(b.circles[ci].items, [paths[2].clone(), paths[0].clone(), paths[1].clone()]);
+        let old = b.clone();
+        assert!(!b.insert_before(&paths[2], place, Some(&p(r"C:\missing"))));
+        assert!(!b.insert_before(&paths[2], place, Some(&paths[2])));
+        assert!(!b.insert_before(&paths[2], Place::Group(ci, 999), None));
+        assert_eq!(b, old);
+        assert!(b.insert_before(&paths[2], place, None));
+        assert_eq!(b.circles[ci].items, paths);
+        b.sort_items(place, SortOrder::Name);
+        assert_eq!(b.circles[ci].items, [paths[2].clone(), paths[1].clone(), paths[0].clone()]);
+        b.sort_items(place, SortOrder::Type);
+        assert_eq!(b.circles[ci].items, [paths[2].clone(), paths[0].clone(), paths[1].clone()]);
+        let mut restored = parse(&b.render());
+        assert_eq!(restored, b);
+        restored.sort_items(place, SortOrder::Added);
+        assert_eq!(restored.circles[ci].items, paths);
+        assert!(restored.insert_before(&paths[1], Place::Group(ci, gi), None));
+        assert!(restored.insert_before(&paths[0], Place::Group(ci, gi), Some(&paths[1])));
+        assert_eq!(restored.circles[ci].groups[gi].items, paths[..2]);
+        assert_eq!(parse(&restored.render()), restored);
     }
 
     #[test]

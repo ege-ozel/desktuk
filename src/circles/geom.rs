@@ -135,6 +135,21 @@ pub fn ring_hit(m: &Metrics, n: usize, dx: i32, dy: i32) -> RingHit {
     }
 }
 
+/// Retain the last valid slot across a small boundary margin; fixed geometry never
+/// chases the pointer. Non-slot regions remain invalid for release.
+pub fn drag_slot(m: &Metrics, n: usize, dx: i32, dy: i32, previous: Option<usize>, margin: i32) -> Option<usize> {
+    if let Some(k) = previous.filter(|&k| k < n) {
+        let (cx, cy) = slot_center(m, k);
+        if (dx - cx).abs() <= m.slot / 2 + margin && (dy - cy).abs() <= m.slot / 2 + margin {
+            return Some(k);
+        }
+    }
+    match ring_hit(m, n, dx, dy) {
+        RingHit::Slot(k) => Some(k),
+        _ => None,
+    }
+}
+
 /// Normalises a page start: a multiple of `capacity`, never past the last page.
 pub fn clamp_start(total: usize, start: usize, capacity: usize) -> usize {
     if total == 0 {
@@ -235,6 +250,19 @@ pub fn anim_radius(from: f32, to: f32, elapsed_ms: f64, dur_ms: f64) -> (f32, bo
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn insertion_target_stays_fixed_near_slot_boundary() {
+        for dpi in [96, 120, 144, 192] {
+            let m = metrics(dpi);
+            let (x, y) = slot_center(&m, 0);
+            let margin = crate::win::scale(6, dpi);
+            assert_eq!(drag_slot(&m, 20, x + m.slot / 2 + margin, y, Some(0), margin), Some(0));
+            assert_ne!(drag_slot(&m, 20, x + m.slot / 2 + margin + 1, y, Some(0), margin), Some(0));
+            assert_eq!(drag_slot(&m, 20, 0, 0, Some(0), margin), None);
+            assert_eq!(drag_slot(&m, 20, 0, 0, None, margin), None);
+        }
+    }
+
     use super::*;
 
     #[test]

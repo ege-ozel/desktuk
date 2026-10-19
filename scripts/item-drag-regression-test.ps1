@@ -1,4 +1,4 @@
-<# Isolated TEMP config and references only; no physical input or Desktop writes. #>
+﻿<# Isolated TEMP config and references only; no physical input or Desktop writes. #>
 param([string]$Exe = 'target/release/DeskTuk.exe')
 $ErrorActionPreference='Stop'
 $build=(Resolve-Path -LiteralPath $Exe).Path
@@ -184,7 +184,51 @@ try {
     Release-At $ring ($recentX+$d/2) ($recentY+$d/2)
     Assert-Place '' 'Drop onto Recent unassigns the reference'
     if ($hash -ne (Get-FileHash -LiteralPath $file).Hash) { throw 'Referenced file changed' }
-    Write-Host 'Referenced file remains unchanged; no physical input generated : PASS'
+    # A second isolated board exercises stable in-place ordering in circle and group views.
+    $other1=Join-Path $root 'z.exe'
+    $other2=Join-Path $root 'b.txt'
+    $other3=Join-Path $root 'a.exe'
+    foreach ($item in @($other1,$other2,$other3)) { Set-Content -LiteralPath $item -Value 'Reference only' }
+    $hashes=@{}; foreach ($item in @($file,$other1,$other2,$other3)) { $hashes[$item]=(Get-FileHash -LiteralPath $item).Hash }
+    $controller=[ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Controller',[int]::MinValue,0)
+    [void][ItemDragWin]::PostMessage($controller,0x10,[IntPtr]::Zero,[IntPtr]::Zero)
+    if (-not $p.WaitForExit(3000)) { throw 'First fixture did not exit' }
+    $config+=@("citem=Source||$other1","citem=Source||$other2","citem=Source||$other3")
+    Set-Content -LiteralPath $cfg -Value ($config -join "`n") -Encoding UTF8
+    $p=Start-Fixture $log; $processes+=$p
+    Wait-Check { [ItemDragWin]::Find([uint32]$p.Id,'DeskTuk.Dock',[int]::MinValue,0) -ne [IntPtr]::Zero } 'Ordering fixture ready'
+    function Assert-Order([string]$group,[string[]]$expected,[string]$label) {
+        $prefix="citem=Source|$group|"
+        Wait-Check { $actual=@(Get-Content -LiteralPath $cfg | Where-Object { $_.StartsWith($prefix) } | ForEach-Object { $_.Substring($prefix.Length) }); ($actual -join '|') -eq ($expected -join '|') } $label
+    }
+    $ring=Open-At $sx $sy
+    Begin-Item $ring 4
+    $slot=Slot-Point $ring 1; $rect=[ItemDragWin]::Rectangle($ring)
+    Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
+    Assert-Order '' @($other3,$file,$other1,$other2) 'Circle reorder inserts before the fixed target'
+    $ring=Open-At $sx $sy
+    Begin-Item $ring 1
+    $slot=Slot-Point $ring 4; $rect=[ItemDragWin]::Rectangle($ring)
+    $dx=$slot[0]-($rect.right-$rect.left)/2; $dy=$slot[1]-($rect.bottom-$rect.top)/2
+    $length=[Math]::Sqrt($dx*$dx+$dy*$dy)
+    Release-At $ring ([int]($rect.left+$slot[0]-16*$dy/$length)) ([int]($rect.top+$slot[1]+16*$dx/$length))
+    Assert-Order '' @($file,$other1,$other2,$other3) 'Circle reorder appends after the last fixed target'
+    $ring=Open-At $sx $sy; Begin-Item $ring 3
+    [void][ItemDragWin]::SendMessage($ring,0x100,[IntPtr]27,[IntPtr]::Zero)
+    Assert-Order '' @($file,$other1,$other2,$other3) 'Escape preserves custom order'
+    foreach ($index in @(4,3)) {
+        $ring=Open-At $sx $sy; Begin-Item $ring $index
+        $slot=Slot-Point $ring 0; $rect=[ItemDragWin]::Rectangle($ring)
+        Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
+    }
+    $ring=Open-At $sx $sy
+    $slot=Slot-Point $ring 0; [ItemDragWin]::Mouse($ring,0x202,$slot[0],$slot[1])
+    Begin-Item $ring 2
+    $slot=Slot-Point $ring 1; $rect=[ItemDragWin]::Rectangle($ring)
+    Release-At $ring ($rect.left+$slot[0]) ($rect.top+$slot[1])
+    Assert-Order 'Group' @($other2,$other3) 'Group reorder uses the same fixed-slot drag'
+    foreach ($item in $hashes.Keys) { if ($hashes[$item] -ne (Get-FileHash -LiteralPath $item).Hash) { throw 'Reference changed during reorder' } }
+    Write-Host 'Reference contents preserved during transfers and reordering; no physical input : PASS' 
 } catch {
     if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Select-Object -Last 30 }
     throw

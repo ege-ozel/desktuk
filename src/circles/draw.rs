@@ -158,6 +158,7 @@ pub struct RingView<'a> {
     pub slots: &'a [SlotView<'a>],
     pub hover: Option<usize>,
     pub recent: bool,
+    pub insertion: Option<(usize, bool)>,
 }
 
 /// An open ring: rim, centre disc with title/subtitle, and up to `PER_PAGE` slots.
@@ -213,6 +214,11 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
             }
             SlotLook::Back => glyph(CENTER_BG, "\u{2039}"),
             SlotLook::Suggestion { count } => glyph(ACCENT, &format!("+{count}")),
+        }
+        if let Some((target, after)) = v.insertion.filter(|(target, _)| *target == k) {
+            let _ = target;
+            let y = if after { b.bottom - sc(2) } else { b.top };
+            fill_rect(dc, &win::rect(b.left, y, b.right, y + sc(2).max(1)), crate::theme::MINT);
         }
         let lr = win::rect(b.left, iy + m.icon + sc(2), b.right, b.bottom);
         text(dc, slot.label, lr, label_color, &small, DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS);
@@ -301,7 +307,12 @@ mod tests {
         slots[0] = SlotView { label: "Titled Project", look: SlotLook::Group };
         slots[1] = SlotView { label: ".wav \u{2192} Music", look: SlotLook::Suggestion { count: 12 } };
         slots[2] = SlotView { label: "Back", look: SlotLook::Back };
-        ring(&mut r, dpi, &m, &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false });
+        ring(
+            &mut r,
+            dpi,
+            &m,
+            &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false, insertion: None },
+        );
         geom::mask_disc(r.pixels(), size as usize, size as usize, m.ring_r as f32);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-ring.bmp"), r.pixels(), size as usize, size as usize);
     }
