@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D34 are delivered; D35 integrates the original DeskTuk identity.
+- A and D through D34 are delivered; D35 delivers the original DeskTuk identity.
   B1/B2/C are superseded/on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 
@@ -17,8 +17,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D34 installed SHA256: 5482F425EB2B695724096C80C3421B2CBD3FEB1866496E50F8DDF2C43EA8292C.
-  Code CI 39168180612 passed. Prior binary: target/d34-dock/previous-installed.exe.
+- D35 installed SHA256: E97105CF4994A8DD99E259628A35B04E43AA283E50BEDCBC7CBC7DDF3BE6DFB2.
+  Code CI 39229246790 passed. Prior binary: target/d35-brand/previous-installed.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -91,5 +91,6 @@ Short names share the preceding directory. Tests live with their Rust module.
   target/, dist/, captures, logs, executables and bundles are generated/local artifacts.
 - AGENTS.md governs safety, branches, commits and required Windows MSVC checks.
   Keep evidence in the plan; update changed facts here in the same commit.
+
 
 
