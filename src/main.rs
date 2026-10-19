@@ -21,6 +21,7 @@ mod node;
 mod selftest;
 mod shell;
 mod shell_menu;
+mod theme;
 mod tray;
 mod watch;
 mod win;

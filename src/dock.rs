@@ -8,29 +8,29 @@ use std::cell::Cell;
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT, SIZE};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, GetDC,
-    GetTextExtentPoint32W, InvalidateRect, ReleaseDC, ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT,
-    DT_NOPREFIX, DT_RIGHT, DT_SINGLELINE, DT_VCENTER, HFONT, LOGFONTW, PAINTSTRUCT, TRANSPARENT,
+    BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, GetDC, GetTextExtentPoint32W, InvalidateRect,
+    ReleaseDC, ScreenToClient, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_RIGHT, DT_SINGLELINE, DT_VCENTER,
+    HFONT, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
-use windows_sys::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
-use windows_sys::Win32::UI::WindowsAndMessaging::{SPI_GETICONTITLELOGFONT, *};
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 use crate::circles::circle_win::Which;
 use crate::{app, circles, dock_drag, dock_layout, win};
 
 const CLASS: &str = "DeskTuk.Dock";
-const BG: u32 = crate::node::BG;
-const ACCENT: u32 = crate::node::ACCENT;
-const TEXT: u32 = win::rgb(240, 240, 240);
-const SUBTEXT: u32 = win::rgb(170, 175, 185);
-const ROW_HOVER: u32 = win::rgb(44, 78, 120);
-const TEAL: u32 = win::rgb(100, 220, 190);
-const SWITCH_BG: u32 = win::rgb(45, 55, 66);
+const BG: u32 = crate::theme::BG;
+const ACCENT: u32 = crate::theme::BORDER;
+const TEXT: u32 = crate::theme::TEXT;
+const SUBTEXT: u32 = crate::theme::MUTED;
+const ROW_HOVER: u32 = crate::theme::RAISED;
+const TEAL: u32 = crate::theme::MINT;
+const SWITCH_BG: u32 = crate::theme::SURFACE;
 const MAX_ROWS: usize = 7;
 const PAD: i32 = 8;
 const LABEL_GAP: i32 = 10;
@@ -70,17 +70,7 @@ fn rows() -> Vec<(Entry, String)> {
 }
 
 fn icon_title_font(dpi: u32) -> HFONT {
-    let mut font: LOGFONTW = unsafe { std::mem::zeroed() };
-    unsafe {
-        SystemParametersInfoForDpi(
-            SPI_GETICONTITLELOGFONT,
-            std::mem::size_of::<LOGFONTW>() as u32,
-            (&mut font as *mut LOGFONTW).cast(),
-            0,
-            dpi,
-        );
-        CreateFontIndirectW(&font)
-    }
+    crate::theme::font(dpi, false, 100)
 }
 
 fn expanded_width(dpi: u32) -> i32 {
@@ -288,7 +278,7 @@ pub fn create() {
         return;
     }
     WINDOW.with(|w| w.set(hwnd));
-    let corner: i32 = 3; // DWMWCP_ROUNDSMALL: fixed, subtly rounded dock corners.
+    let corner: i32 = 2; // DWMWCP_ROUND: native rounded brand surface.
     unsafe {
         DwmSetWindowAttribute(
             hwnd,
@@ -335,6 +325,15 @@ pub fn shutdown() {
     });
 }
 
+unsafe fn rounded_fill(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, brush: windows_sys::Win32::Graphics::Gdi::HBRUSH, radius: i32) {
+    use windows_sys::Win32::Graphics::Gdi::{GetStockObject, RoundRect, NULL_PEN};
+    let old_brush = SelectObject(dc, brush);
+    let old_pen = SelectObject(dc, GetStockObject(NULL_PEN));
+    RoundRect(dc, r.left, r.top, r.right, r.bottom, radius * 2, radius * 2);
+    SelectObject(dc, old_pen);
+    SelectObject(dc, old_brush);
+}
+
 fn paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
     let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
@@ -371,20 +370,34 @@ fn paint(hwnd: HWND) {
         FrameRect(hdc, &border, accent);
         SetBkMode(hdc, TRANSPARENT as i32);
         if EXPANDED.get() {
-            SetTextColor(hdc, TEAL);
-            let mut mark_glyph = win::wide("◉");
-            let mut mark_rect = win::rect(scale(10, dpi), 0, scale(38, dpi), header_h);
-            DrawTextW(hdc, mark_glyph.as_mut_ptr(), -1, &mut mark_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            let mark = LoadImageW(
+                GetModuleHandleW(std::ptr::null()),
+                std::ptr::without_provenance(1),
+                IMAGE_ICON,
+                scale(32, dpi),
+                scale(32, dpi),
+                LR_SHARED,
+            );
+            if !mark.is_null() {
+                DrawIconEx(hdc, scale(6, dpi), scale(4, dpi), mark, scale(32, dpi), scale(32, dpi), 0, std::ptr::null_mut(), DI_NORMAL);
+            }
+            let heading_font = crate::theme::font(dpi, true, 100);
+            if !heading_font.is_null() {
+                SelectObject(hdc, heading_font);
+            }
             SetTextColor(hdc, TEXT);
             let mut title = win::wide("DeskTuk");
             let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), client.right - scale(36, dpi), header_h - scale(2, dpi));
             DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SelectObject(hdc, if font.is_null() { old_font } else { font });
+            if !heading_font.is_null() {
+                DeleteObject(heading_font);
+            }
             let mut arrow = win::wide("⌄");
             let mut arrow_area = arrow_rect(dpi);
             DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
-        FillRect(hdc, &switch_rect, if switch_on { teal } else { switch_bg });
-        FrameRect(hdc, &switch_rect, if switch_on { teal } else { accent });
+        rounded_fill(hdc, switch_rect, if switch_on { teal } else { switch_bg }, scale(8, dpi));
         SetTextColor(hdc, if switch_on { BG } else { TEAL });
         let mut toggle_glyph = win::wide(if switch_on { "●" } else { "○" });
         let mut toggle_rect = win::rect(switch_left, switch_top, switch_left + action_size, switch_bottom);
@@ -401,7 +414,7 @@ fn paint(hwnd: HWND) {
                 let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
                 let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
                 if HOVER_ROW.with(Cell::get) == index as isize {
-                    FillRect(hdc, &row, hover);
+                    rounded_fill(hdc, row, hover, scale(6, dpi));
                 }
                 let mut label = win::wide(&entries[index].1);
                 let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);

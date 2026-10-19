@@ -43,6 +43,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   follows the current monitor's reserved taskbar edge and persists dock_pos=x|y.
   Four-edge/negative-coordinate tests and native drag/restart/cancel checks pass locally.
 
+- D35 shares Segoe UI and slate/periwinkle/mint styling across dock/circles/rings;
+  original logo/card and icon rebuild instructions are in res/brand/README.md.
+
 ## Observed defects / checks not performed
 - Owner reports the installed D31 build is still choppy and item transfer fails.
   Full-monitor grid repaint, shell cleanup on close and item drag defects are observed.
@@ -88,4 +91,5 @@ Short names share the preceding directory. Tests live with their Rust module.
   target/, dist/, captures, logs, executables and bundles are generated/local artifacts.
 - AGENTS.md governs safety, branches, commits and required Windows MSVC checks.
   Keep evidence in the plan; update changed facts here in the same commit.
+
 

@@ -6,24 +6,24 @@
 
 use windows_sys::Win32::Foundation::RECT;
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateFontIndirectW, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, SelectObject, SetBkMode, SetTextColor, DT_CENTER,
-    DT_EDITCONTROL, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, FW_SEMIBOLD, HDC, HFONT, LOGFONTW, TRANSPARENT,
+    CreateSolidBrush, DeleteObject, DrawTextW, FillRect, SelectObject, SetBkMode, SetTextColor, DT_CENTER, DT_EDITCONTROL, DT_END_ELLIPSIS,
+    DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, HDC, HFONT, TRANSPARENT,
 };
-use windows_sys::Win32::UI::HiDpi::SystemParametersInfoForDpi;
-use windows_sys::Win32::UI::WindowsAndMessaging::{DrawIconEx, LoadIconW, DI_NORMAL, HICON, IDI_APPLICATION, SPI_GETICONTITLELOGFONT};
+
+use windows_sys::Win32::UI::WindowsAndMessaging::{DrawIconEx, LoadIconW, DI_NORMAL, HICON, IDI_APPLICATION};
 
 use super::geom::{self, Metrics};
 use super::surface::Surface;
 use crate::win;
 
-pub const CIRCLE_BG: u32 = win::rgb(30, 31, 36);
-pub const RECENT_BG: u32 = win::rgb(32, 48, 68);
-pub const CENTER_BG: u32 = win::rgb(40, 42, 50);
-pub const ACCENT: u32 = crate::node::ACCENT;
-pub const HOVER: u32 = win::rgb(56, 60, 72);
-pub const GROUP: u32 = win::rgb(70, 90, 130);
-pub const TEXT: u32 = win::rgb(240, 240, 240);
-pub const SUBTEXT: u32 = win::rgb(170, 175, 185);
+pub const CIRCLE_BG: u32 = crate::theme::BG;
+pub const RECENT_BG: u32 = crate::theme::SURFACE;
+pub const CENTER_BG: u32 = crate::theme::SURFACE;
+pub const ACCENT: u32 = crate::theme::ACCENT;
+pub const HOVER: u32 = crate::theme::RAISED;
+pub const GROUP: u32 = crate::theme::BORDER;
+pub const TEXT: u32 = crate::theme::TEXT;
+pub const SUBTEXT: u32 = crate::theme::MUTED;
 
 /// A small translucent disc carrying the loaded icon (or a shared native fallback).
 pub fn drag_icon(icon: HICON, dpi: u32) -> Option<Surface> {
@@ -50,21 +50,7 @@ struct Font(HFONT);
 
 impl Font {
     fn new(dpi: u32, bold: bool, pct: i32) -> Font {
-        unsafe {
-            let mut lf: LOGFONTW = std::mem::zeroed();
-            SystemParametersInfoForDpi(
-                SPI_GETICONTITLELOGFONT,
-                std::mem::size_of::<LOGFONTW>() as u32,
-                (&mut lf as *mut LOGFONTW).cast(),
-                0,
-                dpi,
-            );
-            lf.lfHeight = lf.lfHeight * pct / 100;
-            if bold {
-                lf.lfWeight = FW_SEMIBOLD as i32;
-            }
-            Font(CreateFontIndirectW(&lf))
-        }
+        Font(crate::theme::font(dpi, bold, pct))
     }
 }
 
