@@ -18,7 +18,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName",      "DeskTuk"
-            VALUE "FileDescription",  "DeskTuk desktop Nodes"
+            VALUE "FileDescription",  "DeskTuk"
             VALUE "FileVersion",      "0.1.0.0"
             VALUE "InternalName",     "DeskTuk"
             VALUE "OriginalFilename", "DeskTuk.exe"

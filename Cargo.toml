@@ -2,7 +2,7 @@
 name = "desktuk"
 version = "0.1.0"
 edition = "2021"
-description = "DeskTuk - native Win32 desktop Nodes (Phase 0/1 proof of concept)"
+description = "DeskTuk - a native Windows desktop organiser"
 license = "MIT"
 publish = false
 build = "build.rs"

@@ -180,6 +180,11 @@ fn default_pos(count: usize) -> (i32, i32) {
 
 pub fn run() -> i32 {
     diag::mark_start();
+    // Match the installer shortcuts before any window/dialog is presented.
+    let identity = unsafe { windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(win::wide("DeskTuk.Desktop").as_ptr()) };
+    if identity < 0 {
+        dlog!("Cannot set shell identity: HRESULT={identity:#x}");
+    }
     let args = match config::parse_args() {
         Ok(a) => a,
         Err(e) => {
@@ -425,12 +430,12 @@ fn create_controller() -> HWND {
             cbClsExtra: 0,
             cbWndExtra: 0,
             hInstance: GetModuleHandleW(std::ptr::null()),
-            hIcon: std::ptr::null_mut(),
+            hIcon: crate::win::app_icon(false),
             hCursor: std::ptr::null_mut(),
             hbrBackground: std::ptr::null_mut(),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
-            hIconSm: std::ptr::null_mut(),
+            hIconSm: crate::win::app_icon(true),
         };
         RegisterClassExW(&wc);
         // A hidden, unowned top-level window: it receives the TaskbarCreated broadcast

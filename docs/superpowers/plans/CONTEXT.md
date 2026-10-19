@@ -16,8 +16,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Move freely while held; snap only on release. Left centre click turns pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D39 installed SHA256: D4CB484429BC47D63CE5F682AC0CA06CF1F1063F025456AD0E94C663E0736E35.
-  D39 CI pending; D38 passed. Prior binary: target/d39-hover/previous-installed.exe.
+- D40 installed SHA256: 93668789D033C95BB83C0DC24B5624DF187DE084C839BA9354C0D43A37D2A2A5.
+  D40 CI pending; D39 passed. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
   Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
 - D30 fixes stale queued fallback client coordinates using coalesced screen samples,
   preserves release, and prevents native/routed streams from moving the same press twice.
@@ -53,8 +53,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D39 buffers hover frames/holds endpoints; 71 tests and both native fixtures pass.
 
 ## Observed defects / checks not performed
-- Owner reports the installed D31 build is still choppy and item transfer fails.
-  Full-monitor grid repaint, shell cleanup on close and item drag defects are observed.
+- D40 installer: dist/DeskTuk-0.1.0-Setup-x64.exe; path/Finish/Unicode/upgrade/uninstall pass.
+  Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
 - Owner reports D29 fast middle dragging after first hover can stick at grid lines
   or arbitrary positions; Print Screen appears to clear it. D30 addresses a concrete
   queued-coordinate defect; the physical symptom and Print Screen effect need assessment.
@@ -84,7 +84,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D39 addresses reported hover flicker.
+- Active plan: 2026-10-13-phase2-d-circles.md; D40 installer delivered and installed.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

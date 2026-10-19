@@ -917,3 +917,68 @@ Installed SHA256 D4CB484429BC47D63CE5F682AC0CA06CF1F1063F025456AD0E94C663E0736E3
 PID 2488; previous binary: target/d39-hover/previous-installed.exe. Normal shutdown
 and restart preserved the production config byte-for-byte. D38 CI 39273818981
 passed; D39 CI will run on push and is not claimed passed here.
+
+
+### D40: Reproducible per-user Windows installer and shell identity
+
+Owner request (2026-10-19): produce an installer with a proper Finish button,
+editable destination path, correct desktop/taskbar branding, and repair the stale
+pinned DeskTuk icon. Standard native wizard; no new app visual design.
+
+- [x] Build a Turkish/English Inno Setup installer with destination selection on
+      first install/upgrades, proper completion, optional desktop shortcut/launch,
+      per-user uninstall, preserved user config and explicit icon/AppUserModelID.
+- [x] Set process/window identity and repair existing DeskTuk-only pinned links;
+      migrate an existing opt-in startup value to the installed path.
+- [x] Verify wizard/path/install/upgrade/uninstall and shell metadata in isolated
+      fixtures; run required MSVC checks, commit/push and deliver installer artifact.
+
+Build-only dependency explicitly named: Inno Setup 6.7.3 from its official signed
+release. No new Rust/runtime dependency. Installed binaries/icons are packaged from
+release output; no network activity in DeskTuk Setup. Existing config remains in
+APPDATA and is never removed by uninstall. Only installer-owned files/shortcuts are
+installed/removed. Existing pinned DeskTuk link metadata may be updated as requested;
+never force pin/unpin, clear unrelated caches or restart Explorer. Backup repaired
+links. Test install uses a separate user-data environment and explicit test shortcut
+paths so it does not overwrite the owner's installed app/shortcuts.
+
+D40 evidence (2026-10-19): installer/DeskTuk.iss and build/bootstrap scripts package
+only the checked EXE, original multi-size branded ICO and license. Compiler download
+signature validated as Pyrsys B.V. before execution. Modern native wizard, explicit
+Bitir/Finish completion, optional launch, editable first/update destination,
+per-user uninstall and content-hashed icon filename. Process AppUserModelID matches
+shortcuts; controller/dock/panel classes now load embedded large/small brand icons.
+Existing plain DeskTuk pinned links are backed up and replaced with the canonical
+Unicode/AppID/icon shortcut, followed by Shell notifications; custom-argument links
+are skipped. Existing startup opt-in migrates and uninstall only clears its own path.
+
+Required Windows MSVC fmt/Clippy/tests and release build pass (71 passed, 2 ignored).
+Final fixture verifies native Turkish Bitir and English Finish, editable Unicode
+'Müzik Araçları' path, same-path upgrade, link target/working directory/AppID, icon
+hash, pin backup, custom-link preservation, startup migration, uninstall and retained
+unknown install-folder files/config. Screenshots/logs: target/installer-test/.
+The harness uses control messages without moving the pointer. Early harness runs
+needed the translated Sonraki label and TNewPathEdit selection/replace messages;
+WScript.Shell's ANSI target view was replaced with Unicode Shell link inspection.
+Inno appends .lnk automatically; the shortcut Name entries were corrected before
+successful tests. An initial fixture used the standard default destination; its
+owned files were uninstalled, and fixture defaults now redirect to TEMP with a
+required explicit fixture root. No owner's references/config were changed.
+Final Grid=3/topmost dock/lock/drag/restart runtime fixture also passes. CI now builds
+and uploads the installer and runs the isolated installer fixture on Windows.
+
+Production wizard installation succeeded to
+C:/Users/4D/AppData/Local/Programs/DeskTuk, launched PID 10712. Native screenshot
+confirms Bitir and the optional checked launch item. Production config remained
+byte-identical. Existing pinned 'DeskTuk desktop Nodes.lnk' now targets installed
+EXE, AppID DeskTuk.Desktop and desktuk-f46370f43958.ico; desktop shortcut exists.
+Pinned backup: LOCALAPPDATA/DeskTuk/ShortcutBackups. Physical taskbar cache appearance
+is unperformed; Windows may require a refresh/re-pin without any forced Explorer
+restart. Actual uninstall was tested only against isolated fixture installation.
+Installed EXE SHA256: 93668789D033C95BB83C0DC24B5624DF187DE084C839BA9354C0D43A37D2A2A5.
+Final artifact: dist/DeskTuk-0.1.0-Setup-x64.exe (2,348,242 bytes), SHA256
+67CBDBB144EBD050DAA578D30B3523474FF80A1FFEA93088CE589188265B7710.
+The final rebuild changes completion wording only relative to the production
+wizard capture; final fixture checks both locales. Installer is unsigned; a
+publisher signing certificate has not been supplied. D39 CI 39276403418 passed;
+D40 CI runs on push and is not claimed passed locally.

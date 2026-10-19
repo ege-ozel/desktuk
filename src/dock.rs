@@ -294,12 +294,12 @@ pub fn create() {
         cbClsExtra: 0,
         cbWndExtra: 0,
         hInstance: unsafe { GetModuleHandleW(std::ptr::null()) },
-        hIcon: std::ptr::null_mut(),
+        hIcon: crate::win::app_icon(false),
         hCursor: unsafe { LoadCursorW(std::ptr::null_mut(), IDC_HAND) },
         hbrBackground: std::ptr::null_mut(),
         lpszMenuName: std::ptr::null(),
         lpszClassName: name.as_ptr(),
-        hIconSm: std::ptr::null_mut(),
+        hIconSm: crate::win::app_icon(true),
     };
     unsafe { RegisterClassExW(&class) };
 

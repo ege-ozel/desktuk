@@ -84,3 +84,20 @@ pub fn y_lparam(l: isize) -> i32 {
 pub const fn rgb(r: u8, g: u8, b: u8) -> u32 {
     r as u32 | ((g as u32) << 8) | ((b as u32) << 16)
 }
+
+/// Shared embedded brand resource for taskbar/Alt+Tab window identity.
+/// LR_SHARED keeps ownership with Windows; callers must not destroy the icon.
+pub fn app_icon(small: bool) -> windows_sys::Win32::UI::WindowsAndMessaging::HICON {
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::*;
+    unsafe {
+        LoadImageW(
+            GetModuleHandleW(std::ptr::null()),
+            std::ptr::without_provenance(1),
+            IMAGE_ICON,
+            GetSystemMetrics(if small { SM_CXSMICON } else { SM_CXICON }),
+            GetSystemMetrics(if small { SM_CYSMICON } else { SM_CYICON }),
+            LR_SHARED,
+        )
+    }
+}
