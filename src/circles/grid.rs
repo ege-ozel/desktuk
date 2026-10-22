@@ -1,7 +1,7 @@
 //! Cell-centre snapping in a monitor's usable work area, in physical screen pixels.
 
 pub fn cell(pos: (i32, i32), diameter: i32, work: (i32, i32, i32, i32), divisions: u8) -> Option<(i32, i32)> {
-    if !matches!(divisions, 2..=4) || diameter <= 0 || work.2 <= work.0 || work.3 <= work.1 {
+    if !matches!(divisions, 2..=4 | 6 | 8) || diameter <= 0 || work.2 <= work.0 || work.3 <= work.1 {
         return None;
     }
     let axis = |p: i32, lo: i32, hi: i32| {

@@ -63,7 +63,7 @@ fn append_files(menu: HMENU, paths: Rc<Vec<PathBuf>>, offset: usize) {
     }
     let next = offset + PAGE_SIZE;
     if next < paths.len() {
-        let label = format!("Devam\u{131} ({}-{})", next + 1, paths.len());
+        let label = format!("{} ({}-{})", crate::i18n::choose("Devamı", "More"), next + 1, paths.len());
         append_pending(menu, &label, Pending::Files(paths, next));
     }
 }
@@ -114,9 +114,20 @@ pub fn populate(menu: HMENU) {
                         .iter()
                         .enumerate()
                         {
-                            AppendMenuW(actions, MF_STRING, super::CIRCLE_ACTION_BASE + ci * 8 + offset, win::wide(label).as_ptr());
+                            AppendMenuW(
+                                actions,
+                                MF_STRING,
+                                super::CIRCLE_ACTION_BASE + ci * 8 + offset,
+                                win::wide(crate::i18n::text(label)).as_ptr(),
+                            );
                         }
-                        if AppendMenuW(menu, MF_POPUP, actions as usize, win::wide("\u{c7}ember i\u{15f}lemleri").as_ptr()) == 0 {
+                        if AppendMenuW(
+                            menu,
+                            MF_POPUP,
+                            actions as usize,
+                            win::wide(crate::i18n::text("\u{c7}ember i\u{15f}lemleri")).as_ptr(),
+                        ) == 0
+                        {
                             DestroyMenu(actions);
                         }
                     }
@@ -124,7 +135,7 @@ pub fn populate(menu: HMENU) {
             }
             unsafe {
                 if GetMenuItemCount(menu) == 0 {
-                    AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, win::wide("Bo\u{15f}").as_ptr());
+                    AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, win::wide(crate::i18n::text("Bo\u{15f}")).as_ptr());
                 }
             }
         }

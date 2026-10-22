@@ -87,9 +87,10 @@ pub fn toggle_from_menu() {
             use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
             MessageBoxW(
                 crate::app::app().controller.get(),
-                crate::win::wide(
+                crate::win::wide(crate::i18n::choose(
                     "Masaüstü öğelerinin görünürlüğü değiştirilemedi. Windows masaüstü kullanılabilir olduğunda tekrar deneyin.",
-                )
+                    "Could not change desktop icon visibility. Try again when the Windows desktop is available.",
+                ))
                 .as_ptr(),
                 crate::win::wide("DeskTuk").as_ptr(),
                 MB_OK | MB_ICONERROR,

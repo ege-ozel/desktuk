@@ -78,7 +78,7 @@ unsafe fn show_impl(owner: HWND, path: &Path, at: POINT, extra: &[(usize, &str)]
             AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null())?;
             for (id, label) in extra {
                 debug_assert!(*id >= EXTRA_FIRST);
-                let w: Vec<u16> = label.encode_utf16().chain(std::iter::once(0)).collect();
+                let w: Vec<u16> = crate::i18n::text(label).encode_utf16().chain(std::iter::once(0)).collect();
                 let flags = if *id == crate::desktop_view::MENU_ID {
                     windows::Win32::UI::WindowsAndMessaging::MENU_ITEM_FLAGS(crate::desktop_view::menu_flags())
                 } else {

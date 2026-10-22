@@ -5,29 +5,25 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D47 are implemented; D44-D47 await owner manual acceptance.
+- A and D through D48 are implemented; D44-D48 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
   native shell icons, context menus, persistence, tray and startup are implemented.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
-- Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
+- Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D47 installed SHA256: 1D972121E8CCEE8792DB5FA01C67B1BDC9B16261031608A526385C9A7592A399.
-  D44-D47 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D47 config unchanged; installed dock is 153 px wide at system 96 DPI.
+- D48 installed SHA256: 2BFF8E806741F01D2ADAC5ACA801B477E22E7BF8456B14C23A500A65DCE03DFB.
+  D44-D48 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D48 config unchanged; installed dock is 153 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D45 eases transitions and retains its top edge within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
   Circle surfaces use pixel-coverage blending. No new dependencies or idle polling.
 - Product proposals and priorities: ../reviews/2026-10-18-product-review.md and D30 notes.
-- D32 repairs item press cancellation on denied capture, outside-ring release/dismissal
-  and overlap-covered drop targets. Isolated cross-circle/group/Back/Recent/cancel tests
-  pass; referenced files remain unchanged. D33 grid/cleanup optimization passes local checks.
-- D33 uploads grid lines once and moves a reusable target-cell window. Circle/Desktop
-  refresh, metadata repaint and memory cleanup defer until interaction ends. Native
-  geometry/reuse tests, held-refresh regression and explicit 500-cell/4K probe pass.
+- D32/D33 harden item capture/drop cancellation, defer refresh while interacting,
+  and reuse grid guide windows; prior native fixtures pass. See plan evidence.
 - D34 adds left dragging for the collapsed square/expanded DeskTuk heading. The dock
   follows the current monitor's reserved taskbar edge and persists dock_pos=x|y.
   Four-edge/negative-coordinate tests and native drag/restart/cancel checks pass locally.
@@ -53,6 +49,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D46 stabilizes transition frames/timer; static gradient rim and immediate lock.
 - D47 keeps centre rims/text aligned, separates compact controls (64x92 DIP), adds
   left centre/background drag and lazy 32-file dock launch pages. Manual checks pending.
+- D48 adds native bilingual settings/guide, optional lock hints and explicit Align
+  now. Selection preserves positions; first installs use 4x4, legacy choices stay.
+  New UI is pending manual acceptance. Guide: docs/user-guide.md.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -79,11 +78,12 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Desktop updates/Recent/suggestions | src/circles/desktop.rs, suggest.rs, src/watch.rs |
 | Shell icons/menus | src/items.rs, shell.rs, shell_menu.rs |
 | Dock/tray/startup/desktop visibility | src/dock.rs, tray.rs, autostart.rs, desktop_view.rs |
+| Settings, language, lock tips | src/settings.rs, i18n.rs, hint.rs |
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D47 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D48 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

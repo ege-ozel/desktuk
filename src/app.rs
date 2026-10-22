@@ -246,7 +246,10 @@ pub fn run() -> i32 {
     let kind = args.host.or(saved.as_ref().map(|c| c.host)).unwrap_or(HostKind::Window);
     // The self-test drives the panel; everything else defaults to the circles UI.
     let ui = if args.selftest { Ui::Panel } else { args.ui.or(saved.as_ref().and_then(|c| c.ui)).unwrap_or(Ui::Circles) };
-    let board = saved.as_ref().map(|c| c.board.clone()).unwrap_or_default();
+    let mut board = saved.as_ref().map(|c| c.board.clone()).unwrap_or_default();
+    if saved.is_none() {
+        board.grid = 4;
+    }
     let panel_items = saved.as_ref().map(|c| c.items.clone()).unwrap_or_default();
     let paths: Vec<PathBuf> = if !args.items.is_empty() {
         args.items.clone()
@@ -263,6 +266,7 @@ pub fn run() -> i32 {
     dlog!("METRIC items_placeholder count={} ms={:.1}", loaded.len(), diag::since_start_ms() - t_items);
     let pos = args.pos.or(saved.as_ref().and_then(|c| c.pos)).unwrap_or_else(|| default_pos(loaded.len()));
     let first_run = saved.is_none();
+    crate::i18n::set_english(board.english);
 
     let state: &'static App = Box::leak(Box::new(App {
         ui,

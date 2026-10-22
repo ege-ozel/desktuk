@@ -1235,3 +1235,59 @@ EXE. Configuration hash unchanged. Backups: target/d47-delivery/. Installed/rele
 SHA256: 1D972121E8CCEE8792DB5FA01C67B1BDC9B16261031608A526385C9A7592A399.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 C480854B840DD51DE10C45E4DF5C8E3A65F63842E9EBC28006B9A56FDA7C61DE.
+
+### D48: Bilingual settings, quick guide, lock hints and explicit grid alignment
+
+Owner approved native settings with Turkish/English selection, an in-app short
+guide, optional themed lock hints, and a grid menu capped at 8x8. Grid selection
+must not move current circles; a separate Align now command performs placement.
+Owner's previous manual-first instruction still defers automated/runtime tests.
+
+- [x] Persist language and usage-tip preferences with backward-compatible defaults.
+- [x] Add expanded-panel gear/info buttons and settings/help context-menu entries.
+- [x] Translate app-owned circle/panel/tray/menu/search captions and messages using
+  static text; preserve user names, paths and OS-owned shell captions.
+- [x] Include a native quick-guide dialog and bilingual docs/user-guide.md.
+- [x] Show a delayed dark lock hint with a muted red border/target-facing arrow over
+  disabled panel actions/rows; make it optional. Stop timers on show/cancel and
+  release the transient layered window on leave, interaction or shutdown.
+- [x] Support Off/2x2/3x3/4x4/6x6/8x8 in config, snap and existing guide rendering.
+- [x] Add Align now: nearest suitable free cells per circle's monitor, reserving
+  other circle positions and leaving an item in place when no candidate fits.
+- [x] Use 4x4 on first installation; preserve existing grid choices, including Off.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance; automated/runtime checks only when requested.
+
+Language selection applies immediately and saves language=en when English is
+selected; Turkish remains the legacy default. usage_tips=0 disables hints; older
+configs enable them. Settings/help use existing user32 native UI. No dependency,
+worker or filesystem enumeration added. Built-in Recent is localized; user-created
+circle/group names are not. Explorer/shell-owned menus retain Windows' own language.
+
+Hints allocate only on demand after a 550ms hover over a disabled panel control.
+They are click-through, do not activate, clamp to the target monitor work area and
+choose a left/right arrow placement. The one-shot timer stops before rendering;
+queued duplicate ticks do not allocate another window. No idle polling added.
+The guide is also available from right-click when the compact panel hides buttons.
+
+Grid selection only saves the size; drag release uses it later. Align now includes
+Recent, closes the open ring and applies one saved placement update. It considers
+at most 64 cell candidates per circle; candidates account for circle diameters and
+reserve current positions of unprocessed/excess circles. Dense grids may leave
+circles in place when they cannot fit without intersecting another circle. Existing
+config files without a grid entry still mean Off; only a truly new install gets 4x4.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. Per owner request, no cargo test, native/UI/
+screen check or benchmark performed, and CI is skipped. Translation completeness,
+icon legibility, tooltip placement at alternate font sizes/DPIs, settings persistence
+and grid placement behavior await manual acceptance; build success is not runtime
+evidence. Existing automated fixture text/coordinate expectations may need updating
+when subsequent testing is requested.
+
+Installed PID 13404 via normal controller close/restart; ignored root EXE also
+updated. Configuration hash unchanged across delivery. Backups: target/d48-delivery/.
+Installed/release SHA256:
+2BFF8E806741F01D2ADAC5ACA801B477E22E7BF8456B14C23A500A65DCE03DFB.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+3D967A5BA4ABD5F9F29B24E1E0565593F1BABEB2A43159F590EA4690366D88E8.

@@ -9,6 +9,7 @@
 //! RefCell rule (AGENTS.md): code here uses `try_borrow*` on shared state and copies what
 //! it needs into locals before any call that can pump messages or destroy a window.
 
+mod align;
 pub mod circle_win;
 pub mod desktop;
 mod drag_capture;
@@ -61,6 +62,9 @@ const IDM_GRID_OFF: usize = 21;
 const IDM_GRID_2: usize = 22;
 const IDM_GRID_3: usize = 23;
 const IDM_GRID_4: usize = 24;
+const IDM_GRID_6: usize = 25;
+const IDM_GRID_8: usize = 26;
+const IDM_ALIGN: usize = 27;
 
 /// A download or copy can fire several folder events in a row; re-list once they settle.
 const DESKTOP_DEBOUNCE_MS: u32 = 250;
@@ -488,11 +492,11 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     app().board.try_borrow().map(|b| b.circles.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
                 let submenu = CreatePopupMenu();
                 if !submenu.is_null() {
-                    menu_contents::append_target(submenu, "Recent", Target::Recent);
+                    menu_contents::append_target(submenu, crate::i18n::text("Recent"), Target::Recent);
                     for (ci, name) in names.iter().enumerate() {
                         menu_contents::append_target(submenu, name, Target::Circle(ci));
                     }
-                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(crate::i18n::text(label)).as_ptr()) == 0 {
                         DestroyMenu(submenu);
                     }
                 }
@@ -502,9 +506,9 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     for (command, caption) in
                         [(IDM_SORT_NAME, "Ada göre"), (IDM_SORT_TYPE, "Türe göre"), (IDM_SORT_ADDED, "Eklenme sırası")]
                     {
-                        AppendMenuW(submenu, MF_STRING, command, win::wide(caption).as_ptr());
+                        AppendMenuW(submenu, MF_STRING, command, win::wide(crate::i18n::text(caption)).as_ptr());
                     }
-                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(crate::i18n::text(label)).as_ptr()) == 0 {
                         DestroyMenu(submenu);
                     }
                 }
@@ -517,16 +521,30 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                         (IDM_GRID_2, 2, "2 \u{d7} 2"),
                         (IDM_GRID_3, 3, "3 \u{d7} 3"),
                         (IDM_GRID_4, 4, "4 \u{d7} 4"),
+                        (IDM_GRID_6, 6, "6 \u{d7} 6"),
+                        (IDM_GRID_8, 8, "8 \u{d7} 8"),
                     ] {
-                        AppendMenuW(submenu, MF_STRING | if grid == size { MF_CHECKED } else { 0 }, command, win::wide(caption).as_ptr());
+                        AppendMenuW(
+                            submenu,
+                            MF_STRING | if grid == size { MF_CHECKED } else { 0 },
+                            command,
+                            win::wide(crate::i18n::text(caption)).as_ptr(),
+                        );
                     }
-                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                    AppendMenuW(submenu, MF_SEPARATOR, 0, std::ptr::null());
+                    AppendMenuW(
+                        submenu,
+                        MF_STRING | if grid == 0 { MF_GRAYED } else { 0 },
+                        IDM_ALIGN,
+                        win::wide(crate::i18n::choose("Şimdi hizala", "Align now")).as_ptr(),
+                    );
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(crate::i18n::text(label)).as_ptr()) == 0 {
                         DestroyMenu(submenu);
                     }
                 }
             } else {
                 let flags = if id == crate::desktop_view::MENU_ID { crate::desktop_view::menu_flags() } else { MF_STRING };
-                AppendMenuW(m, flags, id, win::wide(label).as_ptr());
+                AppendMenuW(m, flags, id, win::wide(crate::i18n::text(label)).as_ptr());
             }
         }
         SetForegroundWindow(ctl);
@@ -552,7 +570,14 @@ pub fn circle_menu(which: Which, at: POINT) {
 }
 
 fn global_entries() -> Vec<(usize, &'static str)> {
-    vec![(0, ""), (IDM_GRID, "&Izgara"), (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL), (IDM_EXIT, "E&xit DeskTuk")]
+    vec![
+        (0, ""),
+        (IDM_GRID, "&Izgara"),
+        (crate::settings::MENU_ID, crate::settings::label()),
+        (crate::settings::HELP_ID, crate::settings::help_label()),
+        (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL),
+        (IDM_EXIT, "E&xit DeskTuk"),
+    ]
 }
 
 pub fn dock_menu(at: POINT) {
@@ -589,16 +614,24 @@ pub fn dock_menu(at: POINT) {
 
 fn circle_command(which: Which, command: usize) {
     match (command, which) {
+        (crate::settings::MENU_ID, _) => {
+            let mut at = POINT { x: 0, y: 0 };
+            unsafe { GetCursorPos(&mut at) };
+            crate::settings::show(app().controller.get(), at);
+        }
+        (crate::settings::HELP_ID, _) => crate::settings::guide(app().controller.get()),
         (command @ IDM_SORT_NAME..=IDM_SORT_ADDED, _) => sort_target(which.target(), command),
         (IDM_NEW_CIRCLE, _) => new_circle(which),
         (IDM_NEW_GROUP, Which::User(ci)) => new_group(ci),
         (IDM_RENAME, Which::User(ci)) => begin_rename(rename::RenameTarget::Circle(ci)),
         (IDM_DELETE, Which::User(ci)) => delete_circle(ci),
-        (command @ IDM_GRID_OFF..=IDM_GRID_4, _) => {
+        (command @ IDM_GRID_OFF..=IDM_GRID_8, _) => {
             let size = match command {
                 IDM_GRID_2 => 2,
                 IDM_GRID_3 => 3,
                 IDM_GRID_4 => 4,
+                IDM_GRID_6 => 6,
+                IDM_GRID_8 => 8,
                 _ => 0,
             };
             if let Ok(mut b) = app().board.try_borrow_mut() {
@@ -606,6 +639,7 @@ fn circle_command(which: Which, command: usize) {
             }
             app().save_config();
         }
+        (IDM_ALIGN, _) => align::now(),
         (IDM_EXIT, _) => crate::app::quit(),
         (crate::desktop_view::MENU_ID, _) => crate::desktop_view::toggle_from_menu(),
         _ => {}
@@ -621,7 +655,7 @@ fn new_circle(from: Which) {
     let pos = circle_win::clamp_to_work((r.left - m.circle_d - win::scale(24, dpi), r.top), m.circle_d);
     let ci = {
         let Ok(mut b) = app().board.try_borrow_mut() else { return };
-        b.add_circle("New circle", pos)
+        b.add_circle(crate::i18n::text("New circle"), pos)
     };
     app().save_config();
     rebuild();
@@ -631,7 +665,7 @@ fn new_circle(from: Which) {
 fn new_group(ci: usize) {
     let gi = {
         let Ok(mut b) = app().board.try_borrow_mut() else { return };
-        b.add_group(ci, "New group")
+        b.add_group(ci, crate::i18n::text("New group"))
     };
     let Some(gi) = gi else { return };
     app().save_config();
@@ -674,7 +708,11 @@ fn delete_circle(ci: usize) {
         },
         Err(_) => return,
     };
-    let text = format!("Delete the circle \"{name}\"?\n\nIts {count} item(s) go back to Recent. No files are changed or deleted.");
+    let text = if crate::i18n::english() {
+        format!("Delete the circle \"{name}\"?\n\nIts {count} item(s) go back to Recent. No files are changed or deleted.")
+    } else {
+        format!("\"{name}\" çemberi silinsin mi?\n\n{count} öğe Son öğeler bölümüne döner. Dosyalar değiştirilmez veya silinmez.")
+    };
     let ok = unsafe {
         MessageBoxW(std::ptr::null_mut(), win::wide(&text).as_ptr(), win::wide("DeskTuk").as_ptr(), MB_YESNO | MB_ICONQUESTION) == IDYES
     };

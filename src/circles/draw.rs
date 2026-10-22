@@ -228,7 +228,7 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
         // Fixed centre bands keep query/result feedback from moving the title.
         text(
             dc,
-            &format!("Ara: {query}"),
+            &format!("{}: {query}", crate::i18n::choose("Ara", "Search")),
             win::rect(c - inner, c - sc(2), c + inner, c + sc(14)),
             crate::theme::MINT,
             &small,
@@ -236,7 +236,7 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
         );
         text(
             dc,
-            &format!("{count} sonu\u{e7}"),
+            &format!("{count} {}", crate::i18n::choose("sonuç", "results")),
             win::rect(c - inner, c - m.circle_d / 2 + m.circle_d * 65 / 100, c + inner, c - m.circle_d / 2 + m.circle_d * 86 / 100),
             if count == 0 { ACCENT } else { crate::theme::MINT },
             &count_font,

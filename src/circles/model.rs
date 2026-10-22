@@ -31,12 +31,14 @@ pub struct Board {
     /// Stable first assignment order; independent of custom display order.
     pub added_order: Vec<PathBuf>,
     pub dock_locked: bool,
+    pub english: bool,
+    pub hints: bool,
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
     /// Saved anchor beside the taskbar, in screen pixels.
     pub dock_pos: Option<(i32, i32)>,
-    /// Global work-area grid: 0 = off, otherwise 2, 3 or 4 cells per axis.
+    /// Global work-area grid: 0 = off, otherwise 2, 3, 4, 6 or 8 cells per axis.
     pub grid: u8,
     pub always_on_top: bool,
 }
@@ -46,6 +48,8 @@ impl Default for Board {
         Self {
             added_order: Vec::new(),
             dock_locked: false,
+            english: false,
+            hints: true,
             circles: Vec::new(),
             recent_pos: None,
             dock_pos: None,
@@ -319,8 +323,10 @@ impl Board {
             // Kept as a recognized legacy key; circles are now always topmost by owner decision.
             "always_on_top" => self.always_on_top = true,
             "grid" => {
-                self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4)).unwrap_or(0);
+                self.grid = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 2..=4 | 6 | 8)).unwrap_or(0);
             }
+            "language" => self.english = value.trim() == "en",
+            "usage_tips" => self.hints = value.trim() != "0",
             "dock_locked" => self.dock_locked = value.trim() == "1",
             "added_order" => {
                 let path = PathBuf::from(value);
@@ -398,6 +404,12 @@ impl Board {
     pub fn render(&self) -> String {
         let mut s = String::new();
         s += "always_on_top=1\n";
+        if self.english {
+            s += "language=en\n";
+        }
+        if !self.hints {
+            s += "usage_tips=0\n";
+        }
         if self.dock_locked {
             s += "dock_locked=1\n";
         }

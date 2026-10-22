@@ -659,17 +659,23 @@ fn search_char(value: u32) {
 
 fn subtitle(r: &Ring) -> String {
     if !r.query.is_empty() {
-        return format!("Ara: {}\n{} sonu\u{e7}", r.query, r.refs.len());
+        return format!(
+            "{}: {}\n{} {}",
+            crate::i18n::choose("Ara", "Search"),
+            r.query,
+            r.refs.len(),
+            crate::i18n::choose("sonuç", "results")
+        );
     }
     if r.press.as_ref().is_some_and(|p| p.active) {
         return if r.hover.is_some() {
             if r.drop_after {
-                "Arkasına bırak".into()
+                crate::i18n::text("Arkasına bırak").into()
             } else {
-                "Önüne bırak".into()
+                crate::i18n::text("Önüne bırak").into()
             }
         } else {
-            "Taşı / sırala".into()
+            crate::i18n::text("Taşı / sırala").into()
         };
     }
     let label = geom::page_label(r.refs.len(), r.start, r.metrics.per_page());
@@ -678,9 +684,13 @@ fn subtitle(r: &Ring) -> String {
     }
     if r.refs.is_empty() {
         let no_circles = app().board.try_borrow().map(|b| b.circles.is_empty()).unwrap_or(false);
-        return if r.target == Target::Recent && no_circles { "Right-click: New circle".into() } else { "Drop files here".into() };
+        return if r.target == Target::Recent && no_circles {
+            crate::i18n::text("Right-click: New circle").into()
+        } else {
+            crate::i18n::text("Drop files here").into()
+        };
     }
-    "Aramak i\u{e7}in yaz\u{131}n".into()
+    crate::i18n::text("Aramak i\u{e7}in yaz\u{131}n").into()
 }
 
 fn render(r: &mut Ring) {
@@ -706,7 +716,7 @@ fn render(r: &mut Ring) {
                     looks.push(SlotLook::Group);
                 }
                 (SlotRef::Back, _) => {
-                    labels.push("Back".into());
+                    labels.push(crate::i18n::text("Back").into());
                     looks.push(SlotLook::Back);
                 }
                 (SlotRef::Suggestion(i), _) => match r.suggestions.get(*i) {
@@ -726,7 +736,11 @@ fn render(r: &mut Ring) {
             }
         }
     }
-    let title = app().board.try_borrow().map(|b| view::title(&b, r.target)).unwrap_or_default();
+    let title = if r.target == Target::Recent {
+        crate::i18n::text("Recent").to_string()
+    } else {
+        app().board.try_borrow().map(|b| view::title(&b, r.target)).unwrap_or_default()
+    };
     let sub = subtitle(r);
     let views: Vec<SlotView> = labels.iter().zip(looks).map(|(l, look)| SlotView { label: l, look }).collect();
     draw::ring(
@@ -1194,7 +1208,7 @@ fn on_right_up(lparam: LPARAM) {
         }
         Some(SlotRef::Suggestion(i)) => {
             if let Some(s) = suggestions.get(i) {
-                let accept = format!("&Add {} file(s) to this circle", s.paths.len());
+                let accept = format!("{} {}", s.paths.len(), crate::i18n::choose("dosyayı bu çembere ekle", "file(s): add to this circle"));
                 match super::popup(&[(IDM_ACCEPT, accept.as_str()), (IDM_DISMISS, "&Not now")], at) {
                     IDM_ACCEPT => super::accept_suggestion(s),
                     IDM_DISMISS => super::dismiss_suggestion(s),

@@ -127,11 +127,16 @@ fn menu(controller: HWND, pos: POINT) {
         if menu.is_null() {
             return;
         }
-        let built = AppendMenuW(menu, MF_STRING, SHOW as usize, win::wide("&Desktuk'u göster").as_ptr()) != 0
-            && AppendMenuW(menu, flags, STARTUP as usize, win::wide("&Windows ile başlat").as_ptr()) != 0
-            && AppendMenuW(menu, desktop_flags, crate::desktop_view::MENU_ID, win::wide(crate::desktop_view::MENU_LABEL).as_ptr()) != 0
+        let built = AppendMenuW(menu, MF_STRING, SHOW as usize, win::wide(crate::i18n::text("&Desktuk'u göster")).as_ptr()) != 0
+            && AppendMenuW(menu, flags, STARTUP as usize, win::wide(crate::i18n::text("&Windows ile başlat")).as_ptr()) != 0
+            && AppendMenuW(
+                menu,
+                desktop_flags,
+                crate::desktop_view::MENU_ID,
+                win::wide(crate::i18n::text(crate::desktop_view::MENU_LABEL)).as_ptr(),
+            ) != 0
             && AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null()) != 0
-            && AppendMenuW(menu, MF_STRING, EXIT as usize, win::wide("&Çıkış").as_ptr()) != 0;
+            && AppendMenuW(menu, MF_STRING, EXIT as usize, win::wide(crate::i18n::text("&Çıkış")).as_ptr()) != 0;
         let selected = if built {
             SetForegroundWindow(controller);
             TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pos.x, pos.y, 0, controller, std::ptr::null()) as u32
@@ -155,7 +160,14 @@ fn menu(controller: HWND, pos: POINT) {
                 unsafe {
                     MessageBoxW(
                         controller,
-                        win::wide(format!("Windows başlangıç ayarı değiştirilemedi.\n\n{e}")).as_ptr(),
+                        win::wide(format!(
+                            "{}\n\n{e}",
+                            crate::i18n::choose(
+                                "Windows başlangıç ayarı değiştirilemedi.",
+                                "Could not change the Windows startup setting."
+                            )
+                        ))
+                        .as_ptr(),
                         win::wide("DeskTuk").as_ptr(),
                         MB_OK | MB_ICONERROR,
                     );

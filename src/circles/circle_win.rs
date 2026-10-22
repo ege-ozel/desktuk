@@ -132,7 +132,9 @@ pub fn render(hwnd: HWND, which: Which) {
     let (name, count, pos) = {
         let Ok(b) = app().board.try_borrow() else { return };
         match which {
-            Which::Recent => ("Recent".to_string(), recent_count, b.recent_pos.unwrap_or_else(super::default_recent_pos)),
+            Which::Recent => {
+                (crate::i18n::text("Recent").to_string(), recent_count, b.recent_pos.unwrap_or_else(super::default_recent_pos))
+            }
             Which::User(ci) => match b.circles.get(ci) {
                 Some(c) => (c.name.clone(), view::circle_count(&b, ci), c.pos),
                 None => return,
@@ -158,7 +160,7 @@ pub fn snap_to_work(pos: (i32, i32), d: i32, divisions: u8) -> (i32, i32) {
     work_area(pos, d).map(|w| super::grid::position(pos, d, w, divisions)).unwrap_or(pos)
 }
 
-fn work_area(pos: (i32, i32), d: i32) -> Option<(i32, i32, i32, i32)> {
+pub(super) fn work_area(pos: (i32, i32), d: i32) -> Option<(i32, i32, i32, i32)> {
     let r = win::rect(pos.0, pos.1, pos.0 + d, pos.1 + d);
     unsafe {
         let mon = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
