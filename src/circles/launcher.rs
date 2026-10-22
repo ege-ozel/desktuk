@@ -2,7 +2,7 @@
 use super::view::{self, SlotRef, Target};
 use crate::{app::app, i18n, theme, win};
 use std::cell::RefCell;
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Foundation::{GetLastError, ERROR_CLASS_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::EM_SETSEL;
@@ -145,10 +145,17 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
         let wc = WNDCLASSW {
             lpfnWndProc: Some(proc),
             hInstance: instance,
+            lpszClassName: name.as_ptr(),
             hCursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW),
             ..std::mem::zeroed()
         };
-        RegisterClassW(&wc);
+        if RegisterClassW(&wc) == 0 {
+            let error = GetLastError();
+            if error != ERROR_CLASS_ALREADY_EXISTS {
+                crate::dlog!("search popup class registration failed: {error}");
+                return;
+            }
+        }
         let hwnd = CreateWindowExW(
             WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
             name.as_ptr(),
@@ -164,6 +171,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             std::ptr::null(),
         );
         if hwnd.is_null() {
+            crate::dlog!("search popup creation failed: {}", GetLastError());
             return;
         }
         let child = |class: &str, label: &str, style: u32, id: usize, x, y, w, h| {
@@ -198,6 +206,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             std::ptr::null_mut()
         };
         if edit.is_null() || target.is_some() && list.is_null() {
+            crate::dlog!("search popup control creation failed: {}", GetLastError());
             DestroyWindow(hwnd);
             return;
         }

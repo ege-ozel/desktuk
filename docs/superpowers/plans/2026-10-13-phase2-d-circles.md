@@ -1484,3 +1484,32 @@ Installed/release SHA256:
 19DA879713AED3BE2098112622AFACBAD49517ED7267E1E4C0B203BA1A3027EA.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 A5F63712EF9A6E04BB8AEB10447CB811E3035CE3DCC692EE8DDCCE3446B08623.
+
+
+### D53: Restore creation of file and ring text popups
+
+Owner reports dock file rows do nothing and ring Ctrl+A still cannot select the
+painted query. Inspection identifies a shared D52 defect: the search popup's
+WNDCLASSW omitted lpszClassName, so RegisterClassW and CreateWindowExW failed.
+The hover fallback could still paint/filter a query, but no real EDIT was created.
+
+- [x] Supply the stable DeskTuk.Search class name during registration.
+- [x] Accept ERROR_CLASS_ALREADY_EXISTS for repeat opens, but log/return on other
+  registration errors. Log popup/control creation failures rather than silently return.
+- [x] Format, release Clippy/build and diff checks; install and rebuild installer,
+  commit and push under the owner's manual-first acceptance workflow.
+- [ ] Owner manual acceptance: dock row opens searchable list; ring typing displays
+  native edit; Ctrl+A replacement, Shift+arrows/mouse and repeated close/reopen.
+
+The fix is shared by dock lists and ring editing; it adds no polling, dependency,
+worker or filesystem access. No automated tests, UI input/screenshots or benchmark
+performed, and CI remains skipped as requested. Compilation/static checks establish
+build correctness, not physical focus/selection acceptance.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. Installed PID 2072 via normal controller close;
+configuration hash unchanged, ignored root EXE updated. Backups target/d53-delivery/.
+Installed/release SHA256:
+587C02869A315C3C1C17A87BF35CCE95B19CAE980B61A0D5D06E7129CFA58E1F.
+Installer rebuilt at dist/DeskTuk-0.1.0-Setup-x64.exe. Runtime acceptance remains
+with the owner; no automated interaction/test run performed.
