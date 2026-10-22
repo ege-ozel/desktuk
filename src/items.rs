@@ -196,30 +196,107 @@ fn sized_icon(path: &Path, px: i32) -> LoadedIcon {
     }
 }
 
+struct RingLoad {
+    controller: usize,
+    paths: Vec<PathBuf>,
+    px: i32,
+    request: u64,
+    revision: u64,
+}
+
+#[derive(Default)]
+struct RingLoadQueue {
+    running: bool,
+    pending: Option<RingLoad>,
+    revision: u64,
+}
+
+impl RingLoadQueue {
+    fn submit(&mut self, mut job: RingLoad) -> bool {
+        self.revision = self.revision.wrapping_add(1);
+        job.revision = self.revision;
+        self.pending = Some(job); // newest page replaces older queued pages
+        let start = !self.running;
+        self.running = true;
+        start
+    }
+
+    fn next(&mut self) -> Option<RingLoad> {
+        let job = self.pending.take();
+        if job.is_none() {
+            self.running = false;
+        }
+        job
+    }
+
+    fn cancel(&mut self) {
+        self.pending = None;
+        self.revision = self.revision.wrapping_add(1);
+    }
+}
+
+static RING_LOADS: std::sync::Mutex<RingLoadQueue> = std::sync::Mutex::new(RingLoadQueue { running: false, pending: None, revision: 0 });
+
+pub fn cancel_ring_loader() {
+    if let Ok(mut queue) = RING_LOADS.lock() {
+        queue.cancel();
+    }
+}
+
 pub fn spawn_ring_loader(controller: HWND, paths: Vec<PathBuf>, px: i32, request: u64) {
     if paths.is_empty() {
         return;
     }
-    let ctl = controller as usize;
-    std::thread::spawn(move || unsafe {
+    let start = RING_LOADS
+        .lock()
+        .map(|mut queue| queue.submit(RingLoad { controller: controller as usize, paths, px, request, revision: 0 }))
+        .unwrap_or(false);
+    if start && std::thread::Builder::new().name("circle-icons".into()).spawn(run_ring_loader).is_err() {
+        if let Ok(mut queue) = RING_LOADS.lock() {
+            queue.running = false;
+            queue.cancel();
+        }
+        dlog!("ring icon worker could not start");
+    }
+}
+
+fn current_ring_load(revision: u64) -> bool {
+    RING_LOADS.lock().map(|q| q.revision == revision).unwrap_or(false)
+}
+
+fn run_ring_loader() {
+    unsafe {
         use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
         let hr = CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
-        let entries = paths
-            .into_iter()
-            .map(|p| {
+        loop {
+            let job = RING_LOADS.lock().ok().and_then(|mut q| q.next());
+            let Some(job) = job else { break };
+            let mut entries = Vec::with_capacity(job.paths.len());
+            for p in job.paths {
+                if !current_ring_load(job.revision) {
+                    break;
+                }
                 let meta = query_meta(&p);
-                let icon = if hr >= 0 { sized_icon(&p, px) } else { LoadedIcon(0) };
-                (p, meta, icon)
-            })
-            .collect();
-        let raw = Box::into_raw(Box::new(RingBatch { request, px, entries }));
-        if windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW(ctl as HWND, crate::app::WM_APP_RING_LOADED, 0, raw as isize) == 0 {
-            drop(Box::from_raw(raw));
+                let icon = if hr >= 0 { sized_icon(&p, job.px) } else { LoadedIcon(0) };
+                entries.push((p, meta, icon));
+            }
+            if current_ring_load(job.revision) {
+                let raw = Box::into_raw(Box::new(RingBatch { request: job.request, px: job.px, entries }));
+                if windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW(
+                    job.controller as HWND,
+                    crate::app::WM_APP_RING_LOADED,
+                    0,
+                    raw as isize,
+                ) == 0
+                {
+                    drop(Box::from_raw(raw));
+                }
+            }
         }
         if hr >= 0 {
             CoUninitialize();
         }
-    });
+    }
 }
 
 /// Queries `paths` on a worker thread and posts the result to `controller`.
@@ -345,6 +422,25 @@ pub fn default_items() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ring_loader_keeps_only_the_latest_page_and_stops_when_idle() {
+        let mut queue = RingLoadQueue::default();
+        let job = |request| RingLoad { controller: 0, paths: vec![PathBuf::from("fixture.txt")], px: 48, request, revision: 0 };
+        assert!(queue.submit(job(1)));
+        let first = queue.next().unwrap();
+        for request in 2..=1000 {
+            assert!(!queue.submit(job(request)));
+        }
+        assert_ne!(first.revision, queue.revision);
+        let latest = queue.next().unwrap();
+        assert_eq!(latest.request, 1000);
+        queue.cancel();
+        assert_ne!(latest.revision, queue.revision);
+        assert!(queue.next().is_none());
+        assert!(!queue.running);
+        assert!(queue.submit(job(1001)));
+    }
 
     #[test]
     fn placeholder_uses_file_name_and_generic_icon() {

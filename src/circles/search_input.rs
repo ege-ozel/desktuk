@@ -44,8 +44,13 @@ unsafe extern "system" fn keyboard(code: i32, message: WPARAM, data: LPARAM) -> 
                             chars.push(vk as u32);
                         } else {
                             let mut state = [0u8; 256];
-                            for (i, value) in state.iter_mut().enumerate() {
-                                *value = if unsafe { GetAsyncKeyState(i as i32) } < 0 { 0x80 } else { 0 };
+                            unsafe { GetKeyboardState(state.as_mut_ptr()) };
+                            // A low-level hook runs before queued key state updates. Only
+                            // modifiers need async correction; avoid 256 system calls/key.
+                            for modifier in
+                                [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_MENU, VK_LMENU, VK_RMENU]
+                            {
+                                state[modifier as usize] = if down(modifier) { 0x80 } else { 0 };
                             }
                             state[VK_CAPITAL as usize] |= (unsafe { GetKeyState(VK_CAPITAL as i32) } & 1) as u8;
                             state[vk] |= 0x80;

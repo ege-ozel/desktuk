@@ -348,6 +348,10 @@ mod tests {
         geom::mask_disc(s.pixels(), d as usize, d as usize, d as f32 / 2.0);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-circle.bmp"), s.pixels(), d as usize, d as usize);
 
+        circle(&mut s, dpi, "Music", 128, true);
+        geom::mask_disc(s.pixels(), d as usize, d as usize, d as f32 / 2.0);
+        save_bmp(&std::env::temp_dir().join("desktuk-preview-locked.bmp"), s.pixels(), d as usize, d as usize);
+
         let size = 2 * m.ring_r;
         let mut r = Surface::new(size, size).unwrap();
         let labels: Vec<String> = (0..20).map(|i| format!("Song {i:02}.wav")).collect();

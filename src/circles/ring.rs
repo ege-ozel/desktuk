@@ -48,6 +48,7 @@ struct PageSlot {
     /// Shell metadata/icon for `SlotRef::Item` slots.
     item: Option<Item>,
     load_id: u64,
+    loaded: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -72,6 +73,7 @@ struct Ring {
     target: Target,
     refs: Vec<SlotRef>,
     query: String,
+    search_base: Option<(Vec<SlotRef>, usize)>,
     suggestions: Vec<Suggestion>,
     start: usize,
     page: Vec<PageSlot>,
@@ -326,6 +328,7 @@ pub fn open(anchor: HWND, target: Target) {
         target,
         refs,
         query: String::new(),
+        search_base: None,
         suggestions,
         start: 0,
         page: Vec::new(),
@@ -381,6 +384,9 @@ pub fn open(anchor: HWND, target: Target) {
 }
 
 fn spawn_loader(paths: Vec<PathBuf>) {
+    if paths.is_empty() {
+        return;
+    }
     let request = NEXT_LOAD.with(|n| {
         let id = n.get().wrapping_add(1);
         n.set(id);
@@ -391,6 +397,7 @@ fn spawn_loader(paths: Vec<PathBuf>) {
             if let SlotRef::Item(path) = &slot.r {
                 if paths.contains(path) {
                     slot.load_id = request;
+                    slot.loaded = false;
                 }
             }
         }
@@ -410,6 +417,7 @@ pub fn apply_batch(batch: items::RingBatch) {
         for (path, meta, icon) in batch.entries {
             if let Some(slot) = r.page.iter_mut().find(|s| s.load_id == batch.request && s.r == SlotRef::Item(path.clone())) {
                 if let Some(item) = &mut slot.item {
+                    slot.loaded = true;
                     item.apply(meta);
                     item.set_icon(icon, batch.px);
                     any = true;
@@ -429,6 +437,7 @@ pub fn apply_batch(batch: items::RingBatch) {
 /// Destroys the ring immediately (no animation). Safe to call when none is open.
 pub fn close_now() {
     super::search_input::uninstall();
+    items::cancel_ring_loader();
     reset_item_pointer();
     let taken = RING.with(|cell| cell.try_borrow_mut().ok().and_then(|mut g| g.take()));
     if let Some(r) = taken {
@@ -495,7 +504,10 @@ pub fn refresh() {
         let (mut refs, suggestions) = super::slots_for(r.target);
         if !r.query.is_empty() {
             if let Ok(board) = app().board.try_borrow() {
-                refs = view::search_refs(&board, r.target, &super::recent_paths(), &suggestions, &r.query);
+                let len = refs.len();
+                let source = view::search_candidates(&board, r.target, refs);
+                refs = view::filter_refs(&source, &r.query);
+                r.search_base = Some((source, len));
             }
         }
         r.suggestions = suggestions;
@@ -549,25 +561,34 @@ pub fn apply_metas(metas: Vec<(PathBuf, Meta)>) {
 
 /// Builds `page` for the current `start`; returns the item paths whose metadata must load.
 fn load_page(r: &mut Ring) -> Vec<PathBuf> {
+    items::cancel_ring_loader();
     let range = geom::page_range(r.refs.len(), r.start, r.metrics.per_page());
     r.start = range.start;
     r.hover = None;
+    let mut previous = std::mem::take(&mut r.page);
     r.page = r.refs[range]
         .iter()
-        .map(|sr| PageSlot {
-            r: sr.clone(),
-            load_id: 0,
-            item: match sr {
-                SlotRef::Item(p) => Some(Item::placeholder(p.clone())),
-                _ => None,
-            },
+        .map(|sr| {
+            if let Some(index) = previous.iter().position(|s| s.r == *sr) {
+                return previous.swap_remove(index);
+            }
+            PageSlot {
+                r: sr.clone(),
+                load_id: 0,
+                loaded: false,
+                item: match sr {
+                    SlotRef::Item(p) => Some(Item::placeholder(p.clone())),
+                    _ => None,
+                },
+            }
         })
         .collect();
-    r.page.iter().filter_map(|s| s.item.as_ref().map(|i| i.path.clone())).collect()
+    r.page.iter().filter(|s| !s.loaded).filter_map(|s| s.item.as_ref().map(|i| i.path.clone())).collect()
 }
 
 fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
     r.query.clear();
+    r.search_base = None;
     r.target = t;
     let (refs, suggestions) = super::slots_for(t);
     r.refs = refs;
@@ -609,12 +630,22 @@ fn search_char(value: u32) {
                 }
             }
         }
-        let (mut refs, suggestions) = super::slots_for(r.target);
-        if let Ok(board) = app().board.try_borrow() {
-            refs = view::search_refs(&board, r.target, &super::recent_paths(), &suggestions, &r.query);
+        if r.query.is_empty() {
+            if let Some((mut source, original_len)) = r.search_base.take() {
+                source.truncate(original_len);
+                r.refs = source;
+            }
+        } else {
+            if r.search_base.is_none() {
+                let refs = std::mem::take(&mut r.refs);
+                let len = refs.len();
+                let source = if let Ok(board) = app().board.try_borrow() { view::search_candidates(&board, r.target, refs) } else { refs };
+                r.search_base = Some((source, len));
+            }
+            if let Some((source, _)) = &r.search_base {
+                r.refs = view::filter_refs(source, &r.query);
+            }
         }
-        r.refs = refs;
-        r.suggestions = suggestions;
         r.start = 0;
         let paths = load_page(r);
         redraw(r);

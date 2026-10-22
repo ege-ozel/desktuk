@@ -15,7 +15,9 @@
 param(
     [Parameter(Mandatory = $true)][string[]]$Exe,
     [int]$Runs = 3,
-    [int]$IdleSeconds = 15
+    [int]$IdleSeconds = 15,
+    [switch]$CirclesOnly,
+    [switch]$ClosedOnly
 )
 $ErrorActionPreference = 'Stop'
 # `-File` passes `a.exe,b.exe` as one string.
@@ -29,6 +31,14 @@ public static class BenchWin {
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc f, IntPtr l);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    public static IntPtr OpenHeld(uint pid, IntPtr circle) {
+        SendMessage(circle,0x200,IntPtr.Zero,(IntPtr)0x00140014);
+        SendMessage(circle,0x207,(IntPtr)16,(IntPtr)0x00140014);
+        var ring=FindOwn(pid,"DeskTuk.Ring");
+        if (ring==IntPtr.Zero) throw new Exception("No synchronous hover ring");
+        return ring;
+    }
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int left, top, right, bottom; }
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
@@ -81,6 +91,9 @@ $scenarios = @(
     @{ Name = 'circles, ring open (20)';   Config = 'circles-300';   Circles = $true;  Ring = $true }
 )
 
+if ($CirclesOnly) { $scenarios = @($scenarios | Where-Object { $_.Circles }) }
+if ($ClosedOnly) { $scenarios = @($scenarios | Where-Object { -not $_.Ring }) }
+
 function Median($v) { $s = @($v | Sort-Object); if ($s.Count -eq 0) { return '' }; $s[[int][math]::Floor(($s.Count - 1) / 2)] }
 
 $rows = foreach ($sc in $scenarios) {
@@ -99,13 +112,16 @@ $rows = foreach ($sc in $scenarios) {
             $old = $env:APPDATA; $env:APPDATA = $appdata
             $p = Start-Process -FilePath $build -WindowStyle Hidden -ArgumentList @('--no-save', '--allow-multiple', '--log', "`"$log`"") -PassThru
             $env:APPDATA = $old
+            try {
             Start-Sleep -Seconds 4
             $ui = if (Test-Path $log) { (Select-String -Path $log -Pattern 'ui=(\w+)' | Select-Object -First 1 | ForEach-Object { $_.Matches[0].Groups[1].Value }) } else { $null }
             if (-not $ui) { $ui = 'panel' } # v1 does not log a ui line
             if ($sc.Ring -and $ui -eq 'circles') {
                 $h = [BenchWin]::FindOwn([uint32]$p.Id, 'DeskTuk.Circle')
                 if ($h -eq [IntPtr]::Zero) { throw 'benchmark circle was not found' }
-                [void][BenchWin]::PostMessage($h, 0x0200, [IntPtr]::Zero, [IntPtr]0x00140014) # WM_MOUSEMOVE
+                # Keep the pointer-free fixture open with a pending middle press.
+                # No drag threshold is crossed; no physical input is generated.
+                $heldRing=[BenchWin]::OpenHeld([uint32]$p.Id,$h)
                 Start-Sleep -Milliseconds 1500
                 if ([BenchWin]::FindOwn([uint32]$p.Id, 'DeskTuk.Ring') -eq [IntPtr]::Zero) { throw 'benchmark ring did not open' }
             }
@@ -120,7 +136,8 @@ $rows = foreach ($sc in $scenarios) {
                 Start-Sleep -Seconds $IdleSeconds
                 $p.Refresh(); $m.idlecpu += [math]::Round($p.TotalProcessorTime.TotalMilliseconds - $t0, 1)
             }
-            Stop-Process -Id $p.Id -Force; Start-Sleep -Milliseconds 300
+            } finally { if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force } }
+            Start-Sleep -Milliseconds 300
         }
         $ranUi = ($m.ui | Select-Object -Unique) -join ','
         if ($sc.Circles -and $ranUi -ne 'circles') { continue } # this build has no circles UI

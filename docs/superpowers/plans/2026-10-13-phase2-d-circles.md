@@ -993,16 +993,6 @@ when the ring closes. Keep other applications' shortcuts/focus intact.
 - [x] Implement transient hover keyboard input, ranked filtering and query feedback.
 - [x] Verify ranking/reset behavior and required Windows MSVC checks; commit/push.
 
-### D42: Reliable dragging, shared menus and consistent circle appearance
-
-Owner request (2026-10-22): smooth middle dragging near taskbar/at speed, expose
-circle-wide commands in the dock context menu, visibly mark locked circles and
-use the same distinct centre/outer colors for Recent and ordinary rings.
-
-- [x] Preserve the visible grab position and coalesce circle pointer input.
-- [x] Share global commands with the dock; render a static gradient/lock state.
-- [x] Verify required Windows MSVC checks and relevant isolated fixtures; commit/push.
-
 D41 evidence: Windows MSVC fmt/release Clippy/tests pass (72 passed, 2 ignored).
 Ranking tests cover prefix-before-substring, stable existing order, grouped files,
 case/Unicode names, empty/no-match query and unchanged board serialization.
@@ -1016,17 +1006,15 @@ Unicode layout translation supports ordinary Turkish typing, not an IME editor.
 The sandbox initially denied the existing isolated registry test; the full required
 suite passed with sandbox elevation. No user files/startup settings changed.
 
-### D43: Keep typing, sorting and icon work bounded
+### D42: Reliable dragging, shared menus and consistent circle appearance
 
-Owner follow-up (2026-10-22): lightweight behavior is an acceptance constraint.
-Avoid repeated ranking sorts, repeated Recent enumeration/suggestions while typing,
-reloading unchanged page icons and multiple concurrent shell workers. Keep idle
-CPU/timers/threads unchanged; record measured checks separately from physical feel.
+Owner request (2026-10-22): smooth middle dragging near taskbar/at speed, expose
+circle-wide commands in the dock context menu, visibly mark locked circles and
+use the same distinct centre/outer colors for Recent and ordinary rings.
 
-- [ ] Use linear stable prefix/substring ranks and reuse page items/icons.
-- [ ] Coalesce shell requests in a single temporary worker; discard obsolete work.
-- [ ] Remove quadratic Added-sort lookups without changing ordering semantics.
-- [ ] Verify stress/correctness and required Windows MSVC checks; commit/push.
+- [x] Preserve the visible grab position and coalesce circle pointer input.
+- [x] Share global commands with the dock; render a static gradient/lock state.
+- [x] Verify required Windows MSVC checks and relevant isolated fixtures; commit/push.
 
 D42 evidence: Windows MSVC fmt/release Clippy/tests/build pass (73 passed, 2 ignored).
 Grid=3/topmost TEMP native fixture passes shifted-centre free movement/snap,
@@ -1046,3 +1034,58 @@ Dock right-click shares New circle/Grid/Desktop/Exit commands and exposes each
 circle's group/rename/delete/sort commands under Cemberler. Lock adds a static
 periwinkle/mint rim plus the existing antialiased small lock, with no idle timer.
 Recent uses the ordinary dark outer area and lighter centre.
+
+### D43: Keep typing, sorting and icon work bounded
+
+Owner follow-up (2026-10-22): lightweight behavior is an acceptance constraint.
+Avoid repeated ranking sorts, repeated Recent enumeration/suggestions while typing,
+reloading unchanged page icons and multiple concurrent shell workers. Keep idle
+CPU/timers/threads unchanged; record measured checks separately from physical feel.
+
+- [x] Use linear stable prefix/substring ranks and reuse page items/icons.
+- [x] Coalesce shell requests in a single temporary worker; discard obsolete work.
+- [x] Remove quadratic Added-sort lookups without changing ordering semantics.
+- [x] Verify stress/correctness and required Windows MSVC checks; commit/push.
+
+D43 evidence: final Windows x86_64-pc-windows-msvc fmt/release Clippy with warnings
+denied/tests/build pass (76 passed, 2 intentionally ignored). Tests include 10,000
+stable ranked matches, Turkish I/Idot tolerance, 1,000 coalesced worker requests,
+cancellation/idle exit, Added-sort ASCII-case/first-rank/stable-unknown semantics.
+Search takes one transient candidate snapshot, filters names without disk/metadata
+queries or ranking sorts, and releases the snapshot on clear/target change/close.
+Page changes reuse loaded icons; incomplete loads are reissued with current request
+IDs. One temporary worker holds only the newest pending page, checks cancellation
+between shell calls and exits after its queue drains. No new dependency/idle timer.
+Keyboard translation corrects only modifiers, replacing 256 async key-state calls
+per character with one keyboard-state read and bounded modifier reads.
+
+Final Grid=3/topmost and item transfer/reorder/group/Back/Recent/cancel native
+fixtures both pass, reference hashes unchanged. Earlier item fixture interruptions
+(closing before press or fallback pointer routing before synthetic release) also
+reproduced on D40; the final isolated run passes on D43. The original physical
+high-speed mouse/hover/keyboard/IME acceptance checks remain unperformed. The
+locked-circle raster preview was inspected: small top-right lock, legible text,
+static mint/periwinkle rim and smooth boundary. Full physical feel is not inferred.
+
+Three-run closed-circle benchmark medians, 3-second idle windows, old installed
+D40 vs final D43 (target/d43-perf/memory-closed.txt):
+
+| Scenario | D40 commit KB | D43 commit KB | D40/D43 private WS KB | Modules | Handles | Idle CPU ms |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| Recent only | 2268 | 2272 | 148 / 136 | 32 / 32 | 156 / 156 | 0 / 0 |
+| Five circles, 300 references | 2540 | 2572 | 144 / 140 | 32 / 32 | 156 / 156 | 0 / 0 |
+
+The commit increases are 4 KB and 32 KB; both remain below the recorded v1 idle
+panel commit baseline (~4644 KB). Open-ring benchmark attempts were interrupted by
+pointer-free fixture dismissal, so no open-ring memory figure is claimed. The
+benchmark now offers CirclesOnly/ClosedOnly and terminates test processes on error.
+No user's files, attributes, Desktop entries or startup preferences were changed.
+
+Updated both the workspace's ignored DeskTuk.exe (previously running D39) and the
+canonical installed EXE via normal controller shutdown/restart; launched installed
+PID 7160. Configuration was byte-identical across restart. Previous binaries and
+config snapshot: target/d43-perf/. Installed/release SHA256:
+752B2694EC6A0392FFFF0584A8D1B985164CA8D939A5F48A5EEDF5448D9542DF.
+Rebuilt installer: dist/DeskTuk-0.1.0-Setup-x64.exe, SHA256:
+EB3B30A84469184BA71A61A663A3ED29EDF8BB1F6233D5D10F1FC70D51D07C99.
+D40 CI 39280110892 passed. D41-D43 CI runs on push; not claimed passed locally.

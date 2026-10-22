@@ -41,29 +41,47 @@ pub fn slot_refs(board: &Board, target: Target, recent: &[PathBuf], suggestions:
     }
 }
 
-/// Search names only; stable ranks keep the owner's current sort/manual order.
-/// Circle searches also include references inside its groups.
-pub fn search_refs(board: &Board, target: Target, recent: &[PathBuf], suggestions: &[Suggestion], query: &str) -> Vec<SlotRef> {
-    if query.is_empty() {
-        return slot_refs(board, target, recent, suggestions);
-    }
-    let mut refs = slot_refs(board, target, recent, &[]);
+/// Snapshot candidates only when search begins (or references change).
+pub fn search_candidates(board: &Board, target: Target, mut refs: Vec<SlotRef>) -> Vec<SlotRef> {
     if let Target::Circle(ci) = target {
         if let Some(c) = board.circles.get(ci) {
             refs.extend(c.groups.iter().flat_map(|g| g.items.iter().cloned().map(SlotRef::Item)));
         }
     }
-    let query = query.to_lowercase();
-    let mut matches: Vec<_> = refs
-        .into_iter()
-        .filter_map(|slot| {
-            let SlotRef::Item(path) = &slot else { return None };
-            let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().to_lowercase();
-            name.find(&query).map(|offset| (usize::from(offset != 0), slot))
-        })
-        .collect();
-    matches.sort_by_key(|(rank, _)| *rank);
-    matches.into_iter().map(|(_, slot)| slot).collect()
+    refs
+}
+
+/// Two stable ranks in O(n), without sorting or cloning non-matching paths.
+fn search_key(text: &str) -> String {
+    // Tolerate both Turkish I forms without allocating a second normalized string.
+    text.chars().map(|c| if matches!(c, '\u{130}' | '\u{131}') { 'i' } else { c }).flat_map(char::to_lowercase).collect()
+}
+
+pub fn filter_refs(refs: &[SlotRef], query: &str) -> Vec<SlotRef> {
+    let query = search_key(query);
+    let mut prefixes = Vec::new();
+    let mut substrings = Vec::new();
+    for slot in refs {
+        let SlotRef::Item(path) = slot else { continue };
+        let name = search_key(&path.file_name().unwrap_or(path.as_os_str()).to_string_lossy());
+        match name.find(&query) {
+            Some(0) => prefixes.push(slot.clone()),
+            Some(_) => substrings.push(slot.clone()),
+            None => {}
+        }
+    }
+    prefixes.extend(substrings);
+    prefixes
+}
+
+#[cfg(test)]
+fn search_refs(board: &Board, target: Target, recent: &[PathBuf], suggestions: &[Suggestion], query: &str) -> Vec<SlotRef> {
+    let refs = slot_refs(board, target, recent, suggestions);
+    if query.is_empty() {
+        refs
+    } else {
+        filter_refs(&search_candidates(board, target, refs), query)
+    }
 }
 
 pub fn title(board: &Board, target: Target) -> String {
@@ -112,6 +130,18 @@ mod tests {
     }
 
     #[test]
+    fn search_large_lists_keep_rank_order_without_touching_directories() {
+        let refs: Vec<_> =
+            (0..10_000).map(|i| SlotRef::Item(p(&format!("{}-{i:05}.txt", if i % 2 == 0 { "ab" } else { "x-ab" })))).collect();
+        let found = filter_refs(&refs, "AB");
+        assert_eq!(found.len(), 10_000);
+        assert_eq!(found[0], refs[0]);
+        assert_eq!(found[4999], refs[9998]);
+        assert_eq!(found[5000], refs[1]);
+        assert_eq!(found[9999], refs[9999]);
+    }
+
+    #[test]
     fn search_ranks_prefixes_stably_and_includes_groups_without_mutation() {
         let mut b = board();
         b.circles[0].items = vec![p("xxAB.wav"), p("abZ.wav"), p("AbA.wav"), p("other.wav")];
@@ -125,6 +155,8 @@ mod tests {
         assert_eq!(search_refs(&b, Target::Circle(0), &[], &[], ""), slot_refs(&b, Target::Circle(0), &[], &[]));
         assert_eq!(search_refs(&b, Target::Group(0, 0), &[], &[], "ab"), vec![SlotRef::Item(p("group-ab.wav"))]);
         assert_eq!(search_refs(&b, Target::Recent, &[p("Ödev.txt")], &[], "öD"), vec![SlotRef::Item(p("Ödev.txt"))]);
+        assert_eq!(filter_refs(&[SlotRef::Item(p("\u{130}sim.txt"))], "is"), vec![SlotRef::Item(p("\u{130}sim.txt"))]);
+        assert_eq!(filter_refs(&[SlotRef::Item(p("I\u{15e}IK.txt"))], "\u{131}\u{15f}"), vec![SlotRef::Item(p("I\u{15e}IK.txt"))]);
         assert_eq!(b.render(), before);
     }
 

@@ -269,14 +269,22 @@ impl Board {
 
     /// One-shot sorting uses path strings only, never file metadata or shell calls.
     pub fn sort_items(&mut self, place: Place, order: SortOrder) -> bool {
-        let added = self.added_order.clone();
+        let added = if matches!(order, SortOrder::Added) {
+            let mut ranks = std::collections::HashMap::with_capacity(self.added_order.len());
+            for (index, path) in self.added_order.iter().enumerate() {
+                ranks.entry(path.as_os_str().to_ascii_lowercase()).or_insert(index);
+            }
+            ranks
+        } else {
+            std::collections::HashMap::new()
+        };
         let Some(items) = self.items_at_mut(place) else { return false };
         let old = items.clone();
         let name = |p: &Path| p.file_name().unwrap_or(p.as_os_str()).to_string_lossy().to_lowercase();
         match order {
             SortOrder::Name => items.sort_by_cached_key(|p| (name(p), p.to_string_lossy().to_lowercase())),
             SortOrder::Type => items.sort_by_cached_key(|p| (p.extension().unwrap_or_default().to_string_lossy().to_lowercase(), name(p))),
-            SortOrder::Added => items.sort_by_cached_key(|p| added.iter().position(|a| same_path(a, p)).unwrap_or(usize::MAX)),
+            SortOrder::Added => items.sort_by_cached_key(|p| added.get(&p.as_os_str().to_ascii_lowercase()).copied().unwrap_or(usize::MAX)),
         }
         *items != old
     }
@@ -441,6 +449,18 @@ mod tests {
             }
         }
         b
+    }
+
+    #[test]
+    fn added_sort_uses_first_ascii_case_insensitive_rank_and_stable_unknowns() {
+        let mut b = Board::default();
+        let ci = b.add_circle("Music", (0, 0));
+        let paths: Vec<_> = ["unknown-b", "B.txt", "a.TXT", "unknown-a"].map(PathBuf::from).into();
+        b.circles[ci].items = paths.clone();
+        b.added_order = ["A.txt", "b.TXT", "a.txt"].map(PathBuf::from).into();
+        assert!(b.sort_items(Place::Circle(ci), SortOrder::Added));
+        assert_eq!(b.circles[ci].items, [paths[2].clone(), paths[1].clone(), paths[0].clone(), paths[3].clone()]);
+        assert!(!b.sort_items(Place::Circle(ci), SortOrder::Added));
     }
 
     #[test]
