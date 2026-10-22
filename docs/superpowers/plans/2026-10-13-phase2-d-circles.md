@@ -1110,8 +1110,8 @@ Ease menu expand/collapse, lock changes and hover feedback. Animations are short
 reversible, event-driven and stop at endpoints; no new dependencies/idle polling.
 Owner defers tests until after manual assessment; run only format/static/build now.
 
-- [ ] Implement layout/padding, hover treatment and transient eased animations.
-- [ ] Format/static-check/build, commit/push and update running app/installer.
+- [x] Implement layout/padding, hover treatment and transient eased animations.
+- [x] Format/static-check/build, commit/push and update running app/installer.
 - [ ] Owner manual acceptance, then automated/runtime checks when requested.
 
 D44 implementation: both numeric labels use the open ring's regular 100% font.
@@ -1123,3 +1123,38 @@ pass. Owner expressly deferred tests; no cargo test/native/screen test was run.
 Commit uses [skip ci] to preserve owner-first manual acceptance. Final deployment
 follows D45 so both visual changes are delivered together. D43 CI status is not
 refreshed here; no new CI/test pass is asserted.
+
+D45 delivery (2026-10-22): left lock/right menu controls exist in both panel modes.
+Controls are borderless at rest with rounded 120ms eased hover fills. Bottom list
+padding is 8 DIP and is included in work-area fit calculations. Panel dimensions,
+visibility-tile position and both header control positions interpolate over 190ms
+with ease-out cubic; reversing samples the current visible geometry. The top edge
+is retained across collapse/expand unless the expanded window would exceed the
+work area. Moving the dock returns it to its taskbar rail; drag cancellation
+restores the mode-specific top anchor as well as the saved position. Tray/menu
+show recovery uses the same eased expansion. Header logo gives its space to the
+left lock; original icon resources and the central visibility glyph are unchanged.
+
+Lock changes crossfade cached open/closed glyph coverage with the current hover
+background; a reused 20-DIP frame avoids per-frame bitmap allocation. Panel backing
+buffer allocates at the transition's maximum size and shrinks at completion.
+Row/control hover reversals sample current intensities, and the visibility dwell
+fill now uses the same easing family. One 16ms UI timer runs only during the
+120/190ms transitions, is killed on completion/cancellation/destruction and ignores
+queued inactive ticks. No new dependency, thread, persistence key or idle polling.
+
+Only cargo fmt, cargo clippy --release --locked -- -D warnings and cargo build
+--release --locked were run. All pass. At owner's explicit instruction, no cargo
+test, native fixture, screenshot/Playwright interaction or benchmark was run.
+D44/D45 commits carry [skip ci] to avoid automatic test runs before owner manual
+acceptance. Existing native fixture header coordinates/immediate resize assertions
+will need adapting when the owner requests subsequent automated checks. Appearance,
+feel, alignment at all monitor edges/DPIs and timer/resource behavior are proposed
+implementation behavior, not runtime test evidence. Manual acceptance remains open.
+
+Installed the compiled D44/D45 release for owner testing via normal controller
+shutdown/restart (PID 2212), updating both installed and ignored workspace EXEs.
+Config hash unchanged across restart. Backups: target/d45-delivery/. Release SHA256:
+6FDCFC2AB66DFE521A66B9F075BC892DE9DB7EA65AE5B7051CE0FC4EE0F47814.
+Rebuilt dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+797AA163CBEE01556B9118D0C3D32AABFFB0D2B0A343D4245307EEDC226E3E9A.

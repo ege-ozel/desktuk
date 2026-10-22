@@ -38,6 +38,63 @@ const GAP: i32 = 4;
 const ROW_H: i32 = 28;
 const ACTION_TIMER: usize = 1;
 const ACTION_DWELL_MS: u32 = 300;
+const UI_TIMER: usize = 2;
+const UI_MS: f64 = 190.0;
+
+#[derive(Clone, Copy)]
+struct Ease {
+    from: f32,
+    to: f32,
+    start: f64,
+}
+impl Ease {
+    fn value(self, now: f64) -> f32 {
+        self.from + (self.to - self.from) * circles::geom::ease_out_cubic((now - self.start) / UI_MS) as f32
+    }
+    fn done(self, now: f64) -> bool {
+        now - self.start >= UI_MS
+    }
+}
+
+#[derive(Clone, Copy)]
+struct PanelEase {
+    from: RECT,
+    to: RECT,
+    action: (RECT, RECT),
+    lock: (RECT, RECT),
+    menu: (RECT, RECT),
+    start: f64,
+}
+impl PanelEase {
+    fn amount(self) -> f32 {
+        circles::geom::ease_out_cubic((crate::diag::since_start_ms() - self.start) / UI_MS) as f32
+    }
+}
+fn mix_rect(a: RECT, b: RECT, t: f32) -> RECT {
+    let mix = |x: i32, y: i32| (x as f32 + (y - x) as f32 * t).round() as i32;
+    win::rect(mix(a.left, b.left), mix(a.top, b.top), mix(a.right, b.right), mix(a.bottom, b.bottom))
+}
+#[derive(Clone, Copy)]
+struct HoverEase<const N: usize> {
+    from: [f32; N],
+    to: [f32; N],
+    start: f64,
+}
+impl<const N: usize> HoverEase<N> {
+    fn value(self, now: f64) -> [f32; N] {
+        let t = circles::geom::ease_out_cubic((now - self.start) / 120.0) as f32;
+        std::array::from_fn(|i| self.from[i] + (self.to[i] - self.from[i]) * t)
+    }
+    fn done(self, now: f64) -> bool {
+        now - self.start >= 120.0
+    }
+}
+struct LockFrames {
+    size: i32,
+    open: circles::surface::Surface,
+    closed: circles::surface::Surface,
+    frame: circles::surface::Surface,
+}
 
 #[derive(Clone, Copy)]
 enum Entry {
@@ -54,6 +111,13 @@ struct VisibilityKey {
 }
 
 thread_local! {
+    static TOP_ANCHOR: Cell<Option<i32>> = const { Cell::new(None) };
+    static PANEL_EASE: Cell<Option<PanelEase>> = const { Cell::new(None) };
+    static LOCK_EASE: Cell<Option<Ease>> = const { Cell::new(None) };
+    static HEADER_HOVER: Cell<u8> = const { Cell::new(0) };
+    static CONTROL_EASE: Cell<Option<HoverEase<2>>> = const { Cell::new(None) };
+    static ROW_EASE: Cell<Option<HoverEase<MAX_ROWS>>> = const { Cell::new(None) };
+    static LOCK_FRAMES: RefCell<Option<LockFrames>> = const { RefCell::new(None) };
     static POSITION: Cell<Option<(i32,i32)>> = const { Cell::new(None) };
     static EXPANDED: Cell<bool> = const { Cell::new(true) };
     static WINDOW: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
@@ -109,10 +173,12 @@ pub fn locked() -> bool {
 }
 
 fn toggle_lock(hwnd: HWND) {
+    let now = crate::diag::since_start_ms();
+    let from = LOCK_EASE.get().map_or(f32::from(locked()), |a| a.value(now));
     cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
     ACTION_HOVER.set(false);
-    HOVER_ROW.set(-1);
+    set_row_hover(hwnd, -1, unsafe { GetDpiForWindow(hwnd) }.max(96));
     let changed = if let Ok(mut board) = app::app().board.try_borrow_mut() {
         board.dock_locked = !board.dock_locked;
         true
@@ -120,6 +186,8 @@ fn toggle_lock(hwnd: HWND) {
         false
     };
     if changed {
+        LOCK_EASE.set(Some(Ease { from, to: f32::from(locked()), start: now }));
+        start_ui(hwnd);
         circles::ring::close_now();
         app::app().save_config();
         if circles::any_visible() {
@@ -157,42 +225,152 @@ fn cancel_dwell(hwnd: HWND) {
     unsafe { InvalidateRect(hwnd, &rect, 0) };
 }
 
-fn lock_rect(dpi: u32) -> RECT {
-    if EXPANDED.get() {
-        win::rect(scale(103, dpi), scale(9, dpi), scale(125, dpi), scale(31, dpi))
+fn mode_lock(dpi: u32, expanded: bool) -> RECT {
+    if expanded {
+        win::rect(scale(6, dpi), scale(9, dpi), scale(28, dpi), scale(31, dpi))
     } else {
-        win::rect(scale(43, dpi), scale(1, dpi), scale(63, dpi), scale(21, dpi))
+        win::rect(scale(2, dpi), scale(1, dpi), scale(22, dpi), scale(21, dpi))
     }
 }
-
+fn lock_rect(dpi: u32) -> RECT {
+    PANEL_EASE.get().map_or_else(|| mode_lock(dpi, EXPANDED.get()), |a| mix_rect(a.lock.0, a.lock.1, a.amount()))
+}
+fn mode_menu(dpi: u32, expanded: bool) -> RECT {
+    let width = if expanded { expanded_width(dpi) } else { scale(ACTION_SIZE + 2 * PAD, dpi) };
+    if expanded {
+        win::rect(width - scale(28, dpi), scale(9, dpi), width - scale(6, dpi), scale(31, dpi))
+    } else {
+        win::rect(width - scale(22, dpi), scale(1, dpi), width - scale(2, dpi), scale(21, dpi))
+    }
+}
+fn arrow_rect(dpi: u32) -> RECT {
+    PANEL_EASE.get().map_or_else(|| mode_menu(dpi, EXPANDED.get()), |a| mix_rect(a.menu.0, a.menu.1, a.amount()))
+}
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
     if !EXPANDED.get() {
         let side = scale(ACTION_SIZE + PAD * 2, dpi);
         return (side, side);
     }
     let visible = visible_row_count(dpi, count) as i32;
-    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H, dpi))
+    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H + PAD, dpi))
 }
-
-fn action_rect(dpi: u32) -> RECT {
+fn mode_action(dpi: u32, expanded: bool) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
-    let left = if EXPANDED.get() { (expanded_width(dpi) - size) / 2 } else { scale(PAD, dpi) };
-    let top = scale(if EXPANDED.get() { HEADER_H + GAP } else { PAD }, dpi);
+    let left = if expanded { (expanded_width(dpi) - size) / 2 } else { scale(PAD, dpi) };
+    let top = scale(if expanded { HEADER_H + GAP } else { PAD }, dpi);
     win::rect(left, top, left + size, top + size)
 }
-
-fn arrow_rect(dpi: u32) -> RECT {
-    let width = expanded_width(dpi);
-    win::rect(width - scale(26, dpi), 0, width, scale(HEADER_H, dpi))
+fn action_rect(dpi: u32) -> RECT {
+    PANEL_EASE.get().map_or_else(|| mode_action(dpi, EXPANDED.get()), |a| mix_rect(a.action.0, a.action.1, a.amount()))
 }
-
+fn start_ui(hwnd: HWND) {
+    unsafe { SetTimer(hwnd, UI_TIMER, 16, None) };
+}
 fn set_expanded(hwnd: HWND, expanded: bool) {
+    if EXPANDED.get() == expanded {
+        return;
+    }
+    let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
+    let from = win::window_rect(hwnd);
+    let from_action = action_rect(dpi);
+    let from_lock = lock_rect(dpi);
+    let from_menu = arrow_rect(dpi);
+    PANEL_EASE.set(None);
     EXPANDED.set(expanded);
+    TOP_ANCHOR.set(Some(from.top));
     cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
     ACTION_HOVER.set(false);
-    HOVER_ROW.set(-1);
-    place(hwnd);
+    set_row_hover(hwnd, -1, dpi);
+    let to = placement(hwnd);
+    TOP_ANCHOR.set(Some(to.top));
+    PANEL_EASE.set(Some(PanelEase {
+        from,
+        to,
+        action: (from_action, mode_action(dpi, expanded)),
+        lock: (from_lock, mode_lock(dpi, expanded)),
+        menu: (from_menu, mode_menu(dpi, expanded)),
+        start: crate::diag::since_start_ms(),
+    }));
+    start_ui(hwnd);
+    unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+}
+fn control_at(dpi: u32, point: POINT) -> u8 {
+    if win::rect_contains(&lock_rect(dpi), point) {
+        1
+    } else if win::rect_contains(&arrow_rect(dpi), point) {
+        2
+    } else {
+        0
+    }
+}
+fn control_weights(now: f64) -> [f32; 2] {
+    CONTROL_EASE.get().map_or_else(|| std::array::from_fn(|i| f32::from(HEADER_HOVER.get() == i as u8 + 1)), |a| a.value(now))
+}
+fn set_control_hover(hwnd: HWND, next: u8) {
+    if HEADER_HOVER.get() == next {
+        return;
+    }
+    let now = crate::diag::since_start_ms();
+    let from = control_weights(now);
+    HEADER_HOVER.set(next);
+    CONTROL_EASE.set(Some(HoverEase { from, to: std::array::from_fn(|i| f32::from(next == i as u8 + 1)), start: now }));
+    start_ui(hwnd);
+}
+fn row_weights(now: f64) -> [f32; MAX_ROWS] {
+    ROW_EASE.get().map_or_else(|| std::array::from_fn(|i| f32::from(HOVER_ROW.get() == (SCROLL.get() + i) as isize)), |a| a.value(now))
+}
+fn set_row_hover(hwnd: HWND, next: isize, _dpi: u32) {
+    if HOVER_ROW.get() == next {
+        return;
+    }
+    let now = crate::diag::since_start_ms();
+    let from = row_weights(now);
+    HOVER_ROW.set(next);
+    ROW_EASE.set(Some(HoverEase { from, to: std::array::from_fn(|i| f32::from(next == (SCROLL.get() + i) as isize)), start: now }));
+    start_ui(hwnd);
+}
+fn ui_tick(hwnd: HWND) {
+    if PANEL_EASE.get().is_none() && LOCK_EASE.get().is_none() && CONTROL_EASE.get().is_none() && ROW_EASE.get().is_none() {
+        unsafe { KillTimer(hwnd, UI_TIMER) };
+        return;
+    }
+    let now = crate::diag::since_start_ms();
+    let mut active = false;
+    if let Some(a) = PANEL_EASE.get() {
+        let done = now - a.start >= UI_MS;
+        let rect = if done { a.to } else { mix_rect(a.from, a.to, a.amount()) };
+        if done {
+            PANEL_EASE.set(None);
+        } else {
+            active = true;
+        }
+        unsafe { SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE) };
+    }
+    if let Some(a) = LOCK_EASE.get() {
+        if a.done(now) {
+            LOCK_EASE.set(None);
+        } else {
+            active = true;
+        }
+    }
+    if let Some(a) = CONTROL_EASE.get() {
+        if a.done(now) {
+            CONTROL_EASE.set(None);
+        } else {
+            active = true;
+        }
+    }
+    if let Some(a) = ROW_EASE.get() {
+        if a.done(now) {
+            ROW_EASE.set(None);
+        } else {
+            active = true;
+        }
+    }
+    if !active {
+        unsafe { KillTimer(hwnd, UI_TIMER) };
+    }
     unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
 }
 
@@ -205,7 +383,7 @@ fn row_rect(dpi: u32, index: usize) -> RECT {
 fn visible_row_count(dpi: u32, count: usize) -> usize {
     let work = work_area();
     let row = scale(ROW_H, dpi).max(1);
-    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi);
+    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + GAP + PAD, dpi);
     let available = (work.bottom - work.top - fixed).max(0);
     let fit = (available / row) as usize;
     count.min(MAX_ROWS).min(fit.max(1))
@@ -231,22 +409,49 @@ fn bounds(r: RECT) -> dock_layout::Bounds {
     (r.left, r.top, r.right, r.bottom)
 }
 
-fn place(hwnd: HWND) {
+fn placement(hwnd: HWND) -> RECT {
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let size = dimensions(dpi, rows().len());
     let (monitor, work) = monitor_area();
     let at = POSITION.get().unwrap_or((work.right, work.top + (work.bottom - work.top) / 2));
     let edge = dock_layout::edge(bounds(monitor), bounds(work), at);
-    let action = action_rect(dpi);
-    let (x, y) = dock_layout::position(bounds(work), edge, at, size, scale(12, dpi), (action.top + action.bottom) / 2);
-    unsafe {
-        SetWindowPos(hwnd, HWND_TOPMOST, x, y, size.0, size.1, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    let action = mode_action(dpi, EXPANDED.get());
+    let (x, mut y) = dock_layout::position(bounds(work), edge, at, size, scale(12, dpi), (action.top + action.bottom) / 2);
+    if let Some(top) = TOP_ANCHOR.get() {
+        let min = (work.top + scale(12, dpi)).min((work.bottom - size.1).max(work.top));
+        let max = (work.bottom - size.1 - scale(12, dpi)).max(min);
+        y = top.clamp(min, max);
     }
+    win::rect(x, y, x + size.0, y + size.1)
 }
-
-pub fn move_anchor(hwnd: HWND, at: Option<(i32, i32)>) {
+fn place(hwnd: HWND) {
+    if PANEL_EASE.get().is_some() {
+        return;
+    }
+    let rect = placement(hwnd);
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+    };
+}
+pub fn current_top_anchor() -> Option<i32> {
+    TOP_ANCHOR.get()
+}
+pub fn restore_anchor(hwnd: HWND, at: Option<(i32, i32)>, top: Option<i32>) {
+    PANEL_EASE.set(None);
+    TOP_ANCHOR.set(top);
     POSITION.set(at);
     place(hwnd);
+}
+pub fn move_anchor(hwnd: HWND, at: Option<(i32, i32)>) {
+    restore_anchor(hwnd, at, None);
 }
 
 pub fn save_position() {
@@ -358,11 +563,14 @@ pub fn create() {
 }
 
 pub fn show() {
-    EXPANDED.set(true);
     WINDOW.with(|window| {
         let hwnd = window.get();
         if !hwnd.is_null() && unsafe { IsWindow(hwnd) } != 0 {
-            place(hwnd);
+            if EXPANDED.get() {
+                place(hwnd);
+            } else {
+                set_expanded(hwnd, true);
+            }
             unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
         }
     });
@@ -511,6 +719,7 @@ fn visibility_surface(size: i32, dpi: u32, visible: bool, progress: Option<f32>,
     Some(surface)
 }
 
+#[cfg(test)]
 pub(crate) fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<circles::surface::Surface> {
     lock_surface_tint(size, color, is_locked, if is_locked { TEAL } else { SUBTEXT })
 }
@@ -563,13 +772,50 @@ fn lock_distance(px: f32, py: f32, closed: bool) -> f32 {
     body.min(arc).min(left).min(right).min(key)
 }
 
-unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, is_locked: bool) {
+unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, phase: f32, background: u32) {
     let side = scale(20, dpi);
-    let color = if EXPANDED.get() { ROW_HOVER } else { BG };
-    if let Some(surface) = lock_surface(side, color, is_locked) {
-        use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
-        BitBlt(dc, (r.left + r.right - side) / 2, (r.top + r.bottom - side) / 2, side, side, surface.dc(), 0, 0, SRCCOPY);
-    }
+    LOCK_FRAMES.with(|slot| {
+        let mut cache = slot.borrow_mut();
+        if cache.as_ref().is_none_or(|c| c.size != side) {
+            *cache = (|| {
+                Some(LockFrames {
+                    size: side,
+                    open: lock_surface_tint(side, 0, false, 0x00ff_ffff)?,
+                    closed: lock_surface_tint(side, 0, true, 0x00ff_ffff)?,
+                    frame: circles::surface::Surface::new(side, side)?,
+                })
+            })();
+        }
+        if let Some(c) = cache.as_mut() {
+            let open = c.open.pixels();
+            let closed = c.closed.pixels();
+            let frame = c.frame.pixels();
+            for ((out, a), b) in frame.iter_mut().zip(open.iter()).zip(closed.iter()) {
+                let oa = (*a & 255) as f32 / 255.0 * (1.0 - phase);
+                let ca = (*b & 255) as f32 / 255.0 * phase;
+                let channel = |shift: u32| {
+                    (((background >> shift) & 255) as f32 * (1.0 - oa - ca)
+                        + ((SUBTEXT >> shift) & 255) as f32 * oa
+                        + ((TEAL >> shift) & 255) as f32 * ca)
+                        .round() as u32
+                };
+                *out = 0xff00_0000 | channel(0) << 16 | channel(8) << 8 | channel(16);
+            }
+            unsafe {
+                windows_sys::Win32::Graphics::Gdi::BitBlt(
+                    dc,
+                    (r.left + r.right - side) / 2,
+                    (r.top + r.bottom - side) / 2,
+                    side,
+                    side,
+                    c.frame.dc(),
+                    0,
+                    0,
+                    windows_sys::Win32::Graphics::Gdi::SRCCOPY,
+                )
+            };
+        }
+    });
 }
 
 fn paint(hwnd: HWND) {
@@ -580,8 +826,11 @@ fn paint(hwnd: HWND) {
     // Own the buffer locally: painting/layout may pump messages, so no RefCell
     // borrow may span the render. Reuse its allocation until the client resizes.
     let mut buffer = PAINT_BUFFER.with(|slot| slot.borrow_mut().take());
-    if buffer.as_ref().is_none_or(|s| s.w != client.right || s.h != client.bottom) {
-        buffer = circles::surface::Surface::new(client.right, client.bottom);
+    let (buffer_w, buffer_h) = PANEL_EASE.get().map_or((client.right, client.bottom), |a| {
+        ((a.from.right - a.from.left).max(a.to.right - a.to.left), (a.from.bottom - a.from.top).max(a.to.bottom - a.to.top))
+    });
+    if buffer.as_ref().is_none_or(|s| s.w != buffer_w || s.h != buffer_h) {
+        buffer = circles::surface::Surface::new(buffer_w, buffer_h);
     }
     let hdc = buffer.as_ref().map_or(window_dc, |s| s.dc());
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
@@ -594,52 +843,39 @@ fn paint(hwnd: HWND) {
 
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
-    let hover = unsafe { CreateSolidBrush(ROW_HOVER) };
     let switch_on = circles::any_visible();
     let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
-    let header_tile = win::rect(0, 0, client.right, header_h);
     let switch_rect = action_rect(dpi);
     let switch_bottom = switch_rect.bottom;
     let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
-        if EXPANDED.get() {
-            FillRect(hdc, &header_tile, hover);
-        }
         FrameRect(hdc, &border, accent);
         SetBkMode(hdc, TRANSPARENT as i32);
         if EXPANDED.get() {
-            let mark = LoadImageW(
-                GetModuleHandleW(std::ptr::null()),
-                std::ptr::without_provenance(1),
-                IMAGE_ICON,
-                scale(32, dpi),
-                scale(32, dpi),
-                LR_SHARED,
-            );
-            if !mark.is_null() {
-                DrawIconEx(hdc, scale(6, dpi), scale(4, dpi), mark, scale(32, dpi), scale(32, dpi), 0, std::ptr::null_mut(), DI_NORMAL);
-            }
             let heading_font = crate::theme::font(dpi, true, 100);
             if !heading_font.is_null() {
                 SelectObject(hdc, heading_font);
             }
             SetTextColor(hdc, TEXT);
             let mut title = win::wide("DeskTuk");
-            let mut title_rect = win::rect(scale(42, dpi), scale(2, dpi), lock_rect(dpi).left - scale(2, dpi), header_h - scale(2, dpi));
+            let mut title_rect = win::rect(
+                lock_rect(dpi).right + scale(6, dpi),
+                scale(2, dpi),
+                arrow_rect(dpi).left - scale(4, dpi),
+                header_h - scale(2, dpi),
+            );
             DrawTextW(hdc, title.as_mut_ptr(), -1, &mut title_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             SelectObject(hdc, if font.is_null() { old_font } else { font });
             if !heading_font.is_null() {
                 DeleteObject(heading_font);
             }
-            let mut arrow = win::wide("⌄");
-            let mut arrow_area = arrow_rect(dpi);
-            DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
         let is_locked = locked();
-        let progress =
-            ACTION_START.get().map(|start| ((crate::diag::since_start_ms() - start) / ACTION_DWELL_MS as f64).clamp(0.0, 1.0) as f32);
+        let progress = ACTION_START
+            .get()
+            .map(|start| circles::geom::ease_out_cubic((crate::diag::since_start_ms() - start) / ACTION_DWELL_MS as f64) as f32);
         let (switch_on, progress) = visibility_frame(switch_on, progress, ACTION_TARGET.get());
         let key = VisibilityKey {
             size: switch_rect.right - switch_rect.left,
@@ -660,8 +896,20 @@ fn paint(hwnd: HWND) {
                 BitBlt(hdc, switch_rect.left, switch_rect.top, surface.w, surface.h, surface.dc(), 0, 0, SRCCOPY);
             }
         });
+        let now = crate::diag::since_start_ms();
+        let control_hover = control_weights(now);
+        for (index, rect) in [lock_rect(dpi), arrow_rect(dpi)].into_iter().enumerate() {
+            if control_hover[index] > 0.0 {
+                rounded_fill(hdc, rect, mix_color(BG, ROW_HOVER, control_hover[index]), scale(6, dpi));
+            }
+        }
+        SetTextColor(hdc, if HEADER_HOVER.get() == 2 { TEXT } else { SUBTEXT });
+        let mut arrow = win::wide(if EXPANDED.get() { "\u{2303}" } else { "\u{2304}" });
+        let mut arrow_area = arrow_rect(dpi);
+        DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         let lock = lock_rect(dpi);
-        draw_lock(hdc, lock, dpi, is_locked);
+        let phase = LOCK_EASE.get().map_or(f32::from(is_locked), |a| a.value(now));
+        draw_lock(hdc, lock, dpi, phase, mix_color(BG, ROW_HOVER, control_hover[0]));
         SetTextColor(hdc, TEXT);
         if EXPANDED.get() {
             SetTextColor(hdc, SUBTEXT);
@@ -669,8 +917,9 @@ fn paint(hwnd: HWND) {
                 let index = scroll + visible_index;
                 let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
                 let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
-                if HOVER_ROW.with(Cell::get) == index as isize {
-                    rounded_fill(hdc, row, ROW_HOVER, scale(6, dpi));
+                let weight = row_weights(now)[visible_index];
+                if weight > 0.0 {
+                    rounded_fill(hdc, row, mix_color(BG, ROW_HOVER, weight), scale(6, dpi));
                 }
                 let mut label = win::wide(&entries[index].1);
                 let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
@@ -679,7 +928,6 @@ fn paint(hwnd: HWND) {
         }
         DeleteObject(bg);
         DeleteObject(accent);
-        DeleteObject(hover);
         if !font.is_null() {
             if !old_font.is_null() {
                 SelectObject(hdc, old_font);
@@ -703,8 +951,8 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
     let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
     if win::rect_contains(&lock_rect(dpi), POINT { x, y }) {
         toggle_lock(hwnd);
-    } else if EXPANDED.get() && win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
-        set_expanded(hwnd, false);
+    } else if win::rect_contains(&arrow_rect(dpi), POINT { x, y }) {
+        set_expanded(hwnd, !EXPANDED.get());
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
         cancel_dwell(hwnd);
         if !locked() && !ACTION_HOVER.replace(true) {
@@ -760,8 +1008,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let dpi = GetDpiForWindow(hwnd).max(96);
             let action = action_rect(dpi);
             let (action_top, action_bottom, action_left, action_right) = (action.top, action.bottom, action.left, action.right);
+            set_control_hover(hwnd, control_at(dpi, POINT { x, y }));
             let hovering_action = !locked()
-                && !win::rect_contains(&lock_rect(dpi), POINT { x, y })
+                && control_at(dpi, POINT { x, y }) == 0
                 && x >= action_left
                 && x < action_right
                 && y >= action_top
@@ -786,17 +1035,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 .filter(|_| !locked())
                 .filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len()))
                 .map_or(-1, |i| i as isize);
-            let previous_hover = HOVER_ROW.replace(next_hover);
-            if previous_hover != next_hover {
-                if previous_hover >= 0 {
-                    let rect = row_rect(dpi, previous_hover as usize);
-                    unsafe { InvalidateRect(hwnd, &rect, 0) };
-                }
-                if next_hover >= 0 {
-                    let rect = row_rect(dpi, next_hover as usize);
-                    unsafe { InvalidateRect(hwnd, &rect, 0) };
-                }
-            }
+            set_row_hover(hwnd, next_hover, dpi);
             0
         }
         WM_MOUSELEAVE => {
@@ -804,12 +1043,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             cancel_dwell(hwnd);
             ACTION_INSIDE.set(false);
             ACTION_HOVER.set(false);
-            let old_hover = HOVER_ROW.replace(-1);
-            if old_hover >= 0 {
-                let dpi = GetDpiForWindow(hwnd).max(96);
-                let rect = row_rect(dpi, old_hover as usize);
-                unsafe { InvalidateRect(hwnd, &rect, 0) };
-            }
+            set_control_hover(hwnd, 0);
+            set_row_hover(hwnd, -1, GetDpiForWindow(hwnd).max(96));
+            0
+        }
+        WM_TIMER if wparam == UI_TIMER => {
+            ui_tick(hwnd);
             0
         }
         WM_TIMER if wparam == ACTION_TIMER => {
@@ -826,7 +1065,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let inside = GetCursorPos(&mut cursor) != 0
                 && ScreenToClient(hwnd, &mut cursor) != 0
                 && win::rect_contains(&action, cursor)
-                && !win::rect_contains(&lock_rect(dpi), cursor);
+                && control_at(dpi, cursor) == 0;
             if !inside {
                 cancel_dwell(hwnd);
                 ACTION_INSIDE.set(false);
@@ -847,7 +1086,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             let dpi = GetDpiForWindow(hwnd).max(96);
             let point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
             let heading = EXPANDED.get() && point.y >= 0 && point.y < scale(HEADER_H, dpi) && !win::rect_contains(&arrow_rect(dpi), point);
-            if !win::rect_contains(&lock_rect(dpi), point) && (heading || win::rect_contains(&action_rect(dpi), point)) {
+            if control_at(dpi, point) == 0 && (heading || win::rect_contains(&action_rect(dpi), point)) {
                 let r = win::window_rect(hwnd);
                 let action = action_rect(dpi);
                 dock_drag::begin(
@@ -896,6 +1135,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 let next = if delta > 0 { scroll.get().saturating_sub(1) } else { (scroll.get() + 1).min(max) };
                 scroll.set(next);
             });
+            ROW_EASE.set(None);
             let old_hover = HOVER_ROW.replace(-1);
             if old_hover >= 0 {
                 let rect = row_rect(GetDpiForWindow(hwnd).max(96), old_hover as usize);
@@ -920,14 +1160,22 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             0
         }
         WM_DISPLAYCHANGE => {
+            PANEL_EASE.set(None);
             place(hwnd);
             0
         }
         WM_DPICHANGED => {
+            PANEL_EASE.set(None);
             place(hwnd);
             0
         }
         WM_DESTROY => {
+            KillTimer(hwnd, UI_TIMER);
+            PANEL_EASE.set(None);
+            LOCK_EASE.set(None);
+            CONTROL_EASE.set(None);
+            ROW_EASE.set(None);
+            LOCK_FRAMES.with(|slot| slot.borrow_mut().take());
             cancel_dwell(hwnd);
             PAINT_BUFFER.with(|slot| slot.borrow_mut().take());
             VISIBILITY_CACHE.with(|slot| slot.borrow_mut().take());
