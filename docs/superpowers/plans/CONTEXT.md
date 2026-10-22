@@ -4,9 +4,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D55 implemented; owner accepts current D55 interaction. D56
-  scoped release review found no blocker; final automated/install checks pending.
-- B1/B2/C stay on hold; B3 was delivered through D9.
+- A and D through D57 implemented; D57 refreshes README and selects first results.
+  D56 scoped D55 review found no blocker; final automated/install checks pending.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -14,9 +13,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D55 installed SHA256: 97F9B762F7205FA6259B3EC8400332FF9824CBE0F7691B234E74F862C437ADF2.
-  D44-D55 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D55 config unchanged; installed dock is 168 px wide at system 96 DPI.
+- D57 installed SHA256: E9F61DF6B2158EB6711435AC5421760D10351712405DEB3C953AB98C2620833C.
+  D44-D57 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D57 config unchanged; installed dock is 168 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -55,6 +54,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D52 adds positive hints and dock search; D54 uses one virtual scrollbar, locked
   search, rounded tool/field borders and blue drag hints with larger semibold text.
   D55 adds single AA frames, visible hover editing, result keys and teal hover.
+  D57 reuses hover styling for persistent initial/keyboard result selection.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
 ## Observed defects / checks not performed
@@ -87,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D55 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D57 manual-first delivery.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;

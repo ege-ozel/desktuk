@@ -1,194 +1,166 @@
-# DeskTuk
+<p align="center">
+  <img src="res/brand/card.png" width="800" alt="DeskTuk — everything in its own circle">
+</p>
 
-DeskTuk groups Windows Desktop files into movable **circles** that open on hover. Files remain
-where they are; circles hold references to them. The Phase 1 **Node** panel remains available
-with `--ui panel`.
+<p align="center">
+  <b>A little more room on your Windows desktop.</b><br>
+  Gather files and shortcuts into circles. Hover to browse, type to find, click to open.<br>
+  Your files stay where they are.
+</p>
 
-It is written in Rust against raw Win32 (`windows-sys`). It uses no Electron, Tauri, WebView
-or GUI framework.
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/status-release%20candidate-7FAAFF" alt="Release candidate">
+  <img src="https://img.shields.io/badge/built%20with-Rust%20%C2%B7%20Win32-b7410e" alt="Built with Rust and Win32">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-71D8C2" alt="MIT license"></a>
+</p>
 
-> Windows MSVC builds, unit tests and fixture checks have been run. The nine manual circles
-> checks remain **not verified**; see [Plan D](docs/superpowers/plans/2026-10-13-phase2-d-circles.md).
-> The original proof-of-concept report is [here](docs/PHASE-0-1-REPORT.md).
+<p align="center">
+  <a href="#get-desktuk">Get DeskTuk</a> ·
+  <a href="#make-yourself-at-home">Quick start</a> ·
+  <a href="#find-it-without-the-hunt">Search</a> ·
+  <a href="docs/user-guide.md">Türkçe / English guide</a> ·
+  <a href="#building-from-source">Build</a>
+</p>
 
-## Phase 1 panel (`--ui panel`)
+<p align="center">
+  <img src="docs/media/desktop-overview.svg" width="960" alt="Illustration: a Music circle opens around its centre beside an edge panel with circle shortcuts">
+  <br><sub>Illustration with example filenames; not a screenshot.</sub>
+</p>
 
-* Shows one Node with 2–4 real items, using the same icons as Explorer (system image list,
-  including the shortcut arrow) and the same display names.
-* Double-click opens an item through `ShellExecuteEx`, exactly as Explorer would. Files are only
-  **referenced by path**. DeskTuk never moves, renames, deletes, hides or changes them.
-* Drag the Node by its header or any empty area. The position is saved.
-* Right-click opens a menu: *Open*, *Open file location*, the active host, and *Exit DeskTuk*.
-* Per-monitor DPI aware (PerMonitorV2).
-* The desktop hosting strategy can be swapped (`--host`):
-  * `window` (default): an ordinary top-level tool window kept at the bottom of the z-order. It
-    raises itself while "Show desktop" is active.
-  * `owned` (experimental): a popup owned by Explorer's `Progman` window.
-  * `child` (experimental): a child window of Explorer's desktop icon-view host.
+<table>
+  <tr>
+    <td width="50%" valign="top"><b>Everything has a circle</b><br>Make circles for music, work or apps. Add groups inside them. Recent gathers Desktop entries you haven't assigned yet.</td>
+    <td width="50%" valign="top"><b>Find it as you type</b><br>Search an open circle or a panel file list. Names starting with your query come first, followed by names containing it.</td>
+  </tr>
+  <tr>
+    <td valign="top"><b>A layout that stays yours</b><br>Move circles freely or snap them to a grid. The small panel slides along any screen edge, including corners.</td>
+    <td valign="top"><b>Native, from the start</b><br>Windows file icons, shell context menus and default apps. Written in Rust with Win32; no browser engine or GUI framework.</td>
+  </tr>
+</table>
 
-## Build
+## Get DeskTuk
 
-Windows (MSVC, recommended):
+DeskTuk **0.1.0 is a release candidate**. Published installers will be listed on the
+[Releases page](https://github.com/ege-ozel/desktuk/releases). Until then, build from source below.
+
+The Windows x64 installer is named `DeskTuk-<version>-Setup-x64.exe`. It installs for
+your Windows account without an administrator prompt. The installer is currently unsigned.
+Packaging details, including update and uninstall behavior, are in the
+[installer guide](installer/README.md).
+
+The interface supports **English and Turkish**. Choose **Settings → Language**;
+your circle names and filenames keep their original text.
+
+## Make yourself at home
+
+1. **Create a circle.** Right-click a circle or the panel and choose **New circle**.
+2. **Add your files.** Drop files or shortcuts from Explorer onto it. DeskTuk stores references to their paths.
+3. **Hover to look inside.** Click a file icon to open it in its usual app. Scroll to browse more items.
+4. **Arrange your space.** Drag a circle by its centre or empty background with the left mouse button. Drag a blank panel area to move the panel along the screen edges.
+
+Right-click a file for its Windows shell menu. Moving a reference between DeskTuk
+circles changes its organization inside DeskTuk; it does not relocate the original file.
+Actions you choose in a Windows shell menu still act on the real file.
+
+| Control | What it does |
+| --- | --- |
+| Lock | Stops circles opening on hover and disables the panel's show/hide tile; panel file search and dragging remain available. |
+| Centre tile | Shows or hides circles when unlocked. |
+| Top-right arrow | Collapses or expands the panel immediately. |
+| Settings | Chooses the language and turns usage tips on or off. |
+| Grid | Chooses Off, 2×2, 3×3, 4×4, 6×6 or 8×8. **Align now** arranges existing circles. |
+| Info | Opens the short guide. Clicking again brings the same guide forward. |
+| Circle rows | Opens a searchable file list, including while locked. |
+
+Grid selection keeps the current layout in place; it snaps subsequent drag releases.
+**Align now** is a separate action. New installations start at 4×4.
+
+## Find it without the hunt
+
+**On a circle:** hover to open it and start typing, even one letter. A native text
+field appears. **The first result is highlighted**, including before you type.
+Up/Down moves the selection; Enter opens the highlighted item. Moving over a file
+highlights that file instead. Escape clears the search; closing the circle resets it.
+
+**From the panel:** click a circle name and type in the field above its file list.
+The first result is selected as the list opens and whenever the query changes.
+Down selects the next result. Single-click selects; double-click or Enter opens.
+The list has one continuous scrollbar. Escape closes it.
+
+Both search fields support familiar editing: **Ctrl+A**, **Ctrl+C/X/V/Z**,
+**Shift+arrows**, Home/End and selection with the mouse.
+
+<p align="center">
+  <img src="docs/media/search-order.svg" width="800" alt="Typing mix ranks Mix notes and Mixer preset before Summer mix; unrelated files are filtered out">
+  <br><sub>Search ordering example. Existing order is preserved within each match group.</sub>
+</p>
+
+## Small details, everyday use
+
+- **Keep the panel nearby.** Expanded or compact, it stays on a screen edge. Its position is saved.
+- **Get an explanation.** Usage tips describe controls, explain locked actions and point out draggable space. Turn them off in Settings.
+- **Keep access in the tray.** Use the notification-area icon to show DeskTuk again. Windows startup is opt-in from its menu.
+- **Choose your desktop.** **Show desktop icons** controls Explorer's own icons independently of DeskTuk circles.
+- **Keep your layout.** Settings and references live in `%APPDATA%\DeskTuk\desktuk.cfg`. Uninstall leaves this configuration and your referenced files intact.
+
+## Lightweight by design
+
+DeskTuk uses native Windows windows and drawing. Search filters existing reference
+snapshots; it does not crawl your drives. Panel file lists draw visible rows rather
+than rendering every filename at once. Shell icon work is coalesced, and the typing
+hook is temporary, scoped to an open circle/editor rather than active at idle.
+
+There is no Electron, Tauri, WebView or bundled font. Current release performance
+numbers have not been remeasured; the [release review](docs/superpowers/reviews/2026-10-23-release-readiness.md)
+separates checked behavior from remaining validation.
+
+## Building from source
+
+Use **Windows x64**, the Rust MSVC toolchain, Visual Studio C++ Build Tools and the
+Windows SDK. In an x64 developer shell:
 
 ```powershell
-# Rust from https://rustup.rs (default x86_64-pc-windows-msvc toolchain, Build Tools + Windows SDK)
-cargo build --release
-# -> target\release\DeskTuk.exe
+cargo build --release --locked
+.\target\release\DeskTuk.exe
 ```
 
-Cross-compiling from Linux (this is how the PoC was built):
+To build the installer with Inno Setup, follow [installer/README.md](installer/README.md).
+It does not require Rust or Inno Setup on the destination PC.
 
-```sh
-sudo apt install gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64
-rustup target add x86_64-pc-windows-gnu
-cargo build --release --target x86_64-pc-windows-gnu
-# -> target/x86_64-pc-windows-gnu/release/DeskTuk.exe
-```
-
-Checks: `cargo fmt --check`, `cargo clippy --release -- -D warnings`, `cargo test --release`.
-From Linux, add `--target x86_64-pc-windows-gnu` and run the tests with Wine
-(`CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUNNER=wine64`).
-
-## Run
-
-Double-click `DeskTuk.exe`. The built-in Recent circle appears near the top-right of the primary
-monitor and lists unassigned Desktop entries. The configuration is written to
-`%APPDATA%\DeskTuk\desktuk.cfg`:
-
-```text
-host=window
-ui=circles
-recent=1500|40
-circle=Music|300|300
-group=Music|Live
-citem=Music||C:\Users\me\Desktop\song.wav
-item=C:\Users\me\Desktop\Notes.txt
-item=C:\Users\me\Desktop\Visual Studio Code.lnk
-```
-
-For the panel, run `DeskTuk.exe --ui panel` and edit `item=` lines to choose its files. Both
-item collections survive saves in either UI. Exit through the right-click menu.
-
-```text
-DeskTuk.exe [options] [item paths...]
-  --host <window|owned|child>  Desktop hosting strategy (default: window)
-  --ui <circles|panel>         circles (default) or the Phase 1 panel
-  --pos <x,y>                  Node position in screen pixels
-  --log <file>                 Write a diagnostic log (timings, memory, shell structure)
-  --exit-after <ms>            Quit after the given time (for measurements)
-  --diag                       Log desktop/shell diagnostics and exit
-  --selftest                   Automated integration self-test (moves mouse, presses Win+D)
-  --selftest-explorer-restart  Self-test that also kills and restarts explorer.exe
-  --shots <dir>                Self-test screenshots
-  --no-save, --allow-multiple
-```
-
-## Circles (Phase 2)
-
-By default DeskTuk shows **circles** instead of the panel. *Recent* (blue) holds every Desktop
-file that is in no circle, newest first. Right-click a circle for *New circle*, *New group*,
-*Rename*, *Delete circle*. Hover a circle to open its ring of files (up to 20 per page; the wheel or
-a click on the centre turns the page). Drop files from Explorer onto a circle to add them, drag
-a file out of a ring onto another circle or group to move it, right-click a file for the real
-shell menu and *Remove from circle*. Ring icons follow the current Windows desktop icon size
-and use the desktop label font. The ring grows as needed; large icons or small screens show
-fewer items per page. Reopen a ring after changing the desktop icon size.
-The checked **Masaüstü öğelerini göster** (Show desktop items) menu entry shows or hides
-Windows' own desktop icons. It is available on circles, Recent, file menus and the panel.
-DeskTuk circles remain visible; the choice is saved by Windows.
-Files are never moved or changed; circles only reference
-them. `--ui panel` (saved) brings back the Phase 1 panel. Design:
-[`docs/superpowers/specs/2026-10-13-circles-design.md`](docs/superpowers/specs/2026-10-13-circles-design.md).
-
-## Testing on Windows
-
-Use a test machine or VM where possible. The automated test moves the mouse, sends Win+D and
-opens and closes Notepad. With `-ExplorerRestart` it also kills and restarts `explorer.exe`.
-
-### Automated
+<details>
+<summary><b>Development checks and code map</b></summary>
 
 ```powershell
-cargo build --release
-powershell -ExecutionPolicy Bypass -File scripts\windows-integration-test.ps1 `
-    -Exe target\release\DeskTuk.exe -Out test-results -ExplorerRestart
+cargo fmt --check
+cargo clippy --release --locked -- -D warnings
+cargo test --release --locked
 ```
 
-For each host (`window`, `owned`, `child`) the script runs `DeskTuk.exe --selftest` with a
-shortcut and a text file it creates on your Desktop. Each self-test checks:
+Build and test Windows code with MSVC on Windows. These commands are contributor
+instructions, not a claim that all checks have run against the latest candidate.
+Final automated regressions and clean install/upgrade/uninstall validation remain
+pending. The [release review](docs/superpowers/reviews/2026-10-23-release-readiness.md)
+covers the preceding candidate; the first-result selection change is recorded in
+[Plan D, D57](docs/superpowers/plans/2026-10-13-phase2-d-circles.md#d57-readme-presentation-and-visible-first-result-selection).
+Physical integration scripts move the pointer and may create Desktop fixtures;
+read their instructions and use a supervised test environment.
 
-| check | expected behaviour |
-|---|---|
-| `initially_visible` | Node is hit-testable **and** its accent strip is on screen (pixel probe) |
-| `drag_moves_node` | Dragging the header moves the Node by the drag delta |
-| `double_click_launch` / `original_file_untouched` | Double-click opens the shortcut; the file is still at its path |
-| `app_window_covers_node` | A normal application window covers the Node |
-| `click_does_not_raise_node` | Clicking the Node does not lift it above that application |
-| `visible_after_show_desktop` | After Win+D the Node is visible on the desktop |
-| `below_apps_after_show_desktop_toggle` | After Win+D again the application is back on top |
-| `fullscreen_covers_node` / `visible_after_fullscreen_closes` | Fullscreen windows cover the Node; it returns afterwards |
-| `survives_explorer_restart` | After Explorer is killed and restarted, the Node is visible again |
+| Area | Source |
+| --- | --- |
+| Circles, hover, search, grid and reference model | `src/circles/` |
+| Panel and edge dragging | `src/dock.rs`, `src/dock_drag.rs` |
+| Windows shell and file launch | `src/items.rs`, `src/shell_menu.rs` |
+| Settings, language and tips | `src/settings.rs`, `src/i18n.rs`, `src/hint.rs` |
+| Persistence and startup | `src/config.rs`, `src/autostart.rs`, `src/tray.rs` |
+| Packaging | `installer/`, `scripts/build-installer.ps1` |
 
-Then it takes 5 RAM/startup measurements and verifies that the test files' hash, attributes and
-timestamps and the Desktop listing are unchanged. Logs and PNG screenshots go to `test-results\`.
+The earlier Node panel remains available with `DeskTuk.exe --ui panel`.
+Contributors and coding agents start with [AGENTS.md](AGENTS.md) and the
+[repository context](docs/superpowers/plans/CONTEXT.md).
 
-The same steps run in CI (`.github/workflows/windows.yml`) on GitHub's `windows-latest` runner.
+</details>
 
-### Manual checklist
+## License
 
-1. Start `DeskTuk.exe`. The Node shows Desktop items with the same icons/names as the desktop.
-2. Double-click each item: it opens like a desktop double-click. Shortcuts honour their *Start in*.
-3. Drag the Node, exit, restart: the position is kept.
-4. Open some windows over it: they cover the Node. Click the Node: it stays below them.
-5. Press Win+D: the Node should remain visible. Press Win+D again: the windows return on top.
-6. Start a fullscreen video or game: the Node must not appear over it.
-7. Task Manager → *Windows Explorer* → *Restart*: the Node should stay or come back within seconds.
-8. Change display scaling or move the Node to a monitor with a different DPI: it rescales.
-9. Repeat with `--host owned` and `--host child --log %TEMP%\desktuk.log` and compare.
-
-## Layout
-
-```text
-src/main.rs        entry point
-src/app.rs         state, start-up, controller window, Explorer-restart recovery
-src/node.rs        Node window: layout, painting, input, context menu
-src/items.rs       shell items: display name, icon, ShellExecuteEx, open location
-src/host/          DesktopHost trait + window / owned / child strategies
-src/shell.rs       read-only inspection of Explorer's desktop windows & settings
-src/config.rs      command line and %APPDATA%\DeskTuk\desktuk.cfg
-src/diag.rs        log file, startup timing, memory/GDI/USER counters
-src/selftest.rs    automated integration self-test
-res/               manifest (PerMonitorV2, Common Controls v6), icon, version info
-scripts/           Windows integration test, icon generator
-docs/              feasibility report and raw test logs
-```
-
-
-## Tray access and Windows startup
-
-DeskTuk adds a notification-area icon in normal runs. Click it (or select it with
-the keyboard) to show the circles or panel. Right-click for **Desktuk'u göster**,
-**Windows ile başlat**, **Masaüstü öğelerini göster**, and **Çıkış**. If Windows puts the icon in the overflow,
-open the taskbar's hidden-icons area. A second launch also shows the running UI.
-Showing the UI restores hidden windows and clamps circles to the monitor work area;
-it preserves the saved layout and Explorer's desktop-icon visibility setting.
-
-**Windows ile başlat** is opt-in and its checkmark is read from the registry each
-time the menu opens. It writes only the per-user `DeskTuk` value in
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, using the quoted path to
-the currently running executable. Keep that executable at a stable location; moving
-it requires re-enabling startup from the new location. Registry failures are reported.
-Exit stops the current session and keeps the startup preference for the next login.
-Explorer's `TaskbarCreated` notification restores the tray icon; if login starts
-DeskTuk before the taskbar is ready it retries for up to 30 seconds, then waits for
-that notification. No tray polling runs once registration succeeds.
-
-`--allow-multiple` measurement/self-test runs do not create competing tray icons.
-The isolated `scripts/tray-regression-test.ps1` checks recovery, second launch and
-tray re-registration without moving the mouse, sending Win+D or restarting Explorer.
-
-
-Drag the centre of an open ring to move its circle: the ring closes after movement
-crosses the Windows drag threshold and the new position is saved on release.
-A short centre click still turns the ring page. Opening the taskbar notification
-area or its overflow preserves the circles' desktop ordering; normal applications
-continue to cover them.
+DeskTuk is released under the [MIT License](LICENSE).

@@ -150,14 +150,14 @@ pub fn dismiss_outside(point: POINT) {
     }
 }
 pub fn ring_key(key: u32, modifiers: usize) {
-    let edit = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.edit));
-    let Some(edit) = edit else {
-        return;
-    };
     if modifiers == 0 && matches!(key as u16, VK_UP | VK_DOWN | VK_RETURN) {
         super::ring::search_key(key);
         return;
     }
+    let edit = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.edit));
+    let Some(edit) = edit else {
+        return;
+    };
     unsafe {
         if modifiers & 2 != 0 {
             let message = match key {
@@ -429,7 +429,7 @@ fn render() {
     unsafe {
         SendMessageW(list, WM_SETREDRAW, 0, 0);
         SendMessageW(list, LB_SETCOUNT, total.min(i32::MAX as usize), 0);
-        SendMessageW(list, LB_SETCURSEL, usize::MAX, 0);
+        SendMessageW(list, LB_SETCURSEL, if total == 0 { usize::MAX } else { 0 }, 0);
         SendMessageW(list, LB_SETTOPINDEX, 0, 0);
         SendMessageW(list, WM_SETREDRAW, 1, 0);
         InvalidateRect(list, std::ptr::null(), 1);
@@ -546,9 +546,19 @@ unsafe extern "system" fn input_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM,
                 }
                 if hwnd == edit {
                     SetFocus(list);
-                    let first = if w == VK_UP as usize { SendMessageW(list, LB_GETCOUNT, 0, 0) - 1 } else { 0 };
-                    if first >= 0 {
-                        SendMessageW(list, LB_SETCURSEL, first as usize, 0);
+                    let count = SendMessageW(list, LB_GETCOUNT, 0, 0);
+                    let current = SendMessageW(list, LB_GETCURSEL, 0, 0);
+                    let next = if w == VK_UP as usize {
+                        if current < 0 {
+                            count - 1
+                        } else {
+                            (current - 1).max(0)
+                        }
+                    } else {
+                        (current + 1).min(count - 1)
+                    };
+                    if next >= 0 {
+                        SendMessageW(list, LB_SETCURSEL, next as usize, 0);
                     }
                     return 0;
                 }

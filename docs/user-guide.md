@@ -125,11 +125,15 @@ veya uygun boş kenarda açılır. Hiç yer kalmazsa dosya adlarını örtmemek 
 çemberin içine sığan küçük bir alan kullanılır. Windows odağı vermediğinde de kutu
 kaybolmaz; çember/kutu üzerinde yazma ve düzenleme geçici olarak yönlendirilir.
 Başka bir uygulamaya tıklamak kutuyu kapatır. Popup dışındaki kısayollar korunur.
-Dosya aramasında ilk aşağı ok ilk satırı seçer; Enter seçilmemişse ilk sonucu açar.
+Dosya listesi açıldığında ve sorgu değiştiğinde ilk sonuç seçilidir. Aşağı ok sonraki
+sonuca geçer, Enter vurgulananı açar. Çemberlerde de ilk öğe baştan vurgulanır;
+yazmadan oklar ve Enter kullanılabilir. Fare hover vurgusu önceliklidir.
 
 Search has a single outer frame with tiny cached antialiased corners. The circle
 editor prefers free space outside the ring; when no outer space exists it fits
 inside the centre disc to avoid file labels. It remains visible if Windows denies
 foreground activation, using transient hover routing over the ring/editor. Clicking
-elsewhere dismisses it. First Down selects the first list row; Enter defaults to the
-first result if none is selected. Shift+arrows continue native text selection.
+elsewhere dismisses it. The first result is selected when a list opens or its query
+changes. Down advances to the next result; Enter opens the highlighted item. Circles
+also highlight their first item before typing and accept arrows/Enter immediately.
+Mouse hover takes precedence. Shift+arrows continue native text selection.

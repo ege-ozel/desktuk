@@ -1638,3 +1638,52 @@ screenshot capture or benchmarks run in this review. No app code/binary/config
 changed, no app restart or external publication. Candidate revision remains D55
 9a37b0b; the review commit changes documentation only. Physical/manual acceptance
 is reported by the owner and is not extended to untested platforms/DPI/IME/reboot.
+
+
+### D57: README presentation and visible first-result selection
+
+Owner asks for a README matching the clarity/presentation of the new TrackMesh
+README, asks whether something is missing, and approves default first selection
+in both panel lists and rings, including before typing. Keep the intuitive hover
+appearance rather than adding a stronger animation.
+
+- [x] Read the local TrackMesh README and replace obsolete Phase 1-led presentation
+  with current circles, search, panel, grid, language and installation instructions.
+- [x] Reuse the approved brand card and add two original lightweight SVG diagrams,
+  explicitly labeled illustrations, with invented filenames and accessible text.
+  Static images suffice; no GIF, dependency or runtime media cost added.
+- [x] Select the first virtual-list result at open/refilter. Down from the edit
+  advances relative to the visible selection; empty lists remain unselected.
+- [x] Keep a page-relative ring selection separate from pointer hover. Default to
+  the first item on page/query/target changes, reuse the existing highlight, prefer
+  actual hover and preserve keyboard selection over empty-space pointer movement.
+- [x] Route unmodified arrows/Enter over the open ring before the editor exists;
+  preserve editor shortcuts and the transient ring/editor input scope. Typing alone
+  never launches a file. No added timer, worker, allocation per pointer move or DLL.
+- [x] Update the bilingual guide and repository context. D56 review remains scoped
+  to the preceding D55 executable, not this later selection change.
+- [x] Run formatting/release Clippy/build and documentation link/XML checks;
+  deliver the app and installer, commit/push with CI skipped for manual-first use.
+- [ ] Owner manual acceptance of initial highlight, refilter, empty results,
+  pointer-versus-keyboard selection, first Down/Enter and native edit shortcuts.
+
+No automated app tests, physical/UI input fixtures or benchmark requested/run.
+README no longer asserts stale bottom-z-order behavior or recommends Wine as test
+proof. Release status is candidate; no release publication or latest-download claim.
+
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked, git diff --check and local README link/SVG XML checks pass. Both static
+SVGs were rendered offline for visual inspection; no application GUI capture or
+runtime input test was performed. Browser file-URL preview was unavailable, so
+preview used local offline vector rasterization, without browser access or network.
+Installed PID 19408 via normal controller close/restart; root executable updated,
+config hash unchanged. Backups target/d57-delivery/. Release/installed SHA256:
+E9F61DF6B2158EB6711435AC5421760D10351712405DEB3C953AB98C2620833C.
+Installer rebuilt at dist/DeskTuk-0.1.0-Setup-x64.exe. This is a later candidate than
+the executable reviewed in D56. Automated tests/CI remain deferred for owner use.
+
+Installer SHA256:
+7D2CD7BA469CA46AC4C04E4BE6DFCD357976C3C48DBBBCF7E0E92B8CE392D103.
+Installed process 19408 confirmed alive at the canonical path from the authorized
+process view; a second launch logged a normal single-instance show request/exit 0.

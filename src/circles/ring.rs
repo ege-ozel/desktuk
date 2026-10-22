@@ -80,6 +80,8 @@ struct Ring {
     start: usize,
     page: Vec<PageSlot>,
     hover: Option<usize>,
+    /// Keyboard/default selection survives pointer movement through empty space.
+    selected: Option<usize>,
     drop_after: bool,
     wheel: i32,
     dpi: u32,
@@ -330,6 +332,7 @@ pub fn open(anchor: HWND, target: Target) {
         start: 0,
         page: Vec::new(),
         hover: None,
+        selected: None,
         drop_after: false,
         wheel: 0,
         dpi,
@@ -566,6 +569,7 @@ fn load_page(r: &mut Ring) -> Vec<PathBuf> {
     let range = geom::page_range(r.refs.len(), r.start, r.metrics.per_page());
     r.start = range.start;
     r.hover = None;
+    r.selected = (!range.is_empty()).then_some(0);
     let mut previous = std::mem::take(&mut r.page);
     r.page = r.refs[range]
         .iter()
@@ -639,7 +643,7 @@ pub(super) fn search_key(key: u32) {
             return Action::None;
         }
         if key == VK_RETURN as u32 {
-            return match r.page.get(r.hover.unwrap_or(0)).map(|s| s.r.clone()) {
+            return match r.page.get(r.hover.or(r.selected).unwrap_or(0)).map(|s| s.r.clone()) {
                 Some(SlotRef::Item(p)) => Action::Open(p),
                 Some(SlotRef::Group(gi)) => {
                     if let Target::Circle(ci) = r.target {
@@ -659,7 +663,7 @@ pub(super) fn search_key(key: u32) {
                 _ => Action::None,
             };
         }
-        let index = match r.hover {
+        let index = match r.hover.or(r.selected) {
             Some(i) if key == VK_UP as u32 => (r.start + i).saturating_sub(1),
             Some(i) => (r.start + i + 1).min(r.refs.len() - 1),
             None if key == VK_UP as u32 => r.refs.len() - 1,
@@ -672,7 +676,8 @@ pub(super) fn search_key(key: u32) {
         } else {
             None
         };
-        r.hover = Some(index - r.start);
+        r.hover = None;
+        r.selected = Some(index - r.start);
         redraw(r);
         paths.map(Action::Load).unwrap_or(Action::None)
     })
@@ -852,7 +857,7 @@ fn render(r: &mut Ring) {
             subtitle: &sub,
             search: (!r.query.is_empty()).then_some((r.query.as_str(), r.refs.len())),
             slots: &views,
-            hover: r.hover,
+            hover: r.hover.or_else(|| r.press.is_none().then_some(r.selected).flatten()),
             recent: r.target == Target::Recent,
             insertion: r.press.as_ref().filter(|p| p.active).and(r.hover).map(|k| (k, r.drop_after)),
         },

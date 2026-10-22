@@ -47,13 +47,15 @@ unsafe extern "system" fn keyboard(code: i32, message: WPARAM, data: LPARAM) -> 
                         return 1;
                     }
                     let editor = super::launcher::hover_editor();
+                    let navigate = !down(VK_SHIFT) && !down(VK_CONTROL) && matches!(vk as u16, VK_UP | VK_DOWN | VK_RETURN);
                     let edit_shortcut = down(VK_CONTROL) && matches!(vk, 0x43 | 0x58 | 0x56 | 0x5a);
-                    if editor
-                        && !down(VK_LWIN)
+                    if !down(VK_LWIN)
                         && !down(VK_RWIN)
                         && !down(VK_MENU)
-                        && (matches!(vk as u16, VK_UP | VK_DOWN | VK_RETURN | VK_LEFT | VK_RIGHT | VK_HOME | VK_END | VK_DELETE)
-                            || edit_shortcut)
+                        && (navigate
+                            || editor
+                                && (matches!(vk as u16, VK_UP | VK_DOWN | VK_RETURN | VK_LEFT | VK_RIGHT | VK_HOME | VK_END | VK_DELETE)
+                                    || edit_shortcut))
                     {
                         let modifiers = usize::from(down(VK_SHIFT)) | (usize::from(down(VK_CONTROL)) << 1);
                         unsafe {
