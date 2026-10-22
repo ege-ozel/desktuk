@@ -736,6 +736,7 @@ fn render(r: &mut Ring) {
         &RingView {
             title: &title,
             subtitle: &sub,
+            search: (!r.query.is_empty()).then_some((r.query.as_str(), r.refs.len())),
             slots: &views,
             hover: r.hover,
             recent: r.target == Target::Recent,

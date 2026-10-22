@@ -1089,3 +1089,37 @@ config snapshot: target/d43-perf/. Installed/release SHA256:
 Rebuilt installer: dist/DeskTuk-0.1.0-Setup-x64.exe, SHA256:
 EB3B30A84469184BA71A61A663A3ED29EDF8BB1F6233D5D10F1FC70D51D07C99.
 D40 CI 39280110892 passed. D41-D43 CI runs on push; not claimed passed locally.
+
+### D44: Consistent circle typography and search feedback
+
+Owner request (2026-10-22): use the open ring's small number size in both states;
+highlight query/results without moving the title. Keep one-character search.
+Place a grey lock between the closed circle title/count with a thin teal rim;
+retain readable text. Owner explicitly defers automated/runtime/screen tests until
+manual acceptance, overriding the usual pre-commit cargo test step for this work.
+
+- [x] Implement shared count typography, stable highlighted search and centred lock.
+- [x] Format/static-check/build, commit/push and deliver for owner manual assessment.
+- [ ] Owner manual acceptance, then automated/runtime checks when requested.
+
+### D45: Aligned dock controls and lightweight eased transitions
+
+Owner clarified: lock on the left and show/hide menu on the right in both modes;
+keep panel top aligned, add bottom padding, borderless rounded hover treatments.
+Ease menu expand/collapse, lock changes and hover feedback. Animations are short,
+reversible, event-driven and stop at endpoints; no new dependencies/idle polling.
+Owner defers tests until after manual assessment; run only format/static/build now.
+
+- [ ] Implement layout/padding, hover treatment and transient eased animations.
+- [ ] Format/static-check/build, commit/push and update running app/installer.
+- [ ] Owner manual acceptance, then automated/runtime checks when requested.
+
+D44 implementation: both numeric labels use the open ring's regular 100% font.
+Query and result count occupy fixed centre bands (mint query; accent zero count),
+leaving title bounds unchanged. Single-character search is retained. Locked circles
+use a thin static mint rim and a grey 14-DIP lock between title and count. No idle
+work or dependency added. cargo fmt, release Clippy (-D warnings), release build
+pass. Owner expressly deferred tests; no cargo test/native/screen test was run.
+Commit uses [skip ci] to preserve owner-first manual acceptance. Final deployment
+follows D45 so both visual changes are delivered together. D43 CI status is not
+refreshed here; no new CI/test pass is asserted.

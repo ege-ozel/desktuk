@@ -24,6 +24,7 @@ pub const HOVER: u32 = crate::theme::RAISED;
 pub const GROUP: u32 = crate::theme::BORDER;
 pub const TEXT: u32 = crate::theme::TEXT;
 pub const SUBTEXT: u32 = crate::theme::MUTED;
+const COUNT_PERCENT: i32 = 100;
 
 /// A small translucent disc carrying the loaded icon (or a shared native fallback).
 pub fn drag_icon(icon: HICON, dpi: u32) -> Option<Surface> {
@@ -112,24 +113,17 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
     fill_rect(dc, &win::rect(0, 0, d, d), ACCENT);
     let rim = sc(3).max(2);
     if locked {
-        let pixels = s.pixels();
-        for y in 0..d {
-            let blend = |shift: u32| {
-                (((ACCENT >> shift) & 255) * (d - 1 - y) as u32 + ((crate::theme::MINT >> shift) & 255) * y as u32) / (d - 1).max(1) as u32
-            };
-            let rgb = blend(0) << 16 | blend(8) << 8 | blend(16);
-            pixels[(y * d) as usize..((y + 1) * d) as usize].fill(rgb);
-        }
+        fill_rect(dc, &win::rect(0, 0, d, d), crate::theme::MINT);
     }
     fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), CIRCLE_BG);
     if locked {
-        let side = sc(16);
-        if let Some(lock) = crate::dock::lock_surface(side, CIRCLE_BG, true) {
+        let side = sc(14);
+        if let Some(lock) = crate::dock::lock_surface_tint(side, CIRCLE_BG, true, SUBTEXT) {
             unsafe {
                 windows_sys::Win32::Graphics::Gdi::BitBlt(
                     dc,
-                    d * 65 / 100,
-                    d * 15 / 100,
+                    (d - side) / 2,
+                    d * 48 / 100,
                     side,
                     side,
                     lock.dc(),
@@ -142,12 +136,12 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
     }
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 108);
-    let small = Font::new(dpi, true, 145);
+    let small = Font::new(dpi, false, COUNT_PERCENT);
     let pad = sc(10);
     text(
         dc,
         name,
-        win::rect(pad, d * if locked { 29 } else { 20 } / 100, d - pad, d * 60 / 100),
+        win::rect(pad, d * 20 / 100, d - pad, d * if locked { 46 } else { 60 } / 100),
         TEXT,
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
@@ -155,7 +149,7 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
     text(
         dc,
         &count.to_string(),
-        win::rect(pad, d * 60 / 100, d - pad, d * 86 / 100),
+        win::rect(pad, d * if locked { 65 } else { 60 } / 100, d - pad, d * 86 / 100),
         SUBTEXT,
         &small,
         DT_CENTER | DT_SINGLELINE | DT_VCENTER,
@@ -183,6 +177,7 @@ pub struct RingView<'a> {
     pub title: &'a str,
     /// Page indicator or hint, under the title.
     pub subtitle: &'a str,
+    pub search: Option<(&'a str, usize)>,
     pub slots: &'a [SlotView<'a>],
     pub hover: Option<usize>,
     pub recent: bool,
@@ -212,7 +207,28 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
     );
-    text(dc, v.subtitle, win::rect(c - inner, c + sc(8), c + inner, c + inner), SUBTEXT, &small, DT_CENTER | DT_WORDBREAK);
+    let count_font = Font::new(dpi, false, COUNT_PERCENT);
+    if let Some((query, count)) = v.search {
+        // Fixed centre bands keep query/result feedback from moving the title.
+        text(
+            dc,
+            &format!("Ara: {query}"),
+            win::rect(c - inner, c + sc(4), c + inner, c + sc(24)),
+            crate::theme::MINT,
+            &small,
+            DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
+        );
+        text(
+            dc,
+            &format!("{count} sonu\u{e7}"),
+            win::rect(c - inner, c + sc(24), c + inner, c + inner),
+            if count == 0 { ACCENT } else { crate::theme::MINT },
+            &count_font,
+            DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
+        );
+    } else {
+        text(dc, v.subtitle, win::rect(c - inner, c + sc(8), c + inner, c + inner), SUBTEXT, &count_font, DT_CENTER | DT_WORDBREAK);
+    }
 
     for (k, slot) in v.slots.iter().enumerate().take(m.per_page()) {
         let (dx, dy) = geom::slot_center(m, k);
@@ -323,7 +339,7 @@ mod tests {
             let side = m.ring_r * 2;
             let mut a = Surface::new(side, side).unwrap();
             let mut b = Surface::new(side, side).unwrap();
-            let mut v = RingView { title: "Title", subtitle: "4", slots: &[], hover: None, recent: false, insertion: None };
+            let mut v = RingView { title: "Title", subtitle: "4", search: None, slots: &[], hover: None, recent: false, insertion: None };
             ring(&mut a, dpi, &m, &v);
             v.recent = true;
             ring(&mut b, dpi, &m, &v);
@@ -364,7 +380,15 @@ mod tests {
             &mut r,
             dpi,
             &m,
-            &RingView { title: "Music", subtitle: "21-40 / 300", slots: &slots, hover: Some(5), recent: false, insertion: None },
+            &RingView {
+                title: "Music",
+                subtitle: "21-40 / 300",
+                search: None,
+                slots: &slots,
+                hover: Some(5),
+                recent: false,
+                insertion: None,
+            },
         );
         geom::mask_disc(r.pixels(), size as usize, size as usize, m.ring_r as f32);
         save_bmp(&std::env::temp_dir().join("desktuk-preview-ring.bmp"), r.pixels(), size as usize, size as usize);

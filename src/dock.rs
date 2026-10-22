@@ -512,6 +512,10 @@ fn visibility_surface(size: i32, dpi: u32, visible: bool, progress: Option<f32>,
 }
 
 pub(crate) fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<circles::surface::Surface> {
+    lock_surface_tint(size, color, is_locked, if is_locked { TEAL } else { SUBTEXT })
+}
+
+pub(crate) fn lock_surface_tint(size: i32, color: u32, is_locked: bool, ink: u32) -> Option<circles::surface::Surface> {
     let mut surface = circles::surface::Surface::new(size, size)?;
     let factor = size as f32 / 20.0;
     let pixels = surface.pixels();
@@ -535,7 +539,7 @@ pub(crate) fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<cir
                     }
                 }
             }
-            blend_pixel(pixel, if is_locked { TEAL } else { SUBTEXT }, covered as f32 / 16.0);
+            blend_pixel(pixel, ink, covered as f32 / 16.0);
         }
     }
     Some(surface)

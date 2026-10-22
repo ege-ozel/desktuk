@@ -38,8 +38,6 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D35 shares Segoe UI and slate/periwinkle/mint styling across dock/circles/rings;
   original logo/card and icon rebuild instructions are in res/brand/README.md.
 - D37 adds fixed-slot reference reordering in circles/groups and Name/Type/Added sorts.
-- D38 adds persisted lock, cached glow/dwell state icon and smooth lock joins; 70 tests pass.
-- D39 buffers hover frames/holds endpoints; 71 tests and both native fixtures pass.
 - D41 adds transient typing search over the hovered ring (including grouped files):
   prefix matches first, stable existing order; Backspace/Escape, reset on close.
   MSVC checks pass (72 tests); physical keyboard/IME acceptance is unperformed.
@@ -52,6 +50,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   one coalescing shell worker which exits when idle. Added sort caches path ranks.
   76 MSVC tests and both native fixtures pass. Idle medians: 0 ms CPU/3s, 32 DLLs;
   commit +4/+32 KB vs D40 (Recent/300 refs). Config preserved; installer rebuilt.
+- D44 aligns numeric labels at 100%, highlights search in fixed bands, and centres
+  a grey lock above the count. Owner defers tests/CI until manual assessment.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
