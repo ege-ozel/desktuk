@@ -55,8 +55,8 @@ try {
     $g.TextRenderingHint = [Drawing.Text.TextRenderingHint]::AntiAliasGridFit
     $g.Clear([Drawing.ColorTranslator]::FromHtml('#0C1219'))
     $path = New-Object Drawing.Drawing2D.GraphicsPath
-    foreach ($arc in @(@(32,32,180),@(1040,32,270),@(1040,400,0),@(32,400,90))) {
-        $path.AddArc($arc[0],$arc[1],48,48,$arc[2],90)
+    foreach ($arc in @(@(32,32,180),@(1072,32,270),@(1072,432,0),@(32,432,90))) {
+        $path.AddArc($arc[0],$arc[1],16,16,$arc[2],90)
     }
     $path.CloseFigure()
     $surface = New-Object Drawing.SolidBrush ([Drawing.ColorTranslator]::FromHtml('#121B24'))
@@ -73,5 +73,8 @@ try {
     $g.DrawString('DeskTuk',$titleFont,$text,([Drawing.RectangleF]::new(32,302,1056,60)),$format)
     $g.DrawString('Her şey kendi çemberinde.',$bodyFont,$muted,([Drawing.RectangleF]::new(32,366,1056,40)),$format)
     $card.Save((Join-Path $repo 'res/brand/card.png'),[Drawing.Imaging.ImageFormat]::Png)
+    $g.FillRectangle($surface,34,366,1052,40)
+    $g.DrawString('Everything in its own circle.',$bodyFont,$muted,([Drawing.RectangleF]::new(32,366,1056,40)),$format)
+    $card.Save((Join-Path $repo 'res/brand/card-en.png'),[Drawing.Imaging.ImageFormat]::Png)
     foreach ($resource in @($format,$text,$muted,$titleFont,$bodyFont,$border,$surface,$path,$g,$card)) { $resource.Dispose() }
 } finally { $attributes.Dispose(); $logo.Dispose() }

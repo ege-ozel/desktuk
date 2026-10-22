@@ -4,7 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D57 implemented; D57 refreshes README and selects first results.
+- A and D through D58 implemented; D58 uses native README renders and paired TR/EN.
   D56 scoped D55 review found no blocker; final automated/install checks pending.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -54,7 +54,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D52 adds positive hints and dock search; D54 uses one virtual scrollbar, locked
   search, rounded tool/field borders and blue drag hints with larger semibold text.
   D55 adds single AA frames, visible hover editing, result keys and teal hover.
-  D57 reuses hover styling for persistent initial/keyboard result selection.
+  D57 reuses hover styling for initial/key selection; D58 shares native paint for docs.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
 ## Observed defects / checks not performed

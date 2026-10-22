@@ -1687,3 +1687,48 @@ Installer SHA256:
 7D2CD7BA469CA46AC4C04E4BE6DFCD357976C3C48DBBBCF7E0E92B8CE392D103.
 Installed process 19408 confirmed alive at the canonical path from the authorized
 process view; a second launch logged a normal single-instance show request/exit 0.
+
+
+### D58: Faithful native README images and paired bilingual guide
+
+Owner rejects the schematic SVG controls/file icons as misleading, requests images
+using DeskTuk itself, matching corner geometry, consistent image click behavior,
+a coherent TR/EN guide and a language-appropriate hero tagline.
+
+- [x] Replace the two manually drawn SVGs with high-resolution PNG exports from
+  the actual native circle/ring and panel drawing functions, using exporter-owned
+  sample files under target/ only. Real shell icons and native fonts are used.
+- [x] Extract the unchanged panel paint body into paint_contents, shared by window
+  paint and the opt-in offscreen exporter. No window/input automation, user config,
+  real Desktop enumeration or new dependency. Exporter compiled only under cfg(test).
+- [x] Disclose that these are native offscreen renders, not live screenshots;
+  outer DWM shadow/window clipping is absent. Keep the actual rectangular client
+  frame rather than inventing another DWM radius. Native button radii are unchanged.
+- [x] Link displayed PNGs directly to their full-resolution PNGs; remove mismatched
+  SVG intrinsic sizing. Use an English brand card in the English README, retain
+  the Turkish card and change presentation card radius from 24 to 8 pixels.
+- [x] Rewrite the guide as paired, consistently ordered Turkish-left/English-right
+  topics. Consolidate duplicated paragraphs and keep current keyboard/lock/grid facts.
+- [x] Render/inspect exports; run fmt, release Clippy/build and local document
+  validation; record evidence, commit/push. No feature/theme change requested.
+
+Native computer-control/capture surfaces are unavailable in this session. The
+owner was informed before using an offline native renderer. This is a disclosed
+alternative to live capture, not a claim that screenshot interaction was performed.
+Only the explicitly ignored documentation exporter is run via Cargo's existing
+preview convention; no full automated/native input tests or benchmark performed.
+
+
+Native exporter completed (only dock::native_export::docs_native_export selected;
+78 other tests filtered out). cargo fmt, cargo clippy --release --locked -- -D
+warnings, cargo build --release --locked, git diff --check and local link/table
+validation pass. Images inspected at native output sizes (2160x1600 overview,
+1412x1412 filtered ring); full-resolution PNG links avoid the SVG viewer issue.
+The existing ICO is byte-unchanged. No application interaction test, full cargo
+test run, installed-app restart or installer rebuild performed for documentation.
+Installed candidate remains D57; the shared-painter extraction changes no intended
+rendering or interactions. A new local release compilation exists only as build
+validation and is not substituted into the previously recorded candidate artifacts.
+An extra all-targets Clippy check exposed the pre-existing bool_assert_comparison
+at src/host/window.rs:403; this unrelated test-only style issue is not changed or
+reported as an all-targets pass. The required standard release Clippy passes.

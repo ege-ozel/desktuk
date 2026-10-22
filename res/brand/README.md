@@ -25,5 +25,8 @@ with semibold headings. Colors are shared in `src/theme.rs`:
 
 Dock corners use the system DWM ROUND preference (Windows 11); earlier Windows
 versions retain their native fallback. Toggle radius is 8 DIP; hover rows 6 DIP.
-The presentation card uses a 24 px radius at its 1120×480 export size.
+The presentation card uses an 8 px radius at its 1120×480 export size.
 Circle surfaces retain their antialiased circular silhouette and native file icons.
+
+The English README uses card-en.png; card.png retains the Turkish tagline. Both
+are generated from the same source logo and palette, without touching the app UI.

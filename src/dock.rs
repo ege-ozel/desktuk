@@ -960,15 +960,36 @@ fn paint(hwnd: HWND) {
     let hdc = buffer.as_ref().map_or(window_dc, |s| s.dc());
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let entries = rows();
+    let visible_count = visible_row_count(dpi, entries.len());
+    paint_contents(hdc, client, dpi, &entries, visible_count, circles::any_visible(), locked());
+    unsafe {
+        if let Some(surface) = buffer.as_ref() {
+            use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+            let r = ps.rcPaint;
+            BitBlt(window_dc, r.left, r.top, r.right - r.left, r.bottom - r.top, surface.dc(), r.left, r.top, SRCCOPY);
+        }
+        PAINT_BUFFER.with(|slot| *slot.borrow_mut() = buffer);
+        EndPaint(hwnd, &ps);
+    }
+}
+
+// Shared by normal painting and the opt-in, offscreen documentation exporter.
+fn paint_contents(
+    hdc: windows_sys::Win32::Graphics::Gdi::HDC,
+    client: RECT,
+    dpi: u32,
+    entries: &[(Entry, String)],
+    visible_count: usize,
+    switch_on: bool,
+    is_locked: bool,
+) {
     let count = entries.len();
-    let visible_count = visible_row_count(dpi, count);
     let scroll = SCROLL.with(Cell::get).min(count.saturating_sub(visible_count));
     let row_h = scale(ROW_H, dpi);
     let header_h = scale(HEADER_H, dpi);
 
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
-    let switch_on = circles::any_visible();
     let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let switch_rect = action_rect(dpi);
@@ -996,7 +1017,6 @@ fn paint(hwnd: HWND) {
                 DeleteObject(heading_font);
             }
         }
-        let is_locked = locked();
         let progress = ACTION_START
             .get()
             .map(|start| circles::geom::ease_out_cubic((crate::diag::since_start_ms() - start) / ACTION_DWELL_MS as f64) as f32);
@@ -1078,14 +1098,6 @@ fn paint(hwnd: HWND) {
             }
             DeleteObject(font);
         }
-        if let Some(surface) = buffer.as_ref() {
-            use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
-            let r = ps.rcPaint;
-            // The window sees only completed frames, through BeginPaint's clip.
-            BitBlt(window_dc, r.left, r.top, r.right - r.left, r.bottom - r.top, surface.dc(), r.left, r.top, SRCCOPY);
-        }
-        PAINT_BUFFER.with(|slot| *slot.borrow_mut() = buffer);
-        EndPaint(hwnd, &ps);
     }
 }
 
@@ -1503,3 +1515,7 @@ mod tests {
         assert_eq!(position.hwndInsertAfter, HWND_TOPMOST);
     }
 }
+
+#[cfg(test)]
+#[path = "../docs/media/native_export.rs"]
+mod native_export;

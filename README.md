@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="res/brand/card.png" width="800" alt="DeskTuk — everything in its own circle">
+  <img src="res/brand/card-en.png" width="800" alt="DeskTuk — everything in its own circle">
 </p>
 
 <p align="center">
@@ -24,8 +24,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/media/desktop-overview.svg" width="960" alt="Illustration: a Music circle opens around its centre beside an edge panel with circle shortcuts">
-  <br><sub>Illustration with example filenames; not a screenshot.</sub>
+  <a href="https://raw.githubusercontent.com/ege-ozel/desktuk/main/docs/media/desktop-overview.png"><img src="docs/media/desktop-overview.png" width="1080" alt="DeskTuk native rendering: Music circle with Windows file icons, Recent and Apps circles, and the edge panel"></a>
+  <br><sub>Exported from DeskTuk’s native drawing code with example files; not a live desktop capture.</sub>
 </p>
 
 <table>
@@ -92,8 +92,8 @@ Both search fields support familiar editing: **Ctrl+A**, **Ctrl+C/X/V/Z**,
 **Shift+arrows**, Home/End and selection with the mouse.
 
 <p align="center">
-  <img src="docs/media/search-order.svg" width="800" alt="Typing mix ranks Mix notes and Mixer preset before Summer mix; unrelated files are filtered out">
-  <br><sub>Search ordering example. Existing order is preserved within each match group.</sub>
+  <a href="https://raw.githubusercontent.com/ege-ozel/desktuk/main/docs/media/search-results.png"><img src="docs/media/search-results.png" width="800" alt="DeskTuk native Music circle filtered to Mix notes, Mixer preset and Summer mix, with the first result highlighted"></a>
+  <br><sub>Native search rendering with example files. Prefix matches come first; existing order is preserved within each match group.</sub>
 </p>
 
 ## Small details, everyday use

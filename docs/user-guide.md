@@ -1,139 +1,19 @@
-# DeskTuk kısa kullanım kılavuzu
+# DeskTuk kullanım kılavuzu / Quick guide
 
-- Çemberin üzerine gelerek dosyalarını görün. Sol tuşla merkezinden veya boş
-  alanından sürükleyerek taşıyın; orta tuş da kullanılabilir.
-- Dosya simgesine tıklayarak açın. Bir dosyayı başka çembere sürüklemek gerçek
-  dosyayı taşımaz; yalnızca DeskTuk içindeki başvurusunu değiştirir.
-- Açık çemberin üzerinde yazmaya başlayın. Tek harfle arama yapılabilir;
-  başlangıcı eşleşen adlar önce, içinde eşleşme bulunanlar sonra listelenir.
-  Backspace siler, Esc aramayı temizler. Çember kapanınca arama sıfırlanır.
-- Tekerleği kaydırarak veya merkeze tıklayarak sayfa değiştirin.
-- Kilit, çemberlerin hover ile açılmasını ve göster/gizle düğmesini durdurur.
-  Dosya araması ve taşıma kullanılabilir. Kilitli göster/gizle düğmesi üzerinde
-  beklerseniz açıklama çıkar. Ayarlar → Kullanım ipuçları ile bunu kapatabilirsiniz.
-- Sağ tık → Izgara: Kapalı, 2×2, 3×3, 4×4, 6×6 veya 8×8 seçin. Seçim mevcut
-  konumları değiştirmez; sonraki sürüklemenin bırakıldığı konumu hizalar.
-- Izgara → Şimdi hizala, Son öğeler dahil mevcut çemberleri kendi monitörlerinin
-  çalışma alanındaki en yakın uygun boş hücrelere yerleştirir. Diğer çemberler için
-  yer ayırır; uygun konum bulamazsa ilgili çemberi yerinde bırakır. Yeni kurulumda
-  grid 4×4'tür; mevcut kurulumların tercihleri korunur.
-- Panelin sağ tık menüsündeki Çemberler bölümünden içerikleri açabilirsiniz.
-  Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Dosyalar varsayılan
-  uygulamasında, programlar doğrudan, klasörler Explorer'da açılır.
-- Açık panelde merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgara
-  seçeneklerini, ⓘ kısa kılavuzu açar. Listedeki çember adına basınca üstünde arama kutusu olan dosya listesi
-  açılır; küçük panelin altındaki çerçeveli Çemberler düğmesi tüm çemberlere ulaşır.
-  Üç kısayol ince bir ayırıcıyla listeden ayrılır. Bu seçenekler sağ tık menüsünde
-  bulunur. Ayarlar → Dil / Language seçimi hemen uygulanır ve kaydedilir.
-  Çemberlerin/grupların verdiğiniz adları ve dosya adları çevrilmez.
-
-# DeskTuk quick guide
-
-- Hover over a circle to reveal its contents. Drag its centre or empty background
-  with the left button to move it. The middle button also works.
-- Click an icon to open it. Dragging a file to another circle changes its DeskTuk
-  reference; the real file stays in place.
-- Type over an open circle to search, starting with one character. Prefix matches
-  appear before substring matches. Backspace deletes and Esc clears. Closing the
-  circle resets the search.
-- Scroll the wheel or click the centre to change pages.
-- Lock stops hover opening and show/hide. File search and dragging remain available.
-  Hover over a locked panel control for an explanation. Disable this in
-  Settings → Usage tips if preferred.
-- Right-click → Grid: choose Off, 2×2, 3×3, 4×4, 6×6 or 8×8. Selection affects
-  future drag releases without changing existing positions.
-- Grid → Align now places existing circles, including Recent, in the nearest
-  suitable empty cells of their own monitor's work area. It reserves space for
-  other circles and leaves a circle in place if no suitable location is available.
-  New installations start at 4×4; existing preferences are preserved.
-- Right-click the panel → Circles to launch contents. Large lists have 32 entries
-  per More submenu. Files use their default app, programs launch directly and
-  folders open in Explorer.
-- Below the expanded panel's centre button, the gear opens Settings, the grid
-  shortcut opens grid choices and ⓘ opens the short guide. Click a circle row to
-  open its searchable file list; the outlined Circles button below the compact square opens
-  all circles. A thin divider separates the three shortcuts from the list. Settings/help are also
-  in the context menu. Language selection applies immediately and is saved.
-  User-supplied circle/group names and filenames are never translated.
-
-Kılavuz tek pencereyle sınırlıdır; tekrar tıklamak açık kılavuzu öne getirir.
-Panel açma/kapama tek adımda yapılır; hover geçişleri yumuşak kalır.
-
-The quick guide opens only once; clicking again brings its existing window forward.
-Panel expansion/collapse is immediate; hover transitions remain eased.
-
-Panelin boş alanlarından sol tuşla sürükleyin. Panel, monitörün çalışma alanındaki
-sol/sağ/üst/alt kenar boyunca kayar; köşelerde durabilir, ortada bırakılamaz. Seçilen
-kenar kaydedilir. Aç/kapa düğmesinin iki durumda da üst/yan iç boşlukları aynıdır
-(padding); dış kenar uzaklığı farklı bir yerleşim ölçüsüdür.
-
-Drag any blank panel area with the left button. The panel stays on the work-area
-perimeter: left, right, top or bottom, including corners. It cannot remain in the
-middle. The chosen edge is saved. Toggle controls use matching inner insets in
-both modes; those insets are padding, separate from the screen-edge gap.
-
-
-Arama ve kullanım ipuçları:
-- Panelde ayırıcının altındaki çember adına tıklayın. Üstteki teal çerçeveli
-  kutuda yazmak dosyaları filtreler; başlangıcı eşleşen adlar önce gelir.
-- Sonuçta tek tıklama yalnızca seçer. Enter veya çift tıklama açar. Aşağı ok
-  sonuçlara, Tab tekrar arama kutusuna geçer; Esc pencereyi kapatır.
-- Liste tek kaydırma çubuğuyla bütün sonuçları gösterir. Gruplar ve Geri
-  satırı da Enter veya çift tıklamayla gezilir. Sağ tık menüsü korunur;
-  dosya adının ilk harfi dosyayı açmadan seçer, Enter ile açılır.
-- Çember üzerinde yazmaya başlamak gerçek bir metin kutusu açar. Ctrl+A,
-  Shift+oklar, Home/End, Ctrl+C/X/V/Z ve fareyle metin seçimi kullanılabilir.
-  Yukarı/aşağı oklar sonuçları seçer, Enter seçileni açar; Esc aramayı temizler. Etkin sorgu varken
-  merkeze tıklamak kutuyu tekrar açar; sayfalamak için tekerleği kullanın.
-  Çember/grup adını düzenlerken de Ctrl+A desteklenir.
-- Kullanım ipuçları, panel düğmelerinin işlevlerini teal çerçeveyle açıklar;
-  kilit nedeniyle kullanılamayan alanlarda kırmızı çerçeve gösterilir.
-  Ayarlar → Kullanım ipuçları hepsini birlikte açar/kapatır.
-
-Search and usage tips:
-- Click a circle row below the divider. Type in the teal-bordered top field to
-  filter filenames, with prefix matches before substring matches.
-- A single click selects. Enter or double-click opens. Down moves into results;
-  Tab returns to the search box. Escape closes the window.
-- Results use one continuous scrollbar. Enter or double-click
-  navigates groups and Back. Context menus remain available; a filename's first
-  letter selects without launching it. Enter opens the selected file.
-- Typing over a circle opens a native text field supporting Ctrl+A, Shift+arrows,
-  Home/End, Ctrl+C/X/V/Z and mouse selection. Up/Down selects results and Enter opens the selected item; Escape clears it. Clicking the centre with an active query reopens
-  the editor; the wheel still pages. Circle/group rename also supports Ctrl+A.
-- Usage tips explain panel controls with a teal border; locked controls use red.
-  Settings → Usage tips toggles both kinds together.
-
-
-Panel düğmeleri yuvarlatılmış sabit zemin/çerçeveyle görünür, hover sırasında
-teal çerçevesi ve zemini parlaklaşır. Boş taşınabilir alanlarda mavi çerçeveli sürükleme ipucu bulunur.
-Kilit, paneldeki dosya aramasını engellemez; engellenen göster/gizle düğmesine
-basınca kilit açıklaması hemen görünür. İpuçları Ayarlar'dan birlikte kapatılır.
-Arama penceresi ve alanı yuvarlatılmıştır; dosya listesi sayfa düğmeleri yerine
-tek scrollbar kullanır. Yalnızca görünür satırların metni çizilir.
-
-Panel tools have persistent rounded surfaces/borders and teal hover feedback.
-Blank draggable areas show a blue-bordered hint. Lock leaves panel file search
-available; clicking the disabled show/hide tile displays its explanation immediately.
-Usage tips can all be disabled in Settings. Search uses rounded window/field frames
-and a single scrollbar; only visible list rows are painted.
-
-
-Arama penceresinde yalnızca dış çerçeve çizilir; küçük köşe önbelleği kesilmeyi
-önler ve kenar yumuşatma uygular. Çember arama çubuğu, yer varsa çemberin dışında
-veya uygun boş kenarda açılır. Hiç yer kalmazsa dosya adlarını örtmemek için merkez
-çemberin içine sığan küçük bir alan kullanılır. Windows odağı vermediğinde de kutu
-kaybolmaz; çember/kutu üzerinde yazma ve düzenleme geçici olarak yönlendirilir.
-Başka bir uygulamaya tıklamak kutuyu kapatır. Popup dışındaki kısayollar korunur.
-Dosya listesi açıldığında ve sorgu değiştiğinde ilk sonuç seçilidir. Aşağı ok sonraki
-sonuca geçer, Enter vurgulananı açar. Çemberlerde de ilk öğe baştan vurgulanır;
-yazmadan oklar ve Enter kullanılabilir. Fare hover vurgusu önceliklidir.
-
-Search has a single outer frame with tiny cached antialiased corners. The circle
-editor prefers free space outside the ring; when no outer space exists it fits
-inside the centre disc to avoid file labels. It remains visible if Windows denies
-foreground activation, using transient hover routing over the ring/editor. Clicking
-elsewhere dismisses it. The first result is selected when a list opens or its query
-changes. Down advances to the next result; Enter opens the highlighted item. Circles
-also highlight their first item before typing and accept arrows/Enter immediately.
-Mouse hover takes precedence. Shift+arrows continue native text selection.
+<table>
+<thead><tr><th width="50%">Türkçe</th><th width="50%">English</th></tr></thead>
+<tbody>
+<tr><td><h3>1. Çemberleri kullanın</h3>Çemberin üzerine gelerek içeriğini görün. Dosya simgesine tıklayarak açın. Çemberler dosyaların yollarını saklar; gerçek dosyaları taşımaz. Explorer'dan bir çembere dosya veya kısayol bırakabilirsiniz.</td><td><h3>1. Use your circles</h3>Hover over a circle to reveal its contents. Click a file icon to open it. Circles store path references; they do not move the original files. Drop files or shortcuts from Explorer onto a circle to add them.</td></tr>
+<tr><td><h3>2. Düzenleyin ve taşıyın</h3>Sağ tık menüsünden çember veya grup oluşturun, adlandırın ve düzenleyin. Bir dosyayı başka çembere sürüklemek yalnızca DeskTuk içindeki başvurusunu değiştirir. Dosyaya sağ tıklamak Windows'un kendi menüsünü açar; orada seçtiğiniz dosya işlemleri gerçek dosyaya uygulanır.</td><td><h3>2. Organize and move</h3>Use the context menu to create and manage circles or groups. Dragging a file to another circle changes its DeskTuk reference. Right-click a file for its Windows shell menu; file actions chosen there apply to the actual file.</td></tr>
+<tr><td><h3>3. Çemberde arayın</h3>Açık çember üzerinde yazmaya başlayın; tek harf yeterlidir. Önce adı sorguyla başlayanlar, ardından sorguyu içinde bulunduranlar görünür. Her iki eşleşme grubunda mevcut sıra korunur. İlk öğe, yazmadan önce de vurguludur. Yukarı/aşağı oklar seçimi değiştirir; Enter vurgulananı açar. Fareyle bir dosyaya gelmek hover vurgusuna öncelik verir.</td><td><h3>3. Search a circle</h3>Type over an open circle; one character is enough. Names starting with your query come first, followed by names containing it. Existing order is preserved within each match group. The first item is highlighted even before typing. Up/Down changes selection; Enter opens the highlighted item. Hovering a file gives its pointer highlight priority.</td></tr>
+<tr><td><h3>4. Arama metnini düzenleyin</h3>Yazmaya başlayınca gerçek bir metin kutusu açılır. Ctrl+A, Ctrl+C/X/V/Z, Shift+oklar, Home/End ve fareyle metin seçimi kullanılabilir. Backspace siler; Esc aramayı temizler. Çember kapanınca sorgu sıfırlanır. Etkin sorgu varken merkeze tıklamak alanı tekrar açar. Çember/grup adını düzenlerken de Ctrl+A kullanılabilir.</td><td><h3>4. Edit your query</h3>Typing opens a native text field. Use Ctrl+A, Ctrl+C/X/V/Z, Shift+arrows, Home/End and mouse selection. Backspace deletes; Escape clears. Closing the circle resets the query. Clicking the centre while a query is active reopens the editor. Circle/group rename supports Ctrl+A too.</td></tr>
+<tr><td><h3>5. Sayfalar arasında gezin</h3>Çemberde tekerleği kaydırarak veya arama etkin değilken merkeze tıklayarak sayfa değiştirin. Klavyeyle sonuçlar arasında ilerlemek gerektiğinde sonraki sayfayı gösterir.</td><td><h3>5. Browse pages</h3>Scroll the wheel, or click the centre when no search is active, to change circle pages. Keyboard navigation reveals the next page when needed.</td></tr>
+<tr><td><h3>6. Panelden dosya açın</h3>Ayırıcının altındaki çember adına tıklayın. Üst alanda yazmak listeyi filtreler. Liste açıldığında ve sorgu değiştiğinde ilk sonuç seçilidir; aşağı ok sonraki sonuca geçer. Tek tıklama seçer; Enter veya çift tıklama açar. Tab alanla liste arasında geçer; Esc pencereyi kapatır. Liste tek kaydırma çubuğu kullanır. Gruplar ve Geri satırı da Enter veya çift tıklamayla açılır.</td><td><h3>6. Launch from the panel</h3>Click a circle name below the divider. Type in the top field to filter its list. The first result is selected on opening and whenever the query changes; Down advances to the next result. Single-click selects; Enter or double-click opens. Tab switches between field and list; Escape closes the window. Results use one scrollbar. Enter or double-click also navigates groups and Back.</td></tr>
+<tr><td><h3>7. Paneli yerleştirin</h3>Panelin boş alanlarından sol tuşla tutup sürükleyin. Panel, monitörün çalışma alanının dört kenarı veya köşeleri boyunca kalır; ortaya bırakılamaz. Konumu kaydedilir. Sağ üstteki ok paneli tek adımda küçültür veya genişletir. Küçük panelin alttaki Çemberler düğmesi tüm çemberlere ulaşır.</td><td><h3>7. Place the panel</h3>Drag any blank panel area with the left button. The panel stays on one of the work area's four edges or corners; it cannot remain in the middle. Its position is saved. The top-right arrow collapses or expands it immediately. The Circles button below the compact panel gives access to all circles.</td></tr>
+<tr><td><h3>8. Çemberleri hizalayın</h3>Çemberi merkezinden veya boş alanından sol tuşla sürükleyin; orta tuş da kullanılabilir. Izgara menüsünden Kapalı, 2×2, 3×3, 4×4, 6×6 veya 8×8 seçin. Seçim mevcut konumları değiştirmez; sonraki bırakma konumunu hizalar. Şimdi hizala, Son öğeler dahil çemberleri kendi monitörlerinde uygun boş hücrelere yerleştirir. Yer yoksa ilgili çember yerinde kalır. Yeni kurulumda 4×4 seçilidir.</td><td><h3>8. Align circles</h3>Drag a circle by its centre or empty background with the left button; the middle button also works. Choose Off, 2×2, 3×3, 4×4, 6×6 or 8×8 from Grid. Choosing a grid keeps existing positions and snaps future drag releases. Align now places circles, including Recent, into suitable free cells on their own monitors. A circle stays in place if no suitable cell is available. New installations start at 4×4.</td></tr>
+<tr><td><h3>9. Kilidi kullanın</h3>Sol üstteki kilit, çemberlerin hover ile açılmasını ve merkezdeki göster/gizle düğmesini durdurur. Panelden dosya arama ve sürükleme kullanılabilir. Engellenen düğmede beklemek veya ona basmak açıklama gösterir.</td><td><h3>9. Use the lock</h3>The top-left lock stops circles opening on hover and disables the centre show/hide tile. Panel file search and dragging remain available. Hovering or clicking a disabled control shows an explanation.</td></tr>
+<tr><td><h3>10. Ayarlar ve yardım</h3>Merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgarayı, bilgi simgesi kılavuzu açar. Dil / Language seçimi hemen uygulanıp kaydedilir; dosya ve çember/grup adları çevrilmez. Kılavuz tek pencereyle sınırlıdır; tekrar basmak açık pencereyi öne getirir.</td><td><h3>10. Settings and help</h3>Below the centre tile, the gear opens Settings, the grid icon opens grid choices and the info icon opens the guide. Language selection applies immediately and is saved; filenames and circle/group names are not translated. The guide opens once; another click brings its existing window forward.</td></tr>
+<tr><td><h3>11. Kullanım ipuçları</h3>İpuçları normal kontrolleri teal, kilit nedeniyle engellenenleri kırmızı, boş taşınabilir alanları mavi çerçeveyle açıklar. Ayarlar → Kullanım ipuçları ile hepsini birlikte açıp kapatabilirsiniz.</td><td><h3>11. Usage tips</h3>Tips explain ordinary controls with a teal border, locked controls with red and blank draggable areas with blue. Settings → Usage tips turns all of them on or off together.</td></tr>
+<tr><td><h3>12. Sağ tık ve sistem tepsisi</h3>Panelin sağ tık menüsündeki Çemberler bölümünden de dosya açabilirsiniz. Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Harf tuşları dosyayı başlatmadan seçer; Enter açar. Dosyalar varsayılan uygulamasında, klasörler Explorer'da açılır. Sistem tepsisinden DeskTuk'u gösterin veya Windows ile başlat seçeneğini açın. Masaüstü simgelerini göster, Windows'un kendi simgelerini bağımsız olarak yönetir.</td><td><h3>12. Context menu and tray</h3>The panel's context menu also offers Circles for launching files. Large lists use More submenus of 32 entries. Letter keys select without launching; Enter opens. Files use their default app; folders open in Explorer. Use the tray icon to show DeskTuk or opt into Windows startup. Show desktop icons controls Windows' own icons independently.</td></tr>
+</tbody>
+</table>
