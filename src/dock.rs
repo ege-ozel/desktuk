@@ -9,7 +9,7 @@ use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SelectObject,
-    SetBkMode, SetTextColor, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
+    SetBkMode, SetTextColor, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -42,21 +42,6 @@ const UI_TIMER: usize = 2;
 const UI_MS: f64 = 190.0;
 
 #[derive(Clone, Copy)]
-struct Ease {
-    from: f32,
-    to: f32,
-    start: f64,
-}
-impl Ease {
-    fn value(self, now: f64) -> f32 {
-        self.from + (self.to - self.from) * circles::geom::ease_out_cubic((now - self.start) / UI_MS) as f32
-    }
-    fn done(self, now: f64) -> bool {
-        now - self.start >= UI_MS
-    }
-}
-
-#[derive(Clone, Copy)]
 struct PanelEase {
     from: RECT,
     to: RECT,
@@ -64,10 +49,15 @@ struct PanelEase {
     lock: (RECT, RECT),
     menu: (RECT, RECT),
     start: f64,
+    progress: f32,
+    content: (f32, f32),
 }
 impl PanelEase {
     fn amount(self) -> f32 {
-        circles::geom::ease_out_cubic((crate::diag::since_start_ms() - self.start) / UI_MS) as f32
+        self.progress
+    }
+    fn content(self) -> f32 {
+        self.content.0 + (self.content.1 - self.content.0) * self.progress
     }
 }
 fn mix_rect(a: RECT, b: RECT, t: f32) -> RECT {
@@ -111,9 +101,9 @@ struct VisibilityKey {
 }
 
 thread_local! {
+    static UI_RUNNING: Cell<bool> = const { Cell::new(false) };
     static TOP_ANCHOR: Cell<Option<i32>> = const { Cell::new(None) };
     static PANEL_EASE: Cell<Option<PanelEase>> = const { Cell::new(None) };
-    static LOCK_EASE: Cell<Option<Ease>> = const { Cell::new(None) };
     static HEADER_HOVER: Cell<u8> = const { Cell::new(0) };
     static CONTROL_EASE: Cell<Option<HoverEase<2>>> = const { Cell::new(None) };
     static ROW_EASE: Cell<Option<HoverEase<MAX_ROWS>>> = const { Cell::new(None) };
@@ -173,8 +163,6 @@ pub fn locked() -> bool {
 }
 
 fn toggle_lock(hwnd: HWND) {
-    let now = crate::diag::since_start_ms();
-    let from = LOCK_EASE.get().map_or(f32::from(locked()), |a| a.value(now));
     cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
     ACTION_HOVER.set(false);
@@ -186,8 +174,6 @@ fn toggle_lock(hwnd: HWND) {
         false
     };
     if changed {
-        LOCK_EASE.set(Some(Ease { from, to: f32::from(locked()), start: now }));
-        start_ui(hwnd);
         circles::ring::close_now();
         app::app().save_config();
         if circles::any_visible() {
@@ -227,9 +213,9 @@ fn cancel_dwell(hwnd: HWND) {
 
 fn mode_lock(dpi: u32, expanded: bool) -> RECT {
     if expanded {
-        win::rect(scale(6, dpi), scale(9, dpi), scale(28, dpi), scale(31, dpi))
+        win::rect(scale(4, dpi), scale(7, dpi), scale(30, dpi), scale(33, dpi))
     } else {
-        win::rect(scale(2, dpi), scale(1, dpi), scale(22, dpi), scale(21, dpi))
+        win::rect(scale(1, dpi), scale(1, dpi), scale(27, dpi), scale(27, dpi))
     }
 }
 fn lock_rect(dpi: u32) -> RECT {
@@ -264,7 +250,9 @@ fn action_rect(dpi: u32) -> RECT {
     PANEL_EASE.get().map_or_else(|| mode_action(dpi, EXPANDED.get()), |a| mix_rect(a.action.0, a.action.1, a.amount()))
 }
 fn start_ui(hwnd: HWND) {
-    unsafe { SetTimer(hwnd, UI_TIMER, 16, None) };
+    if !UI_RUNNING.replace(true) && unsafe { SetTimer(hwnd, UI_TIMER, 16, None) } == 0 {
+        UI_RUNNING.set(false);
+    }
 }
 fn set_expanded(hwnd: HWND, expanded: bool) {
     if EXPANDED.get() == expanded {
@@ -275,6 +263,7 @@ fn set_expanded(hwnd: HWND, expanded: bool) {
     let from_action = action_rect(dpi);
     let from_lock = lock_rect(dpi);
     let from_menu = arrow_rect(dpi);
+    let from_content = PANEL_EASE.get().map_or(f32::from(EXPANDED.get()), PanelEase::content);
     PANEL_EASE.set(None);
     EXPANDED.set(expanded);
     TOP_ANCHOR.set(Some(from.top));
@@ -291,6 +280,8 @@ fn set_expanded(hwnd: HWND, expanded: bool) {
         lock: (from_lock, mode_lock(dpi, expanded)),
         menu: (from_menu, mode_menu(dpi, expanded)),
         start: crate::diag::since_start_ms(),
+        progress: 0.0,
+        content: (from_content, f32::from(expanded)),
     }));
     start_ui(hwnd);
     unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
@@ -331,28 +322,24 @@ fn set_row_hover(hwnd: HWND, next: isize, _dpi: u32) {
     start_ui(hwnd);
 }
 fn ui_tick(hwnd: HWND) {
-    if PANEL_EASE.get().is_none() && LOCK_EASE.get().is_none() && CONTROL_EASE.get().is_none() && ROW_EASE.get().is_none() {
+    if PANEL_EASE.get().is_none() && CONTROL_EASE.get().is_none() && ROW_EASE.get().is_none() {
+        UI_RUNNING.set(false);
         unsafe { KillTimer(hwnd, UI_TIMER) };
         return;
     }
     let now = crate::diag::since_start_ms();
     let mut active = false;
-    if let Some(a) = PANEL_EASE.get() {
+    if let Some(mut a) = PANEL_EASE.get() {
+        a.progress = circles::geom::ease_out_cubic((now - a.start) / UI_MS) as f32;
         let done = now - a.start >= UI_MS;
         let rect = if done { a.to } else { mix_rect(a.from, a.to, a.amount()) };
         if done {
             PANEL_EASE.set(None);
         } else {
+            PANEL_EASE.set(Some(a));
             active = true;
         }
         unsafe { SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE) };
-    }
-    if let Some(a) = LOCK_EASE.get() {
-        if a.done(now) {
-            LOCK_EASE.set(None);
-        } else {
-            active = true;
-        }
     }
     if let Some(a) = CONTROL_EASE.get() {
         if a.done(now) {
@@ -369,9 +356,14 @@ fn ui_tick(hwnd: HWND) {
         }
     }
     if !active {
+        UI_RUNNING.set(false);
         unsafe { KillTimer(hwnd, UI_TIMER) };
     }
-    unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+    unsafe {
+        InvalidateRect(hwnd, std::ptr::null(), 0);
+        // Present the same sampled geometry before processing the next timer tick.
+        windows_sys::Win32::Graphics::Gdi::UpdateWindow(hwnd);
+    };
 }
 
 fn row_rect(dpi: u32, index: usize) -> RECT {
@@ -772,8 +764,8 @@ fn lock_distance(px: f32, py: f32, closed: bool) -> f32 {
     body.min(arc).min(left).min(right).min(key)
 }
 
-unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, phase: f32, background: u32) {
-    let side = scale(20, dpi);
+unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, is_locked: bool, background: u32) {
+    let side = scale(26, dpi);
     LOCK_FRAMES.with(|slot| {
         let mut cache = slot.borrow_mut();
         if cache.as_ref().is_none_or(|c| c.size != side) {
@@ -787,19 +779,12 @@ unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u3
             })();
         }
         if let Some(c) = cache.as_mut() {
-            let open = c.open.pixels();
-            let closed = c.closed.pixels();
+            let mask = if is_locked { c.closed.pixels() } else { c.open.pixels() };
             let frame = c.frame.pixels();
-            for ((out, a), b) in frame.iter_mut().zip(open.iter()).zip(closed.iter()) {
-                let oa = (*a & 255) as f32 / 255.0 * (1.0 - phase);
-                let ca = (*b & 255) as f32 / 255.0 * phase;
-                let channel = |shift: u32| {
-                    (((background >> shift) & 255) as f32 * (1.0 - oa - ca)
-                        + ((SUBTEXT >> shift) & 255) as f32 * oa
-                        + ((TEAL >> shift) & 255) as f32 * ca)
-                        .round() as u32
-                };
-                *out = 0xff00_0000 | channel(0) << 16 | channel(8) << 8 | channel(16);
+            let ink = if is_locked { TEAL } else { SUBTEXT };
+            for (out, coverage) in frame.iter_mut().zip(mask.iter()) {
+                *out = 0xff00_0000 | (background & 255) << 16 | background & 0xff00 | (background >> 16) & 255;
+                blend_pixel(out, ink, (*coverage & 255) as f32 / 255.0);
             }
             unsafe {
                 windows_sys::Win32::Graphics::Gdi::BitBlt(
@@ -816,6 +801,32 @@ unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u3
             };
         }
     });
+}
+
+unsafe fn draw_menu(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, expanded: bool, background: u32) {
+    use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+    let (w, h) = (rect.right - rect.left, rect.bottom - rect.top);
+    let Some(mut surface) = rounded_surface(w, h, scale(5, dpi), background) else { return };
+    let factor = dpi as f32 / 96.0;
+    let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
+    let direction = if expanded { -1.0 } else { 1.0 };
+    let pixels = surface.pixels();
+    for y in 0..h {
+        for x in 0..w {
+            let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+            let qx = (px - cx).abs() - (cx - 4.5 * factor);
+            let qy = (py - cy).abs() - (cy - 4.5 * factor);
+            let edge = (qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - 3.5 * factor).abs();
+            let a = (cx - 5.0 * factor, cy - direction * 2.5 * factor);
+            let b = (cx, cy + direction * 2.5 * factor);
+            let c = (cx + 5.0 * factor, a.1);
+            let glyph = line_distance(px, py, a, b).min(line_distance(px, py, b, c));
+            let coverage = (factor * 0.8 + 0.5 - glyph).clamp(0.0, 1.0);
+            let border = (factor * 0.5 + 0.5 - edge).clamp(0.0, 1.0);
+            blend_pixel(&mut pixels[(y * w + x) as usize], TEAL, coverage.max(border * 0.65));
+        }
+    }
+    unsafe { BitBlt(dc, rect.left, rect.top, w, h, surface.dc(), 0, 0, SRCCOPY) };
 }
 
 fn paint(hwnd: HWND) {
@@ -840,6 +851,7 @@ fn paint(hwnd: HWND) {
     let scroll = SCROLL.with(Cell::get).min(count.saturating_sub(visible_count));
     let row_h = scale(ROW_H, dpi);
     let header_h = scale(HEADER_H, dpi);
+    let content_weight = PANEL_EASE.get().map_or(f32::from(EXPANDED.get()), PanelEase::content);
 
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
@@ -847,18 +859,17 @@ fn paint(hwnd: HWND) {
     let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let switch_rect = action_rect(dpi);
-    let switch_bottom = switch_rect.bottom;
     let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
         FrameRect(hdc, &border, accent);
         SetBkMode(hdc, TRANSPARENT as i32);
-        if EXPANDED.get() {
+        if content_weight > 0.0 {
             let heading_font = crate::theme::font(dpi, true, 100);
             if !heading_font.is_null() {
                 SelectObject(hdc, heading_font);
             }
-            SetTextColor(hdc, TEXT);
+            SetTextColor(hdc, mix_color(BG, TEXT, content_weight));
             let mut title = win::wide("DeskTuk");
             let mut title_rect = win::rect(
                 lock_rect(dpi).right + scale(6, dpi),
@@ -903,19 +914,14 @@ fn paint(hwnd: HWND) {
                 rounded_fill(hdc, rect, mix_color(BG, ROW_HOVER, control_hover[index]), scale(6, dpi));
             }
         }
-        SetTextColor(hdc, if HEADER_HOVER.get() == 2 { TEXT } else { SUBTEXT });
-        let mut arrow = win::wide(if EXPANDED.get() { "\u{2303}" } else { "\u{2304}" });
-        let mut arrow_area = arrow_rect(dpi);
-        DrawTextW(hdc, arrow.as_mut_ptr(), -1, &mut arrow_area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        let lock = lock_rect(dpi);
-        let phase = LOCK_EASE.get().map_or(f32::from(is_locked), |a| a.value(now));
-        draw_lock(hdc, lock, dpi, phase, mix_color(BG, ROW_HOVER, control_hover[0]));
+        draw_menu(hdc, arrow_rect(dpi), dpi, EXPANDED.get(), mix_color(BG, ROW_HOVER, control_hover[1]));
+        draw_lock(hdc, lock_rect(dpi), dpi, is_locked, mix_color(BG, ROW_HOVER, control_hover[0]));
         SetTextColor(hdc, TEXT);
-        if EXPANDED.get() {
-            SetTextColor(hdc, SUBTEXT);
+        if content_weight > 0.0 {
+            SetTextColor(hdc, mix_color(BG, SUBTEXT, content_weight));
             for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
                 let index = scroll + visible_index;
-                let top = switch_bottom + scale(GAP, dpi) + visible_index as i32 * row_h;
+                let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi) + visible_index as i32 * row_h;
                 let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
                 let weight = row_weights(now)[visible_index];
                 if weight > 0.0 {
@@ -1171,8 +1177,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
         }
         WM_DESTROY => {
             KillTimer(hwnd, UI_TIMER);
+            UI_RUNNING.set(false);
             PANEL_EASE.set(None);
-            LOCK_EASE.set(None);
             CONTROL_EASE.set(None);
             ROW_EASE.set(None);
             LOCK_FRAMES.with(|slot| slot.borrow_mut().take());

@@ -6,7 +6,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D45 are implemented; D44/D45 await owner manual acceptance.
+- A and D through D46 are implemented; D44-D46 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -15,9 +15,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Middle-button drag moves circles freely, snapping on release; centre left click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D45 installed SHA256: 6FDCFC2AB66DFE521A66B9F075BC892DE9DB7EA65AE5B7051CE0FC4EE0F47814.
-  D44/D45 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  Config hash was preserved; installed dock is 153 px wide at system 96 DPI.
+- D46 installed SHA256: 294E07EEFCC7ECF8F226C18586EAEF13483E96149871FDC409E098BC48BD5EF0.
+  D44-D46 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D46 shutdown saved latest APPS position; installed dock is 153 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D45 eases transitions and retains its top edge within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -52,6 +52,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D45 adds left lock/right menu in both modes, rounded hover, 8-DIP bottom padding
   and transient eased menu/lock/hover transitions. Only fmt/Clippy/build performed;
   user expressly defers tests/CI. Manual acceptance and later fixture updates pending.
+- D46 enlarges locks, removes lock-state easing, outlines/centres the teal menu
+  chevron and restores a static gradient rim. Panel frames share one progress
+  sample; hover no longer restarts its timer. Physical smoothness awaits acceptance.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -84,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 Short names share the preceding directory. Tests live with their Rust module.
 
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44/D45 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D46 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

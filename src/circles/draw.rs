@@ -113,17 +113,27 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
     fill_rect(dc, &win::rect(0, 0, d, d), ACCENT);
     let rim = sc(3).max(2);
     if locked {
-        fill_rect(dc, &win::rect(0, 0, d, d), crate::theme::MINT);
+        // Static diagonal teal/accent rim: drawn only when the circle changes.
+        let pixels = s.pixels();
+        for y in 0..d {
+            for x in 0..d {
+                let t = (x + y) as u32 * 255 / (2 * (d - 1)) as u32;
+                let a = crate::theme::MINT;
+                let b = crate::theme::ACCENT;
+                let channel = |shift: u32| (((a >> shift) & 255) * (255 - t) + ((b >> shift) & 255) * t + 127) / 255;
+                pixels[(y * d + x) as usize] = 0xff00_0000 | channel(0) << 16 | channel(8) << 8 | channel(16);
+            }
+        }
     }
     fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), CIRCLE_BG);
     if locked {
-        let side = sc(14);
+        let side = sc(22);
         if let Some(lock) = crate::dock::lock_surface_tint(side, CIRCLE_BG, true, SUBTEXT) {
             unsafe {
                 windows_sys::Win32::Graphics::Gdi::BitBlt(
                     dc,
                     (d - side) / 2,
-                    d * 48 / 100,
+                    d * 56 / 100 - side / 2,
                     side,
                     side,
                     lock.dc(),

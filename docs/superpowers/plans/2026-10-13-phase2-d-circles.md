@@ -1158,3 +1158,40 @@ Config hash unchanged across restart. Backups: target/d45-delivery/. Release SHA
 6FDCFC2AB66DFE521A66B9F075BC892DE9DB7EA65AE5B7051CE0FC4EE0F47814.
 Rebuilt dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 797AA163CBEE01556B9118D0C3D32AABFFB0D2B0A343D4245307EEDC226E3E9A.
+
+### D46: Clear lock glyphs and consistent menu transition frames
+
+Owner manual feedback (2026-10-22): enlarge the small lock, remove its state
+crossfade, repair stuttering menu expansion/collapse, add a teal outlined menu
+button with a larger centred chevron, and revisit the locked-circle gradient.
+Prior owner instruction still defers automated/runtime tests until requested.
+
+- [x] Enlarge locks, remove lock-state easing, outline/centre teal menu glyph.
+- [x] Keep one UI timer running without resetting it on hover changes; sample
+  panel/control geometry once per frame and present each completed resize frame.
+- [x] Fade expanded labels in fixed slots instead of dropping them at collapse
+  start; preserve sampled content opacity when reversing a transition.
+- [x] Restore a static mint-to-accent diagonal rim on locked circles.
+- [x] Format/static-check/build, deliver installed app/installer, commit and push.
+- [ ] Owner manual acceptance; automated/runtime tests only when requested.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, and cargo build
+--release --locked pass. No cargo test, UI interaction, screenshot or performance
+benchmark performed. [skip ci] preserves the owner's manual-test-first request.
+Smoothness is an implementation change awaiting physical acceptance, not a test
+result. No dependencies, background threads or idle animation work added.
+Circle lock raster size increases 14 to 22 DIP; panel lock 20 to 26 DIP. Lock
+state switches immediately, retaining hover feedback. Menu uses pixel geometry
+instead of font-dependent chevron metrics, with a static rounded teal border.
+The 16ms timer is no longer restarted by hover state changes. Window bounds and
+control rectangles share a sampled ease progress, followed by synchronous paint.
+
+Installed PID 15324 from LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe; also updated
+ignored workspace EXE. Initial copy encountered a still-running workspace instance;
+its normal controller close completed before replacing the file. Backups are in
+target/d46-delivery/. Config comparison differs only in saved APPS circle position
+(1903,448 to 2133,823); no config rewrite/restore was performed by delivery.
+Release/installed SHA256:
+294E07EEFCC7ECF8F226C18586EAEF13483E96149871FDC409E098BC48BD5EF0.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+53A39EB81C816F9BDC9B1ABBC0E928138864A3BEFB0A24C6B001BA3B5B29F54D.
