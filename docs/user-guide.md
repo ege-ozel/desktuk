@@ -8,8 +8,8 @@
   başlangıcı eşleşen adlar önce, içinde eşleşme bulunanlar sonra listelenir.
   Backspace siler, Esc aramayı temizler. Çember kapanınca arama sıfırlanır.
 - Tekerleği kaydırarak veya merkeze tıklayarak sayfa değiştirin.
-- Kilit, çemberlerin hover ile açılmasını ve paneldeki içerik eylemlerini durdurur.
-  Çemberleri taşımaya devam edebilirsiniz. Kilitli bir panel kontrolü üzerinde
+- Kilit, çemberlerin hover ile açılmasını ve göster/gizle düğmesini durdurur.
+  Dosya araması ve taşıma kullanılabilir. Kilitli göster/gizle düğmesi üzerinde
   beklerseniz açıklama çıkar. Ayarlar → Kullanım ipuçları ile bunu kapatabilirsiniz.
 - Sağ tık → Izgara: Kapalı, 2×2, 3×3, 4×4, 6×6 veya 8×8 seçin. Seçim mevcut
   konumları değiştirmez; sonraki sürüklemenin bırakıldığı konumu hizalar.
@@ -37,7 +37,7 @@
   appear before substring matches. Backspace deletes and Esc clears. Closing the
   circle resets the search.
 - Scroll the wheel or click the centre to change pages.
-- Lock stops hover opening and panel content actions. Circles can still be moved.
+- Lock stops hover opening and show/hide. File search and dragging remain available.
   Hover over a locked panel control for an explanation. Disable this in
   Settings → Usage tips if preferred.
 - Right-click → Grid: choose Off, 2×2, 3×3, 4×4, 6×6 or 8×8. Selection affects
@@ -78,7 +78,7 @@ Arama ve kullanım ipuçları:
   kutuda yazmak dosyaları filtreler; başlangıcı eşleşen adlar önce gelir.
 - Sonuçta tek tıklama yalnızca seçer. Enter veya çift tıklama açar. Aşağı ok
   sonuçlara, Tab tekrar arama kutusuna geçer; Esc pencereyi kapatır.
-- Liste 128 satırlık sayfalara bölünür; alt oklarla devam edin. Gruplar ve Geri
+- Liste tek kaydırma çubuğuyla bütün sonuçları gösterir. Gruplar ve Geri
   satırı da Enter veya çift tıklamayla gezilir. Sağ tık menüsü korunur;
   dosya adının ilk harfi dosyayı açmadan seçer, Enter ile açılır.
 - Çember üzerinde yazmaya başlamak gerçek bir metin kutusu açar. Ctrl+A,
@@ -95,7 +95,7 @@ Search and usage tips:
   filter filenames, with prefix matches before substring matches.
 - A single click selects. Enter or double-click opens. Down moves into results;
   Tab returns to the search box. Escape closes the window.
-- Results use 128-row pages; the bottom arrows navigate pages. Enter or double-click
+- Results use one continuous scrollbar. Enter or double-click
   navigates groups and Back. Context menus remain available; a filename's first
   letter selects without launching it. Enter opens the selected file.
 - Typing over a circle opens a native text field supporting Ctrl+A, Shift+arrows,
@@ -104,3 +104,17 @@ Search and usage tips:
   the editor; the wheel still pages. Circle/group rename also supports Ctrl+A.
 - Usage tips explain panel controls with a teal border; locked controls use red.
   Settings → Usage tips toggles both kinds together.
+
+
+Panel düğmeleri yuvarlatılmış sabit zemin/çerçeveyle görünür, hover sırasında
+mavileşir. Boş taşınabilir alanlarda mavi çerçeveli sürükleme ipucu bulunur.
+Kilit, paneldeki dosya aramasını engellemez; engellenen göster/gizle düğmesine
+basınca kilit açıklaması hemen görünür. İpuçları Ayarlar'dan birlikte kapatılır.
+Arama penceresi ve alanı yuvarlatılmıştır; dosya listesi sayfa düğmeleri yerine
+tek scrollbar kullanır. Yalnızca görünür satırların metni çizilir.
+
+Panel tools have persistent rounded surfaces/borders and blue hover feedback.
+Blank draggable areas show a blue-bordered hint. Lock leaves panel file search
+available; clicking the disabled show/hide tile displays its explanation immediately.
+Usage tips can all be disabled in Settings. Search uses rounded window/field frames
+and a single scrollbar; only visible list rows are painted.

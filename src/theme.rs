@@ -29,6 +29,7 @@ pub fn font(dpi: u32, semibold: bool, percent: i32) -> HFONT {
         lf.lfHeight = -win::scale(12, dpi);
     }
     lf.lfHeight = lf.lfHeight * percent / 100;
+    lf.lfQuality = 5; // CLEARTYPE_QUALITY: use Windows text smoothing for native controls.
     lf.lfWeight = if semibold { FW_SEMIBOLD } else { FW_NORMAL } as i32;
     lf.lfFaceName = [0; 32];
     for (slot, ch) in lf.lfFaceName.iter_mut().zip("Segoe UI".encode_utf16()) {

@@ -5,13 +5,12 @@ use std::cell::RefCell;
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_CLASS_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows_sys::Win32::UI::Controls::EM_SETSEL;
+use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, EM_SETSEL, MEASUREITEMSTRUCT, ODS_SELECTED};
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 const CLASS: &str = "DeskTuk.Search";
-const PAGE: usize = 128;
 const CLOSE: u32 = WM_APP + 75;
 const OPEN: u32 = WM_APP + 76;
 const EM_LIMITTEXT: u32 = 0x00c5;
@@ -26,7 +25,6 @@ struct State {
     base: Vec<SlotRef>,
     source: Vec<SlotRef>,
     matches: Vec<SlotRef>,
-    offset: usize,
 }
 thread_local! { static ACTIVE: RefCell<Option<State>> = const { RefCell::new(None) }; }
 pub fn is_active() -> bool {
@@ -160,7 +158,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
             name.as_ptr(),
             win::wide(i18n::choose("Dosya ara", "Search files")).as_ptr(),
-            WS_POPUP | WS_BORDER,
+            WS_POPUP | WS_CLIPCHILDREN,
             x,
             y,
             w,
@@ -173,6 +171,10 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
         if hwnd.is_null() {
             crate::dlog!("search popup creation failed: {}", GetLastError());
             return;
+        }
+        let region = CreateRoundRectRgn(0, 0, w + 1, h + 1, sc(12), sc(12));
+        if !region.is_null() && SetWindowRgn(hwnd, region, 0) == 0 {
+            DeleteObject(region);
         }
         let child = |class: &str, label: &str, style: u32, id: usize, x, y, w, h| {
             CreateWindowExW(
@@ -195,12 +197,12 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             child(
                 "LISTBOX",
                 "",
-                WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY as u32 | LBS_NOINTEGRALHEIGHT as u32,
+                WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY as u32 | LBS_NOINTEGRALHEIGHT as u32 | LBS_OWNERDRAWFIXED as u32 | LBS_NODATA as u32,
                 2,
                 sc(10),
                 sc(48),
                 w - sc(22),
-                h - sc(92),
+                h - sc(82),
             )
         } else {
             std::ptr::null_mut()
@@ -211,13 +213,11 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             return;
         }
         let status = if target.is_some() {
-            child("BUTTON", "<", BS_PUSHBUTTON as u32, 3, sc(10), h - sc(34), sc(32), sc(24));
-            child("BUTTON", ">", BS_PUSHBUTTON as u32, 4, w - sc(44), h - sc(34), sc(32), sc(24));
-            child("STATIC", "", 1 /* SS_CENTER */, 5, sc(48), h - sc(30), w - sc(100), sc(24))
+            child("STATIC", "", 1 /* SS_CENTER */, 5, sc(10), h - sc(27), w - sc(20), sc(22))
         } else {
             std::ptr::null_mut()
         };
-        let font = theme::font(dpi, false, 100);
+        let font = theme::font(dpi, false, 110);
         SendMessageW(edit, WM_SETFONT, font as usize, 1);
         SendMessageW(edit, EM_LIMITTEXT, 80, 0);
         SendMessageW(edit, EM_SETSEL, initial.encode_utf16().count(), initial.encode_utf16().count() as isize);
@@ -225,13 +225,20 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
         SetWindowSubclass(edit, Some(input_proc), 1, 0);
         if !list.is_null() {
             SendMessageW(list, WM_SETFONT, font as usize, 1);
+            let dc = GetDC(list);
+            if !dc.is_null() {
+                let old = SelectObject(dc, font);
+                let mut metrics: TEXTMETRICW = std::mem::zeroed();
+                GetTextMetricsW(dc, &mut metrics);
+                SendMessageW(list, LB_SETITEMHEIGHT, 0, (metrics.tmHeight + sc(5)).max(sc(20)) as isize);
+                SelectObject(dc, old);
+                ReleaseDC(list, dc);
+            }
             SetWindowSubclass(list, Some(input_proc), 1, 0);
             SendMessageW(status, WM_SETFONT, font as usize, 1);
         }
         let brush = CreateSolidBrush(theme::BG);
-        ACTIVE.with(|s| {
-            *s.borrow_mut() = Some(State { hwnd, edit, list, status, font, brush, target, base, source, matches: Vec::new(), offset: 0 })
-        });
+        ACTIVE.with(|s| *s.borrow_mut() = Some(State { hwnd, edit, list, status, font, brush, target, base, source, matches: Vec::new() }));
         if target.is_none() {
             super::ring::editing_started();
         } else {
@@ -280,7 +287,6 @@ fn refresh() {
     let snapshot = ACTIVE.with(|s| {
         let mut state = s.borrow_mut();
         let s = state.as_mut()?;
-        s.offset = 0;
         s.matches = if query.is_empty() { s.base.clone() } else { view::filter_refs(&s.source, &query) };
         Some(s.hwnd)
     });
@@ -292,38 +298,50 @@ fn render() {
     let snapshot = ACTIVE.with(|s| {
         let s = s.borrow();
         let s = s.as_ref()?;
-        Some((
-            s.hwnd,
-            s.list,
-            s.status,
-            s.target?,
-            s.matches.iter().skip(s.offset).take(PAGE).cloned().collect::<Vec<_>>(),
-            s.offset,
-            s.matches.len(),
-        ))
+        Some((s.list, s.status, s.matches.len()))
     });
-    let Some((hwnd, list, status, target, rows, offset, total)) = snapshot else {
+    let Some((list, status, total)) = snapshot else {
         return;
     };
     unsafe {
         SendMessageW(list, WM_SETREDRAW, 0, 0);
-        SendMessageW(list, LB_RESETCONTENT, 0, 0);
-        for row in &rows {
-            SendMessageW(list, LB_ADDSTRING, 0, win::wide(label(row, target)).as_ptr() as isize);
-        }
-        SendMessageW(list, LB_SETCURSEL, 0, 0);
+        SendMessageW(list, LB_SETCOUNT, total.min(i32::MAX as usize), 0);
+        SendMessageW(list, LB_SETCURSEL, if total == 0 { usize::MAX } else { 0 }, 0);
+        SendMessageW(list, LB_SETTOPINDEX, 0, 0);
         SendMessageW(list, WM_SETREDRAW, 1, 0);
         InvalidateRect(list, std::ptr::null(), 1);
-        let caption = if total == 0 {
-            i18n::choose("0 sonuç", "0 results").to_owned()
-        } else {
-            format!("{}–{} / {}", offset + 1, (offset + PAGE).min(total), total)
-        };
+        let caption = format!("{total} {}", i18n::choose("sonuç", "results"));
         SetWindowTextW(status, win::wide(caption).as_ptr());
-        EnableWindow(GetDlgItem(hwnd, 3), i32::from(offset > 0));
-        EnableWindow(GetDlgItem(hwnd, 4), i32::from(offset + PAGE < total));
     }
 }
+unsafe fn draw_row(draw: &DRAWITEMSTRUCT) {
+    if draw.itemID == u32::MAX {
+        return;
+    }
+    let snapshot = ACTIVE.with(|s| {
+        let state = s.borrow();
+        let s = state.as_ref()?;
+        Some((s.matches.get(draw.itemID as usize)?.clone(), s.target?, s.font))
+    });
+    let Some((slot, target, font)) = snapshot else {
+        return;
+    };
+    let selected = draw.itemState & ODS_SELECTED != 0;
+    let background = if selected { theme::RAISED } else { theme::BG };
+    SetDCBrushColor(draw.hDC, background);
+    FillRect(draw.hDC, &draw.rcItem, GetStockObject(DC_BRUSH));
+    let old = SelectObject(draw.hDC, font);
+    SetBkMode(draw.hDC, TRANSPARENT as i32);
+    SetTextColor(draw.hDC, if selected { theme::MINT } else { theme::TEXT });
+    let dpi = GetDpiForWindow(draw.hwndItem).max(96);
+    let mut rect = draw.rcItem;
+    rect.left += win::scale(6, dpi);
+    rect.right -= win::scale(6, dpi);
+    let mut text = win::wide(label(&slot, target));
+    DrawTextW(draw.hDC, text.as_mut_ptr(), -1, &mut rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    SelectObject(draw.hDC, old);
+}
+
 fn activate() {
     let Some((_, _, list)) = handles() else {
         return;
@@ -335,7 +353,7 @@ fn activate() {
     let selected = ACTIVE.with(|s| {
         let s = s.borrow();
         let s = s.as_ref()?;
-        Some((s.target?, s.matches.get(s.offset + index as usize)?.clone()))
+        Some((s.target?, s.matches.get(index as usize)?.clone()))
     });
     match selected {
         Some((_, SlotRef::Item(path))) => {
@@ -378,8 +396,9 @@ unsafe extern "system" fn input_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM,
             0
         }
         WM_KEYDOWN if w == 0x41 && GetKeyState(VK_CONTROL as i32) < 0 && GetKeyState(VK_MENU as i32) >= 0 => {
-            if handles().is_some_and(|(_, edit, _)| hwnd == edit) {
-                SendMessageW(hwnd, EM_SETSEL, 0, -1);
+            if let Some((_, edit, _)) = handles() {
+                SetFocus(edit);
+                SendMessageW(edit, EM_SETSEL, 0, -1);
             }
             0
         }
@@ -405,6 +424,16 @@ unsafe extern "system" fn input_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM,
             0
         }
         WM_CHAR if matches!(w, 1 | 9 | 13 | 27) => 0,
+        WM_CHAR if w >= 32 || w == 8 => {
+            if let Some((_, edit, list)) = handles() {
+                if hwnd == list {
+                    SetFocus(edit);
+                    SendMessageW(edit, WM_CHAR, w, l);
+                    return 0;
+                }
+            }
+            DefSubclassProc(hwnd, msg, w, l)
+        }
         WM_NCDESTROY => {
             RemoveWindowSubclass(hwnd, Some(input_proc), 1);
             DefSubclassProc(hwnd, msg, w, l)
@@ -430,6 +459,15 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LR
             }
             0
         }
+        WM_MEASUREITEM => {
+            let measure = &mut *(l as *mut MEASUREITEMSTRUCT);
+            measure.itemHeight = win::scale(24, GetDpiForWindow(hwnd).max(96)) as u32;
+            1
+        }
+        WM_DRAWITEM if w == 2 => {
+            draw_row(&*(l as *const DRAWITEMSTRUCT));
+            1
+        }
         WM_COMMAND => {
             let id = w & 0xffff;
             let notification = (w >> 16) & 0xffff;
@@ -437,17 +475,6 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LR
                 refresh();
             } else if id == 2 && notification == LBN_DBLCLK as usize {
                 PostMessageW(hwnd, OPEN, 0, 0);
-            } else if id == 3 || id == 4 {
-                ACTIVE.with(|s| {
-                    if let Some(s) = s.borrow_mut().as_mut() {
-                        if id == 3 {
-                            s.offset = s.offset.saturating_sub(PAGE);
-                        } else if s.offset + PAGE < s.matches.len() {
-                            s.offset += PAGE;
-                        }
-                    }
-                });
-                render();
             }
             0
         }
@@ -463,13 +490,25 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LR
             if let Some(brush) = brush {
                 FillRect(dc, &ps.rcPaint, brush);
             }
-            let pen = CreateSolidBrush(theme::MINT);
+            let pen = CreatePen(PS_SOLID, 1, theme::MINT);
+            let old_pen = SelectObject(dc, pen);
+            let old_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
             let mut r = win::rect(0, 0, 0, 0);
             GetClientRect(hwnd, &mut r);
-            FrameRect(dc, &r, pen);
-            let dpi = windows_sys::Win32::UI::HiDpi::GetDpiForWindow(hwnd).max(96);
-            let field = win::rect(win::scale(9, dpi), win::scale(9, dpi), r.right - win::scale(11, dpi), win::scale(37, dpi));
-            FrameRect(dc, &field, pen);
+            let dpi = GetDpiForWindow(hwnd).max(96);
+            let radius = win::scale(12, dpi);
+            RoundRect(dc, 0, 0, r.right, r.bottom, radius, radius);
+            RoundRect(
+                dc,
+                win::scale(8, dpi),
+                win::scale(7, dpi),
+                r.right - win::scale(8, dpi),
+                win::scale(39, dpi),
+                win::scale(8, dpi),
+                win::scale(8, dpi),
+            );
+            SelectObject(dc, old_brush);
+            SelectObject(dc, old_pen);
             DeleteObject(pen);
             EndPaint(hwnd, &ps);
             0

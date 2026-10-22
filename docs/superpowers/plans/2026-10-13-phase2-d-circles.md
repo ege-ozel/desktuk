@@ -1513,3 +1513,53 @@ Installed/release SHA256:
 587C02869A315C3C1C17A87BF35CCE95B19CAE980B61A0D5D06E7129CFA58E1F.
 Installer rebuilt at dist/DeskTuk-0.1.0-Setup-x64.exe. Runtime acceptance remains
 with the owner; no automated interaction/test run performed.
+
+
+### D54: Discoverable dock tools, independent search and continuous file scrolling
+
+Owner requests persistent rounded tool backgrounds/borders, blue hover feedback,
+symmetrical central spacing, click feedback for locked actions, file search while
+locked, removal of redundant page arrows, a complete rounded search-field border,
+drag-area hints and larger/bolder tooltip text. Ring editor behavior is accepted;
+keep its native focus/selection instead of adding another custom editing model.
+
+- [x] Draw the three tool buttons with persistent surfaces and rounded borders,
+  blue hover fill/ink and the existing easing. Cache body/edge coverage per DPI
+  alongside glyphs; no per-frame geometry/supersampling added. Compact Circles
+  shares this surface instead of a second glyph outline.
+- [x] Give expanded centre-to-tools an 11-DIP gap matching the 11-DIP space from
+  header controls to the centre tile; preserve mode toggle/header positions.
+- [x] Keep dock file row clicks and hover independent of lock. Lock still blocks
+  automatic circle opening and board show/hide. Clicking that disabled tile fires
+  its red hint immediately, respecting the Usage tips preference.
+- [x] Add blue-bordered drag guidance over every blank draggable region, including
+  expanded list padding; increase hints to 115% semibold and a 320x96-DIP bubble.
+- [x] Replace result pages/arrows with one native virtual LBS_NODATA list and a total
+  count. LB_SETCOUNT exposes all rows while WM_DRAWITEM paints visible names only;
+  preserve native scrolling/selection, Enter/double-click and group/Back navigation.
+- [x] Remove the redundant native WS_BORDER client inset. Round/clip the popup and
+  draw its field frame outside the EDIT bounds, retaining both full side edges.
+  Preserve native text editing and focus behavior.
+- [x] Keep Segoe UI, explicitly request ClearType, use 110% panel/search text and
+  preserve circle label/count sizes. No bundled font, dependency or file enumeration.
+- [x] Format/static-check/build, install/rebuild installer, commit/push.
+- [ ] Owner manual acceptance: tool hit areas/spacing, blue hover, locked search,
+  click/blank-area hints, full field border, large result scrolling and selection.
+
+No automated tests, native input fixture, screenshot capture or benchmark run under
+owner's manual-first instruction. CI remains skipped. Pure compilation cannot
+establish virtual-list mouse/keyboard/scrollbar behavior, rounded clipping at other
+DPIs or physical tooltip presentation. Native list stores row count/selection;
+paths remain existing in-memory snapshots, without duplicating every name into
+native list storage. Row drawing snapshots a path and releases shared borrows before
+GDI operations. Existing hook/focus protection remains in place for ring editing.
+
+Typing with the result list focused, or Ctrl+A anywhere in the popup, moves to the
+native search EDIT. It filters/selects query text without executing filename initials.
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. No runtime acceptance result is claimed.
+Installed PID 7480 via normal controller close/restart; root EXE updated, config
+hash unchanged. Backups target/d54-delivery/. Release/installed SHA256:
+AF878D001CE05290FC624B8B1351B732B4E593B3E14D4DA0A9DF00A65069D56D.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+3A6B0EEED403C6EC5622D3BC18B3F18CE3A01C064FE14E615A3841329F07F843.

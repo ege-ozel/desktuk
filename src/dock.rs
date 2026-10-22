@@ -35,6 +35,7 @@ const PAD: i32 = 8;
 const HEADER_H: i32 = 40;
 const ACTION_SIZE: i32 = 48;
 const TOOLS_H: i32 = 38;
+const TOOLS_GAP: i32 = 11;
 const GAP: i32 = 4;
 const ROW_H: i32 = 28;
 const ACTION_TIMER: usize = 1;
@@ -66,6 +67,8 @@ struct ToolIcons {
     dpi: u32,
     side: i32,
     masks: [Vec<u8>; 4],
+    body: Vec<u8>,
+    edge: Vec<u8>,
     frame: circles::surface::Surface,
 }
 
@@ -119,7 +122,7 @@ fn rows() -> Vec<(Entry, String)> {
 }
 
 fn icon_title_font(dpi: u32) -> HFONT {
-    crate::theme::font(dpi, false, 100)
+    crate::theme::font(dpi, false, 110)
 }
 
 fn expanded_width(dpi: u32) -> i32 {
@@ -212,14 +215,14 @@ fn arrow_rect(dpi: u32) -> RECT {
     mode_menu(dpi, EXPANDED.get())
 }
 fn list_top(dpi: u32) -> i32 {
-    scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H, dpi)
+    scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP + TOOLS_H, dpi)
 }
 fn extra_rect(dpi: u32, index: usize) -> Option<RECT> {
     if index >= 4 {
         return None;
     }
     let (left, top) = if EXPANDED.get() && index < 3 {
-        ((expanded_width(dpi) - scale(130, dpi)) / 2 + scale(index as i32 * 52, dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi))
+        ((expanded_width(dpi) - scale(130, dpi)) / 2 + scale(index as i32 * 52, dpi), scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP, dpi))
     } else if !EXPANDED.get() && index == 3 {
         (scale(19, dpi), scale(ACTION_SIZE + 2 * PAD + 28, dpi))
     } else {
@@ -233,7 +236,7 @@ fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
         return (side, side + scale(68, dpi));
     }
     let visible = visible_row_count(dpi, count) as i32;
-    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H + visible * ROW_H + PAD, dpi))
+    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP + TOOLS_H + visible * ROW_H + PAD, dpi))
 }
 fn mode_action(dpi: u32, expanded: bool) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
@@ -357,7 +360,7 @@ fn row_rect(dpi: u32, index: usize) -> RECT {
 fn visible_row_count(dpi: u32, count: usize) -> usize {
     let work = work_area();
     let row = scale(ROW_H, dpi).max(1);
-    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H + PAD, dpi);
+    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP + TOOLS_H + PAD, dpi);
     let available = (work.bottom - work.top - fixed).max(0);
     let fit = (available / row) as usize;
     count.min(MAX_ROWS).min(fit.max(1))
@@ -846,16 +849,11 @@ fn tool_ink(kind: usize, x: f32, y: f32) -> bool {
             inside && ((x.abs() - 6.5).abs() <= 0.7 || (y.abs() - 6.5).abs() <= 0.7 || x.abs() <= 0.6 || y.abs() <= 0.6)
         }
         2 => (radius - 7.0).abs() <= 0.7 || (x.abs() <= 0.8 && (y + 3.5).abs() <= 0.8) || (x.abs() <= 0.7 && (-1.0..=4.0).contains(&y)),
-        _ => {
-            let qx = x.abs() - 7.0;
-            let qy = y.abs() - 7.0;
-            let border = (qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - 5.0).abs() <= 0.5;
-            border || [(-3.5_f32, -2.0_f32), (3.5, -2.0), (0.0, 4.0)].iter().any(|(cx, cy)| ((x - cx).hypot(y - cy) - 3.2).abs() <= 0.65)
-        }
+        _ => [(-3.5_f32, -2.0_f32), (3.5, -2.0), (0.0, 4.0)].iter().any(|(cx, cy)| ((x - cx).hypot(y - cy) - 3.2).abs() <= 0.65),
     }
 }
 
-unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, kind: usize, background: u32) {
+unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, kind: usize, background: u32, ink: u32) {
     use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
     let side = rect.right - rect.left;
     TOOL_ICONS.with(|slot| {
@@ -879,13 +877,27 @@ unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi
                 }
                 mask
             });
-            *cache = circles::surface::Surface::new(side, side).map(|frame| ToolIcons { dpi, side, masks, frame });
+            let mut body = Vec::with_capacity((side * side) as usize);
+            let mut edge = Vec::with_capacity((side * side) as usize);
+            for y in 0..side {
+                for x in 0..side {
+                    let radius = 5.0 * factor;
+                    let qx = (x as f32 + 0.5 - side as f32 / 2.0).abs() - (side as f32 / 2.0 - radius);
+                    let qy = (y as f32 + 0.5 - side as f32 / 2.0).abs() - (side as f32 / 2.0 - radius);
+                    let distance = qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - radius;
+                    body.push(((0.5 - distance).clamp(0.0, 1.0) * 255.0).round() as u8);
+                    edge.push(((0.5 - (distance + factor * 0.5).abs()).clamp(0.0, 1.0) * 153.0).round() as u8);
+                }
+            }
+            *cache = circles::surface::Surface::new(side, side).map(|frame| ToolIcons { dpi, side, masks, body, edge, frame });
         }
         if let Some(c) = cache.as_mut() {
             let pixels = c.frame.pixels();
-            for (pixel, coverage) in pixels.iter_mut().zip(&c.masks[kind]) {
-                *pixel = 0xff00_0000 | (background & 255) << 16 | background & 0xff00 | (background >> 16) & 255;
-                blend_pixel(pixel, TEAL, f32::from(*coverage) / 255.0);
+            for (index, (pixel, coverage)) in pixels.iter_mut().zip(&c.masks[kind]).enumerate() {
+                *pixel = 0xff00_0000 | (BG & 255) << 16 | BG & 0xff00 | (BG >> 16) & 255;
+                blend_pixel(pixel, background, f32::from(c.body[index]) / 255.0);
+                blend_pixel(pixel, ACCENT, f32::from(c.edge[index]) / 255.0);
+                blend_pixel(pixel, ink, f32::from(*coverage) / 255.0);
             }
             // Only BitBlt runs under this borrow; it does not pump window messages.
             BitBlt(dc, rect.left, rect.top, side, side, c.frame.dc(), 0, 0, SRCCOPY);
@@ -905,9 +917,22 @@ fn update_lock_hint(hwnd: HWND, dpi: u32, point: POINT, count: usize) {
         _ if EXPANDED.get() => (SCROLL.get()..count.min(SCROLL.get() + visible_row_count(dpi, count)))
             .map(|i| row_rect(dpi, i))
             .find(|r| win::rect_contains(r, point))
-            .map(|r| (r, if locked() { Tip::Locked } else { Tip::Files })),
-        _ => None,
+            .map(|r| (r, Tip::Files)),
+        _ => {
+            let mut rect = win::rect(0, 0, 0, 0);
+            unsafe {
+                GetClientRect(hwnd, &mut rect);
+            }
+            Some((rect, Tip::Drag))
+        }
     };
+    let target = target.or_else(|| {
+        let mut rect = win::rect(0, 0, 0, 0);
+        unsafe {
+            GetClientRect(hwnd, &mut rect);
+        }
+        Some((rect, Tip::Drag))
+    });
     let target = target.map(|(mut r, tip)| {
         let mut origin = POINT { x: 0, y: 0 };
         unsafe { ClientToScreen(hwnd, &mut origin) };
@@ -1006,7 +1031,14 @@ fn paint(hwnd: HWND) {
         draw_lock(hdc, lock_rect(dpi), dpi, is_locked, mix_color(BG, ROW_HOVER, control_hover[0]));
         for i in 0..4 {
             if let Some(rect) = extra_rect(dpi, i) {
-                draw_extra(hdc, rect, dpi, i, mix_color(BG, ROW_HOVER, control_hover[i + 2]));
+                draw_extra(
+                    hdc,
+                    rect,
+                    dpi,
+                    i,
+                    mix_color(crate::theme::SURFACE, win::rgb(40, 64, 94), control_hover[i + 2]),
+                    mix_color(TEAL, crate::theme::ACCENT, control_hover[i + 2]),
+                );
             }
         }
         if EXPANDED.get() {
@@ -1083,11 +1115,15 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
         circles::contents_menu(at);
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
         cancel_dwell(hwnd);
+        if locked() {
+            update_lock_hint(hwnd, dpi, POINT { x, y }, rows().len());
+            crate::hint::fire(hwnd);
+        }
         if !locked() && !ACTION_HOVER.replace(true) {
             finish_visibility(hwnd);
         }
         ACTION_INSIDE.set(true);
-    } else if !locked() && EXPANDED.get() && y >= list_top(dpi) {
+    } else if EXPANDED.get() && y >= list_top(dpi) {
         let entries = rows();
         let start = list_top(dpi);
         let visible = visible_row_count(dpi, entries.len());
@@ -1164,10 +1200,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             } else {
                 None
             };
-            let next_hover = list_index
-                .filter(|_| !locked())
-                .filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len()))
-                .map_or(-1, |i| i as isize);
+            let next_hover =
+                list_index.filter(|&i| i < entries.len() && i < scroll + visible_row_count(dpi, entries.len())).map_or(-1, |i| i as isize);
             set_row_hover(hwnd, next_hover, dpi);
             update_lock_hint(hwnd, dpi, POINT { x, y }, entries.len());
             0

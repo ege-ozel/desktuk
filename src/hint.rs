@@ -23,10 +23,15 @@ pub enum Tip {
     Circles,
     Visibility,
     Files,
+    Drag,
 }
 impl Tip {
     fn text(self) -> &'static str {
         match self {
+            Self::Drag => i18n::choose(
+                "Tutup sürükleyin. Paneli ekranın dört kenarına veya köşelerine taşıyabilirsiniz.",
+                "Drag this area to move the panel along any screen edge or corner.",
+            ),
             Self::Locked => i18n::choose(
                 "Çemberler kilitli.\nKullanmak için soldaki kilidi çözün.",
                 "Locked.\nUnlock using the left button to use these controls.",
@@ -119,8 +124,8 @@ pub fn fire(owner: HWND) {
     }
     let dpi = unsafe { GetDpiForWindow(owner) }.max(96);
     let sc = |v| win::scale(v, dpi);
-    let w = sc(280);
-    let h = sc(88);
+    let w = sc(320);
+    let h = sc(96);
     let center = POINT { x: (p.target.left + p.target.right) / 2, y: (p.target.top + p.target.bottom) / 2 };
     let mut mi: MONITORINFO = unsafe { std::mem::zeroed() };
     mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
@@ -142,7 +147,13 @@ pub fn fire(owner: HWND) {
     let arrow_y = (center.y - y).clamp(sc(16), h - sc(16)) as f32;
     let pixels = surface.pixels();
     let bg = theme::BG;
-    let border = if p.tip == Tip::Locked { win::rgb(185, 99, 111) } else { theme::MINT };
+    let border = if p.tip == Tip::Locked {
+        win::rgb(185, 99, 111)
+    } else if p.tip == Tip::Drag {
+        theme::ACCENT
+    } else {
+        theme::MINT
+    };
     for py in 0..h {
         for px in 0..w {
             let (fx, fy) = (px as f32 + 0.5, py as f32 + 0.5);
@@ -163,7 +174,7 @@ pub fn fire(owner: HWND) {
     }
     let mut text_rect = win::rect(box_left as i32 + sc(12), sc(10), box_right as i32 - sc(12), h - sc(10));
     let restore_rect = text_rect;
-    let font = theme::font(dpi, false, 100);
+    let font = theme::font(dpi, true, 115);
     unsafe {
         let old = SelectObject(surface.dc(), font);
         SetBkMode(surface.dc(), TRANSPARENT as i32);
