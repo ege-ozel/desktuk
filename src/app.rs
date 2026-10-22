@@ -575,6 +575,7 @@ unsafe extern "system" fn controller_proc(hwnd: HWND, msg: u32, wparam: WPARAM, 
         return 0;
     }
     match msg {
+        WM_MENUCHAR => circles::menu_contents::select_character(lparam as _, wparam as u16).unwrap_or(0),
         WM_INITMENUPOPUP => {
             circles::menu_contents::populate(wparam as windows_sys::Win32::UI::WindowsAndMessaging::HMENU);
             0

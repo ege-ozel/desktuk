@@ -50,13 +50,6 @@ pub fn append_target(parent: HMENU, label: &str, target: Target) {
     append_pending(parent, label, Pending::Target(target));
 }
 
-/// Root menu for a dock row; same lazy population path as nested Circles menus.
-pub fn prepare_target(menu: HMENU, target: Target) {
-    unsafe { AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, win::wide("...").as_ptr()) };
-    SESSION.with(|s| s.borrow_mut().pending.insert(menu as usize, Pending::Target(target)));
-    populate(menu);
-}
-
 fn append_files(menu: HMENU, paths: Rc<Vec<PathBuf>>, offset: usize) {
     for path in paths.iter().skip(offset).take(PAGE_SIZE) {
         let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().replace('&', "&&");
@@ -158,4 +151,33 @@ pub fn finish(command: usize) -> bool {
     } else {
         false
     }
+}
+
+/// Native mnemonic handling must select a file, never execute a unique match.
+pub fn select_character(menu: HMENU, value: u16) -> Option<isize> {
+    let len = SESSION.with(|s| s.borrow().files.len());
+    if len == 0 {
+        return None;
+    }
+    let needle = char::from_u32(value as u32)?.to_lowercase().collect::<String>();
+    let count = unsafe { GetMenuItemCount(menu) }.max(0) as u32;
+    let mut choices = Vec::new();
+    let mut highlighted = None;
+    for index in 0..count {
+        let id = unsafe { GetMenuItemID(menu, index as i32) } as usize;
+        if unsafe { GetMenuState(menu, index, MF_BYPOSITION) } & MF_HILITE != 0 {
+            highlighted = Some(index);
+        }
+        if id < FILE_BASE || id >= FILE_BASE + len {
+            continue;
+        }
+        let mut buf = [0u16; 512];
+        let n = unsafe { GetMenuStringW(menu, index, buf.as_mut_ptr(), buf.len() as i32, MF_BYPOSITION) }.max(0) as usize;
+        let label = String::from_utf16_lossy(&buf[..n]);
+        if label.chars().next().is_some_and(|c| c.to_lowercase().collect::<String>() == needle) {
+            choices.push(index);
+        }
+    }
+    let index = choices.iter().copied().find(|i| highlighted.is_none_or(|h| *i > h)).or_else(|| choices.first().copied());
+    index.map(|i| i as isize | (3 << 16)) // MNC_SELECT, deliberately never MNC_EXECUTE.
 }

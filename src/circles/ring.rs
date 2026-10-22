@@ -428,6 +428,7 @@ pub fn apply_batch(batch: items::RingBatch) {
 
 /// Destroys the ring immediately (no animation). Safe to call when none is open.
 pub fn close_now() {
+    super::launcher::close_ring();
     super::search_input::uninstall();
     items::cancel_ring_loader();
     reset_item_pointer();
@@ -449,6 +450,9 @@ pub fn close_now() {
 }
 
 fn begin_close() {
+    if with(|r| r.menu_open).unwrap_or(false) {
+        return;
+    }
     if circle_win::pressed_window().is_some() || item_pressed_window().is_some() {
         return;
     }
@@ -597,6 +601,8 @@ pub(super) fn search_window() -> Option<HWND> {
     with(|r| {
         (!closing(r)
             && !r.menu_open
+            && !super::rename::is_active()
+            && !super::launcher::is_active()
             && r.press.is_none()
             && circle_win::pressed_window().is_none()
             && hit_screen(r, point) != RingHit::Outside)
@@ -606,22 +612,54 @@ pub(super) fn search_window() -> Option<HWND> {
 }
 
 fn search_char(value: u32) {
-    let paths = with(|r| {
-        match value {
-            8 => {
-                r.query.pop();
-            }
-            27 => {
-                r.query.clear();
-            }
-            _ => {
-                if let Some(c) = char::from_u32(value).filter(|c| !c.is_control()) {
-                    if r.query.chars().count() < 80 {
-                        r.query.push(c);
-                    }
+    if super::launcher::ring_char(value) {
+        return;
+    }
+    let current = with(|r| r.query.clone()).unwrap_or_default();
+    let mut query = current;
+    match value {
+        8 => {
+            query.pop();
+        }
+        27 => query.clear(),
+        _ => {
+            if let Some(c) = char::from_u32(value).filter(|c| !c.is_control()) {
+                if query.chars().count() < 80 {
+                    query.push(c);
                 }
             }
         }
+    }
+    set_search(&query);
+    if value != 27 {
+        let at = with(|r| {
+            (POINT { x: r.center.x - win::scale(170, r.dpi), y: r.center.y - r.metrics.circle_d / 2 - win::scale(56, r.dpi) }, r.dpi)
+        });
+        if let Some((at, dpi)) = at {
+            super::launcher::edit_ring(at, &query, dpi);
+            if value == 1 {
+                super::launcher::ring_char(1);
+            }
+        }
+    }
+}
+
+pub(super) fn editing_started() {
+    with(|r| r.menu_open = true);
+    super::search_input::uninstall();
+}
+pub(super) fn editing_finished() {
+    if with(|r| r.menu_open = false).is_some() {
+        super::search_input::install();
+    }
+}
+
+pub(super) fn set_search(query: &str) {
+    let paths = with(|r| {
+        if r.query == query {
+            return None;
+        }
+        r.query = query.to_owned();
         if r.query.is_empty() {
             if let Some((mut source, original_len)) = r.search_base.take() {
                 source.truncate(original_len);
@@ -642,8 +680,9 @@ fn search_char(value: u32) {
         let paths = load_page(r);
         redraw(r);
         dlog!("ring search chars={} results={}", r.query.chars().count(), r.refs.len());
-        paths
-    });
+        Some(paths)
+    })
+    .flatten();
     if let Some(paths) = paths {
         spawn_loader(paths);
     }
@@ -1004,8 +1043,23 @@ fn on_middle_down(lparam: LPARAM) {
     }
 }
 
-/// A centre click still pages; a left press that crossed the drag threshold moves.
+/// Centre pages normally; with a query it reopens the native text editor. Drag still moves.
 pub fn center_click(anchor: HWND) -> bool {
+    let editor = with(|r| {
+        (r.anchor == anchor && !closing(r) && !r.query.is_empty()).then(|| {
+            (
+                POINT { x: r.center.x - win::scale(170, r.dpi), y: r.center.y - r.metrics.circle_d / 2 - win::scale(56, r.dpi) },
+                r.query.clone(),
+                r.dpi,
+            )
+        })
+    })
+    .flatten();
+    if let Some((at, query, dpi)) = editor {
+        super::launcher::edit_ring(at, &query, dpi);
+        return true;
+    }
+
     let paths = with(|r| {
         if r.anchor != anchor || closing(r) {
             return None;

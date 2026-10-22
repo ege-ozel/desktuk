@@ -5,7 +5,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D51 are implemented; D44-D51 await owner manual acceptance.
+- A and D through D52 are implemented; D44-D52 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -14,9 +14,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D51 installed SHA256: C1E591AFD030FE8D90602326D6763FA34F762B4EDA8FFB95C39C76B2E53D8EB1.
-  D44-D51 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D51 config unchanged; installed dock is 168 px wide at system 96 DPI.
+- D52 installed SHA256: 19DA879713AED3BE2098112622AFACBAD49517ED7267E1E4C0B203BA1A3027EA.
+  D44-D52 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D52 config unchanged; installed dock is 168 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -52,6 +52,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D50 guards guide re-entry and removes resize easing; hover effects remain.
 - D51 makes rows launch menus, keeps compact Circles, cleans borders/insets and
   enables blank-area dragging on all four rails with saved edge/cancel restoration.
+- D52 adds positive teal hints, searchable 128-row dock lists with explicit launch,
+  native ring text editing/selection and Ctrl+A in rename; runtime acceptance pending.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -83,11 +85,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D51 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D52 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.
-  Historical code is not current implementation instruction.
 - Read required design/task once, then relevant functions. Do not dump whole modules.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;
   fallback: `git grep -n`. .rgignore excludes generated/history files by default.

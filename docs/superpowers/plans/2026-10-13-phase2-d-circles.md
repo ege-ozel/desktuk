@@ -1428,3 +1428,59 @@ Config hash unchanged across delivery. Backups: target/d51-delivery/. Release SH
 C1E591AFD030FE8D90602326D6763FA34F762B4EDA8FFB95C39C76B2E53D8EB1.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 F10C9380667FED23B9E423BDD4946594245E5F99C5D44D903F4AE469146EB9FE.
+
+
+### D52: Useful usage tips, explicit file activation and native text selection
+
+Owner requests positive usage tips as well as lock explanations, a search text field
+above dock row contents, selection before file activation, and normal text selection
+shortcuts in circle text fields. The manual-first/no automated tests request remains.
+
+- [x] Keep Usage tips as the shared preference; add guidance for lock, menu, settings,
+  grid, guide, compact Circles, visibility and row search. Use teal for guidance,
+  retaining red for disabled locked controls, the existing 550ms dwell and no idle timer.
+- [x] Replace direct dock-row file popups with one on-demand native EDIT/LISTBOX
+  popup. Typing filters using existing stable prefix/substring ranks; a single click
+  selects, Enter/double-click opens. Groups/Back navigate references. Right-click
+  menus and circle management actions remain available through the existing menus.
+- [x] Limit materialized result controls to 128 rows with previous/next pages and
+  result count; snapshot candidates once per view, without directory reads or icons.
+- [x] In remaining native file menus, handle WM_MENUCHAR with MNC_SELECT instead
+  of executing a unique filename initial. Explicit Enter/click still launches.
+- [x] Open an actual native EDIT field when ring typing starts. Keep the ring busy
+  while editing, release hover keyboard interception, and update its existing linear
+  search on EN_CHANGE. Enter dismisses keeping query; Escape clears. Query centre
+  click and hover Ctrl+A reopen editing; native selection supports Shift/arrows/mouse.
+- [x] Add explicit Ctrl+A to native rename EDIT controls too; exclude open rename/
+  search popups from the hover keyboard route. Preserve ordinary Ctrl/Alt/Win shortcuts.
+- [x] Use existing native font/theme, a teal field frame and work-area-clamped popup
+  beside the dock; release popup handles, font, brush and snapshots on close/shutdown.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance. No automated runtime, native fixture, screenshot,
+  cargo test or benchmark until requested. CI intentionally skipped.
+
+No dependencies, background workers or idle polling added. Search never changes
+user files. Shared borrows are released before Create/DestroyWindow, SendMessage,
+SetFocus/foreground and shell opening; local snapshots bridge native calls. Repeated
+identical ring queries do not reload the page. Existing icon coalescing is retained.
+The native text field deliberately takes keyboard focus when the user starts typing;
+hover alone does not activate it. Native foreground restrictions, first-key handoff,
+fast input, IME, selection/clipboard, alternate DPI/work areas, menu initial cycling,
+page/group navigation and placement remain runtime acceptance items, not inferred
+passes. No resource benchmark was performed; idle footprint is structurally unchanged
+until the on-demand popup or pending tooltip exists.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. Owner performs usage tests first.
+
+If Windows refuses foreground permission after hover typing, the editor closes and
+restores hover interception instead of leaving a misleading unfocused edit box.
+The filtered query remains; clicking its centre can reopen editing through normal
+mouse input permission. Dock mode/drag/lock changes dismiss stale search popups.
+
+Installed PID 30864 through normal controller close/restart; ignored root EXE
+updated too. Configuration hash unchanged; backups target/d52-delivery/.
+Installed/release SHA256:
+19DA879713AED3BE2098112622AFACBAD49517ED7267E1E4C0B203BA1A3027EA.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+A5F63712EF9A6E04BB8AEB10447CB811E3035CE3DCC692EE8DDCCE3446B08623.

@@ -147,6 +147,7 @@ pub fn locked() -> bool {
 }
 
 fn toggle_lock(hwnd: HWND) {
+    circles::launcher::close();
     crate::hint::hide();
     cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
@@ -249,6 +250,7 @@ fn start_ui(hwnd: HWND) {
     }
 }
 fn set_expanded(hwnd: HWND, expanded: bool) {
+    circles::launcher::close();
     crate::hint::hide();
     if EXPANDED.get() == expanded {
         return;
@@ -423,6 +425,7 @@ pub fn restore_anchor(hwnd: HWND, at: Option<(i32, i32)>, top: Option<i32>, edge
     place(hwnd);
 }
 pub fn move_anchor(hwnd: HWND, at: Option<(i32, i32)>) {
+    circles::launcher::close();
     POSITION.set(at);
     TOP_ANCHOR.set(None);
     if let Some(at) = at {
@@ -473,6 +476,10 @@ fn preserve_dock(position: &mut WINDOWPOS) {
     position.flags = (position.flags & !SWP_HIDEWINDOW) | SWP_SHOWWINDOW;
     position.flags &= !SWP_NOZORDER;
     position.hwndInsertAfter = HWND_TOPMOST;
+}
+
+pub(crate) fn window() -> HWND {
+    WINDOW.get()
 }
 
 pub fn contains_screen(point: POINT) -> bool {
@@ -887,25 +894,28 @@ unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi
 }
 
 fn update_lock_hint(hwnd: HWND, dpi: u32, point: POINT, count: usize) {
-    let target = if control_at(dpi, point) != 0 {
-        None
-    } else if win::rect_contains(&action_rect(dpi), point) {
-        Some(action_rect(dpi))
-    } else if EXPANDED.get() {
-        (SCROLL.get()..count.min(SCROLL.get() + visible_row_count(dpi, count)))
+    use crate::hint::Tip;
+    let control = control_at(dpi, point);
+    let target = match control {
+        1 => Some((lock_rect(dpi), Tip::Lock)),
+        2 => Some((arrow_rect(dpi), Tip::Menu)),
+        3..=6 => extra_rect(dpi, (control - 3) as usize)
+            .map(|r| (r, [Tip::Settings, Tip::Grid, Tip::Guide, Tip::Circles][(control - 3) as usize])),
+        _ if win::rect_contains(&action_rect(dpi), point) => Some((action_rect(dpi), if locked() { Tip::Locked } else { Tip::Visibility })),
+        _ if EXPANDED.get() => (SCROLL.get()..count.min(SCROLL.get() + visible_row_count(dpi, count)))
             .map(|i| row_rect(dpi, i))
             .find(|r| win::rect_contains(r, point))
-    } else {
-        None
+            .map(|r| (r, if locked() { Tip::Locked } else { Tip::Files })),
+        _ => None,
     };
-    let target = target.map(|mut r| {
+    let target = target.map(|(mut r, tip)| {
         let mut origin = POINT { x: 0, y: 0 };
         unsafe { ClientToScreen(hwnd, &mut origin) };
         r.left += origin.x;
         r.right += origin.x;
         r.top += origin.y;
         r.bottom += origin.y;
-        r
+        (r, tip)
     });
     crate::hint::hover(hwnd, target);
 }

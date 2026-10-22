@@ -21,7 +21,7 @@
   Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Dosyalar varsayılan
   uygulamasında, programlar doğrudan, klasörler Explorer'da açılır.
 - Açık panelde merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgara
-  seçeneklerini, ⓘ kısa kılavuzu açar. Listedeki çember adına basınca dosya menüsü
+  seçeneklerini, ⓘ kısa kılavuzu açar. Listedeki çember adına basınca üstünde arama kutusu olan dosya listesi
   açılır; küçük panelin altındaki çerçeveli Çemberler düğmesi tüm çemberlere ulaşır.
   Üç kısayol ince bir ayırıcıyla listeden ayrılır. Bu seçenekler sağ tık menüsünde
   bulunur. Ayarlar → Dil / Language seçimi hemen uygulanır ve kaydedilir.
@@ -51,7 +51,7 @@
   folders open in Explorer.
 - Below the expanded panel's centre button, the gear opens Settings, the grid
   shortcut opens grid choices and ⓘ opens the short guide. Click a circle row to
-  open its file menu; the outlined Circles button below the compact square opens
+  open its searchable file list; the outlined Circles button below the compact square opens
   all circles. A thin divider separates the three shortcuts from the list. Settings/help are also
   in the context menu. Language selection applies immediately and is saved.
   User-supplied circle/group names and filenames are never translated.
@@ -71,3 +71,36 @@ Drag any blank panel area with the left button. The panel stays on the work-area
 perimeter: left, right, top or bottom, including corners. It cannot remain in the
 middle. The chosen edge is saved. Toggle controls use matching inner insets in
 both modes; those insets are padding, separate from the screen-edge gap.
+
+
+Arama ve kullanım ipuçları:
+- Panelde ayırıcının altındaki çember adına tıklayın. Üstteki teal çerçeveli
+  kutuda yazmak dosyaları filtreler; başlangıcı eşleşen adlar önce gelir.
+- Sonuçta tek tıklama yalnızca seçer. Enter veya çift tıklama açar. Aşağı ok
+  sonuçlara, Tab tekrar arama kutusuna geçer; Esc pencereyi kapatır.
+- Liste 128 satırlık sayfalara bölünür; alt oklarla devam edin. Gruplar ve Geri
+  satırı da Enter veya çift tıklamayla gezilir. Sağ tık menüsü korunur;
+  dosya adının ilk harfi dosyayı açmadan seçer, Enter ile açılır.
+- Çember üzerinde yazmaya başlamak gerçek bir metin kutusu açar. Ctrl+A,
+  Shift+oklar, Home/End, Ctrl+C/X/V/Z ve fareyle metin seçimi kullanılabilir.
+  Enter kutuyu kapatıp aramayı korur; Esc aramayı temizler. Etkin sorgu varken
+  merkeze tıklamak kutuyu tekrar açar; sayfalamak için tekerleği kullanın.
+  Çember/grup adını düzenlerken de Ctrl+A desteklenir.
+- Kullanım ipuçları, panel düğmelerinin işlevlerini teal çerçeveyle açıklar;
+  kilit nedeniyle kullanılamayan alanlarda kırmızı çerçeve gösterilir.
+  Ayarlar → Kullanım ipuçları hepsini birlikte açar/kapatır.
+
+Search and usage tips:
+- Click a circle row below the divider. Type in the teal-bordered top field to
+  filter filenames, with prefix matches before substring matches.
+- A single click selects. Enter or double-click opens. Down moves into results;
+  Tab returns to the search box. Escape closes the window.
+- Results use 128-row pages; the bottom arrows navigate pages. Enter or double-click
+  navigates groups and Back. Context menus remain available; a filename's first
+  letter selects without launching it. Enter opens the selected file.
+- Typing over a circle opens a native text field supporting Ctrl+A, Shift+arrows,
+  Home/End, Ctrl+C/X/V/Z and mouse selection. Enter keeps the query and dismisses
+  the field; Escape clears it. Clicking the centre with an active query reopens
+  the editor; the wheel still pages. Circle/group rename also supports Ctrl+A.
+- Usage tips explain panel controls with a teal border; locked controls use red.
+  Settings → Usage tips toggles both kinds together.

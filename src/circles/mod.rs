@@ -18,6 +18,7 @@ pub mod draw;
 pub mod geom;
 mod grid;
 mod grid_overlay;
+pub(crate) mod launcher;
 pub(crate) mod menu_contents;
 pub mod model;
 pub mod rename;
@@ -115,6 +116,7 @@ pub fn start() {
 /// Destroys every circle window, the ring and the rename box; stops watching.
 pub fn shutdown() {
     let Some(st) = state() else { return };
+    launcher::close();
     ring::close_now();
     rename::cancel();
     let old: Vec<CircleWin> = st.windows.try_borrow_mut().map(|mut w| std::mem::take(&mut *w)).unwrap_or_default();
@@ -129,6 +131,7 @@ pub fn shutdown() {
 /// Re-creates all circle windows from the board (after a circle was added or removed).
 pub fn rebuild() {
     let Some(st) = state() else { return };
+    launcher::close();
     ring::close_now();
     rename::cancel(); // circle indices are about to change
     let old: Vec<CircleWin> = st.windows.try_borrow_mut().map(|mut w| std::mem::take(&mut *w)).unwrap_or_default();
@@ -545,16 +548,7 @@ pub fn contents_menu(at: POINT) {
 /// File launch menu anchored to a visible dock row; leaves circle visibility alone.
 pub fn target_menu(which: Which, at: POINT) {
     crate::hint::hide();
-    menu_contents::reset();
-    let command = unsafe {
-        let menu = CreatePopupMenu();
-        if menu.is_null() {
-            return;
-        }
-        menu_contents::prepare_target(menu, which.target());
-        track_contents(menu, at)
-    };
-    dock_command(command);
+    launcher::open(which.target(), at);
 }
 
 unsafe fn append_grid_items(menu: HMENU) {

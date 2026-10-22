@@ -1,4 +1,4 @@
-//! Delayed, click-through lock hint. One pending timer; no timer while visible/idle.
+//! Delayed, click-through contextual hints. One pending timer; no timer while visible/idle.
 use crate::{app::app, circles::surface::Surface, i18n, theme, win};
 use std::cell::Cell;
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
@@ -12,10 +12,59 @@ use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub const TIMER: usize = 0xD48;
 const CLASS: &str = "DeskTuk.LockHint";
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Tip {
+    Locked,
+    Lock,
+    Menu,
+    Settings,
+    Grid,
+    Guide,
+    Circles,
+    Visibility,
+    Files,
+}
+impl Tip {
+    fn text(self) -> &'static str {
+        match self {
+            Self::Locked => i18n::choose(
+                "Çemberler kilitli.\nKullanmak için soldaki kilidi çözün.",
+                "Locked.\nUnlock using the left button to use these controls.",
+            ),
+            Self::Lock => i18n::choose(
+                "Kilitle / kilidi çöz. Kilitliyken çemberler hover ile açılmaz; yine sürükleyebilirsiniz.",
+                "Lock / unlock. Locked circles stay closed on hover; you can still drag them.",
+            ),
+            Self::Menu => i18n::choose(
+                "Paneli aç / kapat. Boş alandan tutarak ekranın başka bir kenarına taşıyabilirsiniz.",
+                "Expand / collapse the panel. Drag a blank area to move it to another screen edge.",
+            ),
+            Self::Settings => i18n::choose("Dil ve kullanım ipuçlarını ayarlayın.", "Choose your language and turn usage tips on or off."),
+            Self::Grid => i18n::choose(
+                "Izgara seçin. Yerleşimi değiştirmek için ayrıca Şimdi hizala'ya basın.",
+                "Choose a grid. Use Align now separately to rearrange circles.",
+            ),
+            Self::Guide => i18n::choose("Kısa kullanım kılavuzunu açın.", "Open the quick guide."),
+            Self::Circles => i18n::choose(
+                "Çemberlerin dosya ve grup menülerini açın. Oklarla seçin, Enter ile açın.",
+                "Browse circle files and groups. Select with arrow keys and press Enter to open.",
+            ),
+            Self::Visibility => i18n::choose(
+                "Çemberleri göster / gizle. Düğmenin üzerinde bekleyin veya tıklayın.",
+                "Show / hide circles. Hover briefly over the button or click it.",
+            ),
+            Self::Files => i18n::choose(
+                "Dosya listesini açıp arayın. Yazmak filtreler; Enter veya çift tıklama dosyayı açar.",
+                "Open and search files. Typing filters; Enter or double-click opens the selected file.",
+            ),
+        }
+    }
+}
 #[derive(Clone, Copy)]
 struct Pending {
     owner: HWND,
     target: RECT,
+    tip: Tip,
 }
 thread_local! {
     static PENDING: Cell<Option<Pending>> = const { Cell::new(None) };
@@ -32,14 +81,15 @@ pub fn hide() {
     }
 }
 
-pub fn hover(owner: HWND, target: Option<RECT>) {
-    let enabled = app().board.try_borrow().map(|b| b.hints && b.dock_locked).unwrap_or(false);
-    let Some(target) = target.filter(|_| enabled) else {
+pub fn hover(owner: HWND, target: Option<(RECT, Tip)>) {
+    let enabled = app().board.try_borrow().map(|b| b.hints).unwrap_or(false);
+    let Some((target, tip)) = target.filter(|_| enabled) else {
         hide();
         return;
     };
     if PENDING.get().is_some_and(|p| {
         p.owner == owner
+            && p.tip == tip
             && p.target.left == target.left
             && p.target.top == target.top
             && p.target.right == target.right
@@ -48,7 +98,7 @@ pub fn hover(owner: HWND, target: Option<RECT>) {
         return;
     }
     hide();
-    PENDING.set(Some(Pending { owner, target }));
+    PENDING.set(Some(Pending { owner, target, tip }));
     if unsafe { SetTimer(owner, TIMER, 550, None) } == 0 {
         PENDING.set(None);
     }
@@ -62,7 +112,7 @@ pub fn fire(owner: HWND) {
     let Some(p) = PENDING.get().filter(|p| p.owner == owner) else { return };
     let mut cursor = POINT { x: 0, y: 0 };
     unsafe { GetCursorPos(&mut cursor) };
-    let enabled = app().board.try_borrow().map(|b| b.hints && b.dock_locked).unwrap_or(false);
+    let enabled = app().board.try_borrow().map(|b| b.hints).unwrap_or(false);
     if !enabled || !win::rect_contains(&p.target, cursor) {
         hide();
         return;
@@ -92,7 +142,7 @@ pub fn fire(owner: HWND) {
     let arrow_y = (center.y - y).clamp(sc(16), h - sc(16)) as f32;
     let pixels = surface.pixels();
     let bg = theme::BG;
-    let border = win::rgb(185, 99, 111);
+    let border = if p.tip == Tip::Locked { win::rgb(185, 99, 111) } else { theme::MINT };
     for py in 0..h {
         for px in 0..w {
             let (fx, fy) = (px as f32 + 0.5, py as f32 + 0.5);
@@ -118,10 +168,7 @@ pub fn fire(owner: HWND) {
         let old = SelectObject(surface.dc(), font);
         SetBkMode(surface.dc(), TRANSPARENT as i32);
         SetTextColor(surface.dc(), theme::TEXT);
-        let mut text = win::wide(i18n::choose(
-            "Çemberler kilitli.\nKullanmak için soldaki kilidi çözün.",
-            "Locked.\nUnlock using the left button to use these controls.",
-        ));
+        let mut text = win::wide(p.tip.text());
         DrawTextW(surface.dc(), text.as_mut_ptr(), -1, &mut text_rect, DT_LEFT | DT_WORDBREAK);
         SelectObject(surface.dc(), old);
         DeleteObject(font);

@@ -11,7 +11,7 @@ use windows_sys::Win32::Graphics::Gdi::{CreateFontIndirectW, DeleteObject, GetSy
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::EM_SETSEL;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForSystem, SystemParametersInfoForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{SetFocus, VK_ESCAPE, VK_RETURN};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, SetFocus, VK_CONTROL, VK_ESCAPE, VK_MENU, VK_RETURN};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -120,6 +120,10 @@ pub fn begin(target: RenameTarget, anchor: RECT, initial: &str) {
     }
 }
 
+pub fn is_active() -> bool {
+    ACTIVE.get().is_some()
+}
+
 /// Closes an open rename box without committing.
 pub fn cancel() {
     if let Some((popup, _, _)) = ACTIVE.take() {
@@ -162,6 +166,11 @@ fn finish(popup: HWND, commit: bool) {
 
 unsafe extern "system" fn edit_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, popup: usize) -> LRESULT {
     match msg {
+        WM_KEYDOWN if wparam == 0x41 && GetKeyState(VK_CONTROL as i32) < 0 && GetKeyState(VK_MENU as i32) >= 0 => {
+            SendMessageW(hwnd, EM_SETSEL, 0, -1);
+            0
+        }
+        WM_CHAR if wparam == 1 => 0,
         WM_KEYDOWN if wparam == VK_RETURN as usize => {
             PostMessageW(popup as HWND, WM_APP_RENAME_DONE, 1, 0);
             0

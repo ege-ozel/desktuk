@@ -37,6 +37,14 @@ unsafe extern "system" fn keyboard(code: i32, message: WPARAM, data: LPARAM) -> 
             } else if message as u32 == WM_KEYDOWN {
                 if let Some(hwnd) = super::ring::search_window() {
                     let down = |v: u16| unsafe { GetAsyncKeyState(v as i32) } < 0;
+                    if vk == 0x41 && down(VK_CONTROL) && !down(VK_MENU) && !down(VK_LWIN) && !down(VK_RWIN) {
+                        unsafe {
+                            PostMessageW(hwnd, WM_SEARCH_CHAR, 1, 0);
+                        }
+                        taken[vk] = true;
+                        TAKEN.set(taken);
+                        return 1;
+                    }
                     // AltGr is Ctrl+RightAlt; ordinary Ctrl/Alt/Win shortcuts pass through.
                     if !down(VK_LWIN) && !down(VK_RWIN) && (!down(VK_CONTROL) || down(VK_RMENU)) && (!down(VK_MENU) || down(VK_RMENU)) {
                         let mut chars = Vec::new();
