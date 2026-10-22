@@ -213,22 +213,6 @@ pub fn any_visible() -> bool {
         .unwrap_or(false)
 }
 
-/// Reveal the board and open one selected circle from the recovery dock.
-pub fn open_target(which: Which) {
-    if crate::dock::locked() {
-        return;
-    }
-    let Some(hwnd) = window_of(which) else { return };
-    let target = which.target();
-    if ring::close_target(hwnd, target) {
-        return;
-    }
-    if !any_visible() {
-        show();
-    }
-    ring::open(hwnd, target);
-}
-
 pub fn drag_active() -> bool {
     circle_win::pressed_window().is_some() || ring::item_drag_pending() || crate::dock_drag::active()
 }
@@ -553,6 +537,21 @@ pub fn contents_menu(at: POINT) {
             return;
         }
         append_circle_items(menu);
+        track_contents(menu, at)
+    };
+    dock_command(command);
+}
+
+/// File launch menu anchored to a visible dock row; leaves circle visibility alone.
+pub fn target_menu(which: Which, at: POINT) {
+    crate::hint::hide();
+    menu_contents::reset();
+    let command = unsafe {
+        let menu = CreatePopupMenu();
+        if menu.is_null() {
+            return;
+        }
+        menu_contents::prepare_target(menu, which.target());
         track_contents(menu, at)
     };
     dock_command(command);

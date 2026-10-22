@@ -5,7 +5,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D50 are implemented; D44-D50 await owner manual acceptance.
+- A and D through D51 are implemented; D44-D51 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -14,9 +14,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D50 installed SHA256: 519FB658DF9F8C8B527A5CD6B2A44BF76C1A5E904F267AE8FD6400558269148D.
-  D44-D50 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D50 config unchanged; installed dock is 184 px wide at system 96 DPI.
+- D51 installed SHA256: C1E591AFD030FE8D90602326D6763FA34F762B4EDA8FFB95C39C76B2E53D8EB1.
+  D44-D51 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D51 config unchanged; installed dock is 168 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -25,7 +25,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D32/D33 harden item capture/drop cancellation, defer refresh while interacting,
   and reuse grid guide windows; prior native fixtures pass. See plan evidence.
 - D34 adds left dragging for the collapsed square/expanded DeskTuk heading. The dock
-  follows the current monitor's reserved taskbar edge and persists dock_pos=x|y.
+  initially used the taskbar rail; D51 saves any edge with dock_pos/dock_edge.
   Four-edge/negative-coordinate tests and native drag/restart/cancel checks pass locally.
 - D35 shares Segoe UI and slate/periwinkle/mint styling across dock/circles/rings;
   original logo/card and icon rebuild instructions are in res/brand/README.md.
@@ -48,10 +48,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   left centre/background drag and lazy 32-file dock launch pages. Manual checks pending.
 - D48 adds bilingual settings/guide, lock hints and Align now. Grid selection
   preserves positions; first installs use 4x4. Guide: docs/user-guide.md.
-- D49 restores lazy menu notifications, places hints outside the dock and adds a
-  settings/grid/info row with cached antialiased glyphs. Manual acceptance pending.
-- D50 guards the guide against re-entry, adds Circles in both modes and a divider;
-  expands toolbar spacing and removes resize easing. All new UI awaits manual checks.
+- D49 fixes lazy menu notifications/hint placement and caches antialiased tools.
+- D50 guards guide re-entry and removes resize easing; hover effects remain.
+- D51 makes rows launch menus, keeps compact Circles, cleans borders/insets and
+  enables blank-area dragging on all four rails with saved edge/cancel restoration.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -83,7 +83,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D50 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D51 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

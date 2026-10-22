@@ -14,6 +14,7 @@ struct Press {
     origin: (i32, i32),
     previous: Option<(i32, i32)>,
     previous_top: Option<i32>,
+    previous_edge: Option<crate::dock_layout::Edge>,
     moving: bool,
 }
 thread_local! {
@@ -35,7 +36,15 @@ pub fn prepare_click() {
 pub fn begin(hwnd: HWND, at: POINT, origin: (i32, i32), previous: Option<(i32, i32)>) {
     shutdown();
     ID.set(ID.get().wrapping_add(1));
-    PRESS.set(Some(Press { hwnd, cursor: at, origin, previous, previous_top: dock::current_top_anchor(), moving: false }));
+    PRESS.set(Some(Press {
+        hwnd,
+        cursor: at,
+        origin,
+        previous,
+        previous_top: dock::current_top_anchor(),
+        previous_edge: dock::current_edge(),
+        moving: false,
+    }));
     let hook = unsafe { SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook), GetModuleHandleW(std::ptr::null()), 0) };
     HOOK.set(hook);
     if hook.is_null() {
@@ -85,7 +94,7 @@ fn finish(released: bool) -> bool {
         if released {
             dock::save_position();
         } else {
-            dock::restore_anchor(p.hwnd, p.previous, p.previous_top);
+            dock::restore_anchor(p.hwnd, p.previous, p.previous_top, p.previous_edge);
         }
         dock::after_drag();
     }

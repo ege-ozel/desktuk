@@ -50,6 +50,13 @@ pub fn append_target(parent: HMENU, label: &str, target: Target) {
     append_pending(parent, label, Pending::Target(target));
 }
 
+/// Root menu for a dock row; same lazy population path as nested Circles menus.
+pub fn prepare_target(menu: HMENU, target: Target) {
+    unsafe { AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, win::wide("...").as_ptr()) };
+    SESSION.with(|s| s.borrow_mut().pending.insert(menu as usize, Pending::Target(target)));
+    populate(menu);
+}
+
 fn append_files(menu: HMENU, paths: Rc<Vec<PathBuf>>, offset: usize) {
     for path in paths.iter().skip(offset).take(PAGE_SIZE) {
         let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().replace('&', "&&");

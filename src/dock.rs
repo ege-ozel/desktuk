@@ -9,7 +9,7 @@ use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SelectObject,
-    SetBkMode, SetTextColor, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
+    SetBkMode, SetTextColor, DT_CENTER, DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -85,6 +85,7 @@ struct VisibilityKey {
 
 thread_local! {
     static UI_RUNNING: Cell<bool> = const { Cell::new(false) };
+    static EDGE: Cell<Option<dock_layout::Edge>> = const { Cell::new(None) };
     static TOP_ANCHOR: Cell<Option<i32>> = const { Cell::new(None) };
     static HEADER_HOVER: Cell<u8> = const { Cell::new(0) };
     static CONTROL_EASE: Cell<Option<HoverEase<6>>> = const { Cell::new(None) };
@@ -122,7 +123,7 @@ fn icon_title_font(dpi: u32) -> HFONT {
 }
 
 fn expanded_width(dpi: u32) -> i32 {
-    scale(184, dpi)
+    scale(168, dpi)
 }
 
 pub(crate) fn context_labels() -> (&'static str, &'static str) {
@@ -195,23 +196,16 @@ fn cancel_dwell(hwnd: HWND) {
     unsafe { InvalidateRect(hwnd, &rect, 0) };
 }
 
-fn mode_lock(dpi: u32, expanded: bool) -> RECT {
-    if expanded {
-        win::rect(scale(4, dpi), scale(7, dpi), scale(30, dpi), scale(33, dpi))
-    } else {
-        win::rect(scale(2, dpi), scale(1, dpi), scale(28, dpi), scale(27, dpi))
-    }
+fn mode_lock(dpi: u32, _expanded: bool) -> RECT {
+    win::rect(scale(4, dpi), scale(7, dpi), scale(30, dpi), scale(33, dpi))
 }
 fn lock_rect(dpi: u32) -> RECT {
     mode_lock(dpi, EXPANDED.get())
 }
 fn mode_menu(dpi: u32, expanded: bool) -> RECT {
     let width = if expanded { expanded_width(dpi) } else { scale(ACTION_SIZE + 2 * PAD, dpi) };
-    if expanded {
-        win::rect(width - scale(28, dpi), scale(9, dpi), width - scale(6, dpi), scale(31, dpi))
-    } else {
-        win::rect(width - scale(28, dpi), scale(1, dpi), width - scale(2, dpi), scale(27, dpi))
-    }
+    // Identical inner insets keep the toggle centred at the same top/right offset.
+    win::rect(width - scale(30, dpi), scale(7, dpi), width - scale(4, dpi), scale(33, dpi))
 }
 fn arrow_rect(dpi: u32) -> RECT {
     mode_menu(dpi, EXPANDED.get())
@@ -223,9 +217,9 @@ fn extra_rect(dpi: u32, index: usize) -> Option<RECT> {
     if index >= 4 {
         return None;
     }
-    let (left, top) = if EXPANDED.get() {
-        ((expanded_width(dpi) - scale(158, dpi)) / 2 + scale(index as i32 * 44, dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi))
-    } else if index == 3 {
+    let (left, top) = if EXPANDED.get() && index < 3 {
+        ((expanded_width(dpi) - scale(130, dpi)) / 2 + scale(index as i32 * 52, dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi))
+    } else if !EXPANDED.get() && index == 3 {
         (scale(19, dpi), scale(ACTION_SIZE + 2 * PAD + 28, dpi))
     } else {
         return None;
@@ -392,10 +386,10 @@ fn placement(hwnd: HWND) -> RECT {
     let size = dimensions(dpi, rows().len());
     let (monitor, work) = monitor_area();
     let at = POSITION.get().unwrap_or((work.right, work.top + (work.bottom - work.top) / 2));
-    let edge = dock_layout::edge(bounds(monitor), bounds(work), at);
+    let edge = EDGE.get().unwrap_or_else(|| dock_layout::edge(bounds(monitor), bounds(work), at));
     let action = mode_action(dpi, EXPANDED.get());
     let (x, mut y) = dock_layout::position(bounds(work), edge, at, size, scale(12, dpi), (action.top + action.bottom) / 2);
-    if let Some(top) = TOP_ANCHOR.get() {
+    if let Some(top) = TOP_ANCHOR.get().filter(|_| matches!(edge, dock_layout::Edge::Left | dock_layout::Edge::Right)) {
         let min = (work.top + scale(12, dpi)).min((work.bottom - size.1).max(work.top));
         let max = (work.bottom - size.1 - scale(12, dpi)).max(min);
         y = top.clamp(min, max);
@@ -419,13 +413,22 @@ fn place(hwnd: HWND) {
 pub fn current_top_anchor() -> Option<i32> {
     TOP_ANCHOR.get()
 }
-pub fn restore_anchor(hwnd: HWND, at: Option<(i32, i32)>, top: Option<i32>) {
+pub fn current_edge() -> Option<dock_layout::Edge> {
+    EDGE.get()
+}
+pub fn restore_anchor(hwnd: HWND, at: Option<(i32, i32)>, top: Option<i32>, edge: Option<dock_layout::Edge>) {
+    EDGE.set(edge);
     TOP_ANCHOR.set(top);
     POSITION.set(at);
     place(hwnd);
 }
 pub fn move_anchor(hwnd: HWND, at: Option<(i32, i32)>) {
-    restore_anchor(hwnd, at, None);
+    POSITION.set(at);
+    TOP_ANCHOR.set(None);
+    if let Some(at) = at {
+        EDGE.set(Some(dock_layout::nearest_edge(bounds(work_area()), at)));
+    }
+    place(hwnd);
 }
 
 pub fn save_position() {
@@ -437,6 +440,7 @@ pub fn save_position() {
     {
         let Ok(mut board) = app::app().board.try_borrow_mut() else { return };
         board.dock_pos = Some(at);
+        board.dock_edge = EDGE.get();
     }
     app::app().save_config();
 }
@@ -484,6 +488,7 @@ pub fn contains_screen(point: POINT) -> bool {
 
 pub fn create() {
     POSITION.set(app::app().board.try_borrow().ok().and_then(|b| b.dock_pos));
+    EDGE.set(app::app().board.try_borrow().ok().and_then(|b| b.dock_edge));
     let name = win::wide(CLASS);
     let class = WNDCLASSEXW {
         cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -748,7 +753,9 @@ fn lock_distance(px: f32, py: f32, closed: bool) -> f32 {
 
 unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, is_locked: bool, background: u32) {
     let side = scale(22, dpi);
-    rounded_outline(dc, r, dpi, background);
+    if EXPANDED.get() {
+        rounded_outline(dc, r, dpi, background);
+    }
     LOCK_FRAMES.with(|slot| {
         let mut cache = slot.borrow_mut();
         if cache.as_ref().is_none_or(|c| c.size != side) {
@@ -813,7 +820,7 @@ unsafe fn draw_button(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dp
             let c = (cx + 5.0 * factor, a.1);
             let glyph = line_distance(px, py, a, b).min(line_distance(px, py, b, c));
             let coverage = if expanded.is_some() { (factor * 0.8 + 0.5 - glyph).clamp(0.0, 1.0) } else { 0.0 };
-            let border = (factor * 0.5 + 0.5 - edge).clamp(0.0, 1.0);
+            let border = if EXPANDED.get() { (factor * 0.5 + 0.5 - edge).clamp(0.0, 1.0) } else { 0.0 };
             blend_pixel(&mut pixels[(y * w + x) as usize], TEAL, coverage.max(border * 0.65));
         }
     }
@@ -832,7 +839,12 @@ fn tool_ink(kind: usize, x: f32, y: f32) -> bool {
             inside && ((x.abs() - 6.5).abs() <= 0.7 || (y.abs() - 6.5).abs() <= 0.7 || x.abs() <= 0.6 || y.abs() <= 0.6)
         }
         2 => (radius - 7.0).abs() <= 0.7 || (x.abs() <= 0.8 && (y + 3.5).abs() <= 0.8) || (x.abs() <= 0.7 && (-1.0..=4.0).contains(&y)),
-        _ => [(-3.5_f32, -2.0_f32), (3.5, -2.0), (0.0, 4.0)].iter().any(|(cx, cy)| ((x - cx).hypot(y - cy) - 3.2).abs() <= 0.65),
+        _ => {
+            let qx = x.abs() - 7.0;
+            let qy = y.abs() - 7.0;
+            let border = (qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - 5.0).abs() <= 0.5;
+            border || [(-3.5_f32, -2.0_f32), (3.5, -2.0), (0.0, 4.0)].iter().any(|(cx, cy)| ((x - cx).hypot(y - cy) - 3.2).abs() <= 0.65)
+        }
     }
 }
 
@@ -1003,8 +1015,17 @@ fn paint(hwnd: HWND) {
                     rounded_fill(hdc, row, mix_color(BG, ROW_HOVER, weight), scale(6, dpi));
                 }
                 let mut label = win::wide(&entries[index].1);
-                let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(8, dpi), top + row_h);
-                DrawTextW(hdc, label.as_mut_ptr(), -1, &mut label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                let mut label_rect = win::rect(scale(16, dpi), top, client.right - scale(24, dpi), top + row_h);
+                DrawTextW(
+                    hdc,
+                    label.as_mut_ptr(),
+                    -1,
+                    &mut label_rect,
+                    DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS,
+                );
+                let mut arrow_rect = win::rect(row.right - scale(16, dpi), top, row.right - scale(2, dpi), top + row_h);
+                let mut chevron = [0x203a_u16, 0];
+                DrawTextW(hdc, chevron.as_mut_ptr(), -1, &mut arrow_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
         }
         DeleteObject(bg);
@@ -1063,10 +1084,15 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
         let row_height = scale(ROW_H, dpi).max(1);
         let offset = ((y - start).max(0) / row_height) as usize;
         let index = SCROLL.with(Cell::get).saturating_add(offset);
-        if offset < visible {
+        if offset < visible && win::rect_contains(&row_rect(dpi, index), POINT { x, y }) {
             if let Some((entry, _)) = entries.get(index).cloned() {
                 match entry {
-                    Entry::Target(which) => circles::open_target(which),
+                    Entry::Target(which) => {
+                        let row = row_rect(dpi, index);
+                        let mut at = POINT { x: row.right, y: row.top };
+                        ClientToScreen(hwnd, &mut at);
+                        circles::target_menu(which, at);
+                    }
                 }
             }
         }
@@ -1189,8 +1215,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             cancel_dwell(hwnd);
             let dpi = GetDpiForWindow(hwnd).max(96);
             let point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
-            let heading = EXPANDED.get() && point.y >= 0 && point.y < scale(HEADER_H, dpi) && !win::rect_contains(&arrow_rect(dpi), point);
-            if control_at(dpi, point) == 0 && (heading || win::rect_contains(&action_rect(dpi), point)) {
+            let count = rows().len();
+            let on_row = EXPANDED.get()
+                && (SCROLL.get()..count.min(SCROLL.get() + visible_row_count(dpi, count)))
+                    .any(|i| win::rect_contains(&row_rect(dpi, i), point));
+            // Active controls/list rows keep clicks; every other client area can drag.
+            if control_at(dpi, point) == 0 && !on_row {
                 let r = win::window_rect(hwnd);
                 let action = action_rect(dpi);
                 dock_drag::begin(

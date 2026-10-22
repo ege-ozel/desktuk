@@ -253,14 +253,6 @@ pub fn is_open_for(anchor: HWND) -> bool {
     with(|r| r.anchor == anchor && !closing(r)).unwrap_or(false)
 }
 
-pub fn close_target(anchor: HWND, target: Target) -> bool {
-    let (matches, is_closing) = with(|r| (r.anchor == anchor && r.target == target, closing(r))).unwrap_or((false, false));
-    if matches && !is_closing {
-        begin_close();
-    }
-    matches
-}
-
 /// Opens the ring for `target` over the circle window `anchor`, closing any other ring.
 pub fn open(anchor: HWND, target: Target) {
     if crate::dock::locked() {

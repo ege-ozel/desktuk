@@ -1377,3 +1377,54 @@ Configuration hash unchanged. Backups: target/d50-delivery/. Installed/release S
 519FB658DF9F8C8B527A5CD6B2A44BF76C1A5E904F267AE8FD6400558269148D.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 6F3C0C51D9B2DBB7BD6DA9209063D94DCAD272118B4388A2E9D11D34D7BE5889.
+
+### D51: Row launch menus, perimeter dragging and consistent compact insets
+
+Owner prefers using expanded dock rows as content launch menus instead of a
+separate Circles shortcut, keeping the compact Circles button. Requests dragging
+from any blank panel area along all monitor edges/corners, unchanged right-click
+menus, cleaner compact borders and aligned toggle padding. Owner confirms instant
+mode changes are preferred over further resize easing work.
+
+- [x] Remove expanded Circles shortcut; use three spaced tools in a 168-DIP panel.
+  Circle rows get native submenu chevrons and directly open their file/group menu
+  without revealing the circle board. Existing right-click choices remain.
+- [x] Keep compact Circles with an outlined, cached antialiased glyph. Remove compact
+  upper control borders, retaining hover fills; expanded borders are unchanged.
+- [x] Give header controls matching 7-DIP top/4-DIP side insets and 26-DIP bounds
+  in both modes, fixing the old compact toggle's 6-DIP vertical/2-DIP lateral shift.
+- [x] Start dock dragging from all client areas except active buttons/list rows;
+  blank padding cannot accidentally activate a row on release.
+- [x] Choose the nearest usable monitor edge during drag rather than preferring
+  the taskbar edge; keep the entire panel clamped to its rail/corners, never free
+  in the middle. Reuse existing coalesced pointer routing and drag threshold.
+- [x] Persist dock_edge with dock_pos on release. Cancel restores old edge, anchor
+  and top; older configs retain their original edge until the first new drag.
+- [x] Preserve rail attachment across mode/DPI/display changes. Left/right modes
+  retain top where possible; top/bottom modes stay attached to their chosen rail.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance; runtime/automated checks only when requested.
+
+Native menus follow Windows' appearance as the owner permits, avoiding owner-drawn
+menu resources. They share existing 32-entry lazy launch/group/action handling.
+Unused dock-to-ring toggle functions are removed now that rows open menus instead.
+No file enumeration, dependency, worker or idle timer added. The compact outline
+is part of its cached supersampled mask so drawing the glyph cannot erase it.
+
+The matching button insets are internal padding; the existing screen/work-area gap
+is separate. On a right-edge panel with a retained top, the toggle's screen centre
+now matches between modes. On other edges, preserving rail attachment takes priority
+when different mode sizes necessarily change the window's opposite edge.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. No cargo test, native fixture, screen/UI test
+or benchmark performed under the owner's manual-first request. CI skipped. Perimeter
+feel/corner transitions, edge persistence/cancel, row launch actions, compact borders
+and toggle alignment at alternate edges/DPIs remain for owner acceptance; no runtime
+pass is inferred from compilation. Older dock fixtures assumed taskbar-only rails.
+
+Installed PID 14916 via normal controller close/restart; root EXE also updated.
+Config hash unchanged across delivery. Backups: target/d51-delivery/. Release SHA256:
+C1E591AFD030FE8D90602326D6763FA34F762B4EDA8FFB95C39C76B2E53D8EB1.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+F10C9380667FED23B9E423BDD4946594245E5F99C5D44D903F4AE469146EB9FE.

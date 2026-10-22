@@ -1,4 +1,4 @@
-//! Pure taskbar-adjacent rail geometry, in physical screen coordinates.
+//! Pure four-edge rail geometry, in physical screen coordinates.
 pub type Bounds = (i32, i32, i32, i32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Edge {
@@ -24,6 +24,40 @@ pub fn edge(monitor: Bounds, work: Bounds, at: (i32, i32)) -> Edge {
         .or_else(|| candidates.iter().min_by_key(|(_, _, distance)| *distance))
         .map(|x| x.0)
         .unwrap_or(Edge::Right)
+}
+
+impl Edge {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+        }
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "left" => Some(Self::Left),
+            "right" => Some(Self::Right),
+            "top" => Some(Self::Top),
+            "bottom" => Some(Self::Bottom),
+            _ => None,
+        }
+    }
+}
+
+/// The pointer can choose any work-area edge, irrespective of taskbar placement.
+pub fn nearest_edge(work: Bounds, at: (i32, i32)) -> Edge {
+    [
+        (Edge::Left, (i64::from(at.0) - i64::from(work.0)).abs()),
+        (Edge::Right, (i64::from(at.0) - i64::from(work.2)).abs()),
+        (Edge::Top, (i64::from(at.1) - i64::from(work.1)).abs()),
+        (Edge::Bottom, (i64::from(at.1) - i64::from(work.3)).abs()),
+    ]
+    .into_iter()
+    .min_by_key(|(_, distance)| *distance)
+    .map(|p| p.0)
+    .unwrap_or(Edge::Right)
 }
 
 pub fn position(work: Bounds, edge: Edge, at: (i32, i32), size: (i32, i32), gap: i32, action_y: i32) -> (i32, i32) {

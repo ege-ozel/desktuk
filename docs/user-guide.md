@@ -21,9 +21,9 @@
   Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Dosyalar varsayılan
   uygulamasında, programlar doğrudan, klasörler Explorer'da açılır.
 - Açık panelde merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgara
-  seçeneklerini, ⓘ kısa kılavuzu açar. En sağdaki çemberler simgesi içerik
-  menüsüne hızlı erişim sağlar; küçük panelde de karenin altında bulunur.
-  Dört kısayol ince bir ayırıcıyla listeden ayrılır. Bu seçenekler sağ tık menüsünde
+  seçeneklerini, ⓘ kısa kılavuzu açar. Listedeki çember adına basınca dosya menüsü
+  açılır; küçük panelin altındaki çerçeveli Çemberler düğmesi tüm çemberlere ulaşır.
+  Üç kısayol ince bir ayırıcıyla listeden ayrılır. Bu seçenekler sağ tık menüsünde
   bulunur. Ayarlar → Dil / Language seçimi hemen uygulanır ve kaydedilir.
   Çemberlerin/grupların verdiğiniz adları ve dosya adları çevrilmez.
 
@@ -50,9 +50,9 @@
   per More submenu. Files use their default app, programs launch directly and
   folders open in Explorer.
 - Below the expanded panel's centre button, the gear opens Settings, the grid
-  shortcut opens grid choices and ⓘ opens the short guide. The rightmost Circles
-  shortcut opens contents and is also available below the compact square. A thin
-  divider separates the four shortcuts from the list. Settings/help are also
+  shortcut opens grid choices and ⓘ opens the short guide. Click a circle row to
+  open its file menu; the outlined Circles button below the compact square opens
+  all circles. A thin divider separates the three shortcuts from the list. Settings/help are also
   in the context menu. Language selection applies immediately and is saved.
   User-supplied circle/group names and filenames are never translated.
 
@@ -61,3 +61,13 @@ Panel açma/kapama tek adımda yapılır; hover geçişleri yumuşak kalır.
 
 The quick guide opens only once; clicking again brings its existing window forward.
 Panel expansion/collapse is immediate; hover transitions remain eased.
+
+Panelin boş alanlarından sol tuşla sürükleyin. Panel, monitörün çalışma alanındaki
+sol/sağ/üst/alt kenar boyunca kayar; köşelerde durabilir, ortada bırakılamaz. Seçilen
+kenar kaydedilir. Aç/kapa düğmesinin iki durumda da üst/yan iç boşlukları aynıdır
+(padding); dış kenar uzaklığı farklı bir yerleşim ölçüsüdür.
+
+Drag any blank panel area with the left button. The panel stays on the work-area
+perimeter: left, right, top or bottom, including corners. It cannot remain in the
+middle. The chosen edge is saved. Toggle controls use matching inner insets in
+both modes; those insets are padding, separate from the screen-edge gap.

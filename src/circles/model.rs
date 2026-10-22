@@ -36,8 +36,9 @@ pub struct Board {
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
-    /// Saved anchor beside the taskbar, in screen pixels.
+    /// Saved anchor on a monitor work-area edge, in screen pixels.
     pub dock_pos: Option<(i32, i32)>,
+    pub dock_edge: Option<crate::dock_layout::Edge>,
     /// Global work-area grid: 0 = off, otherwise 2, 3, 4, 6 or 8 cells per axis.
     pub grid: u8,
     pub always_on_top: bool,
@@ -53,6 +54,7 @@ impl Default for Board {
             circles: Vec::new(),
             recent_pos: None,
             dock_pos: None,
+            dock_edge: None,
             grid: 0,
             always_on_top: true,
         }
@@ -327,6 +329,7 @@ impl Board {
             }
             "language" => self.english = value.trim() == "en",
             "usage_tips" => self.hints = value.trim() != "0",
+            "dock_edge" => self.dock_edge = crate::dock_layout::Edge::parse(value.trim()),
             "dock_locked" => self.dock_locked = value.trim() == "1",
             "added_order" => {
                 let path = PathBuf::from(value);
@@ -415,6 +418,9 @@ impl Board {
         }
         if self.grid != 0 {
             s += &format!("grid={}\n", self.grid);
+        }
+        if let Some(edge) = self.dock_edge {
+            s += &format!("dock_edge={}\n", edge.name());
         }
         if let Some((x, y)) = self.dock_pos {
             s += &format!("dock_pos={x}|{y}\n");
