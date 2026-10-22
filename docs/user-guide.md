@@ -21,7 +21,9 @@
   Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Dosyalar varsayılan
   uygulamasında, programlar doğrudan, klasörler Explorer'da açılır.
 - Açık panelde merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgara
-  seçeneklerini, ⓘ kısa kılavuzu açar. Bu seçenekler sağ tık menüsünde
+  seçeneklerini, ⓘ kısa kılavuzu açar. En sağdaki çemberler simgesi içerik
+  menüsüne hızlı erişim sağlar; küçük panelde de karenin altında bulunur.
+  Dört kısayol ince bir ayırıcıyla listeden ayrılır. Bu seçenekler sağ tık menüsünde
   bulunur. Ayarlar → Dil / Language seçimi hemen uygulanır ve kaydedilir.
   Çemberlerin/grupların verdiğiniz adları ve dosya adları çevrilmez.
 
@@ -48,6 +50,14 @@
   per More submenu. Files use their default app, programs launch directly and
   folders open in Explorer.
 - Below the expanded panel's centre button, the gear opens Settings, the grid
-  shortcut opens grid choices and ⓘ opens the short guide. Settings/help are also
+  shortcut opens grid choices and ⓘ opens the short guide. The rightmost Circles
+  shortcut opens contents and is also available below the compact square. A thin
+  divider separates the four shortcuts from the list. Settings/help are also
   in the context menu. Language selection applies immediately and is saved.
   User-supplied circle/group names and filenames are never translated.
+
+Kılavuz tek pencereyle sınırlıdır; tekrar tıklamak açık kılavuzu öne getirir.
+Panel açma/kapama tek adımda yapılır; hover geçişleri yumuşak kalır.
+
+The quick guide opens only once; clicking again brings its existing window forward.
+Panel expansion/collapse is immediate; hover transitions remain eased.

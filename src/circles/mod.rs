@@ -477,7 +477,6 @@ pub fn dismiss_suggestion(s: &Suggestion) {
 /// A context menu owned by the hidden controller window (so no circle needs activation).
 /// An id of 0 adds a separator. Returns the chosen id or 0.
 pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
-    let ctl = app().controller.get();
     menu_contents::reset();
     unsafe {
         let m = CreatePopupMenu();
@@ -488,14 +487,9 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
             if id == 0 {
                 AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
             } else if id == IDM_CIRCLE_ACTIONS {
-                let names: Vec<String> =
-                    app().board.try_borrow().map(|b| b.circles.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
                 let submenu = CreatePopupMenu();
                 if !submenu.is_null() {
-                    menu_contents::append_target(submenu, crate::i18n::text("Recent"), Target::Recent);
-                    for (ci, name) in names.iter().enumerate() {
-                        menu_contents::append_target(submenu, name, Target::Circle(ci));
-                    }
+                    append_circle_items(submenu);
                     if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(crate::i18n::text(label)).as_ptr()) == 0 {
                         DestroyMenu(submenu);
                     }
@@ -525,16 +519,43 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                 AppendMenuW(m, flags, id, win::wide(crate::i18n::text(label)).as_ptr());
             }
         }
-        SetForegroundWindow(ctl);
-        let cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, 0, ctl, std::ptr::null()) as usize;
-        PostMessageW(ctl, WM_NULL, 0, 0);
-        DestroyMenu(m);
-        if menu_contents::finish(cmd) {
-            0
-        } else {
-            cmd
-        }
+        track_contents(m, at)
     }
+}
+
+unsafe fn append_circle_items(menu: HMENU) {
+    let names: Vec<String> = app().board.try_borrow().map(|b| b.circles.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+    menu_contents::append_target(menu, crate::i18n::text("Recent"), Target::Recent);
+    for (ci, name) in names.iter().enumerate() {
+        menu_contents::append_target(menu, name, Target::Circle(ci));
+    }
+}
+
+unsafe fn track_contents(menu: HMENU, at: POINT) -> usize {
+    let owner = app().controller.get();
+    SetForegroundWindow(owner);
+    let command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, 0, owner, std::ptr::null()) as usize;
+    PostMessageW(owner, WM_NULL, 0, 0);
+    DestroyMenu(menu);
+    if menu_contents::finish(command) {
+        0
+    } else {
+        command
+    }
+}
+
+pub fn contents_menu(at: POINT) {
+    crate::hint::hide();
+    menu_contents::reset();
+    let command = unsafe {
+        let menu = CreatePopupMenu();
+        if menu.is_null() {
+            return;
+        }
+        append_circle_items(menu);
+        track_contents(menu, at)
+    };
+    dock_command(command);
 }
 
 unsafe fn append_grid_items(menu: HMENU) {
@@ -608,7 +629,10 @@ pub fn dock_menu(at: POINT) {
         (IDM_CIRCLE_ACTIONS, "\u{c7}emberler"),
     ];
     entries.extend(global_entries());
-    let command = popup(&entries, at);
+    dock_command(popup(&entries, at));
+}
+
+fn dock_command(command: usize) {
     match command {
         IDM_DOCK_EXPAND => crate::dock::context_action(false),
         IDM_DOCK_LOCK => crate::dock::context_action(true),

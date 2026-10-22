@@ -1334,3 +1334,46 @@ Config hash unchanged. Backups: target/d49-delivery/. Installed/release SHA256:
 7F371D8FB5D3341AB689A2CB80A0E80D953F8F973DA9CC113FEBF5405067BA66.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 9B33B57709B52BEB0EFB1C99822E53179028ECF23B887E48FC05A3546094E59E.
+
+### D50: Single quick guide, spacious shortcuts and immediate dock mode changes
+
+Owner reports repeated help windows and expansion redraw glitches; approves the
+proposed wider single-row layout with a compact Circles shortcut. Owner explicitly
+allows removing resize easing if it adds complexity/cost; retain hover feedback.
+
+- [x] Guard the native quick-guide call against re-entry during MessageBox's nested
+  message loop. Repeated clicks restore/foreground only the existing owned dialog;
+  reset guard on return. Match both language captions, preserving locale changes.
+- [x] Widen expanded dock from 153 to 184 DIP; place Settings/Grid/Info/Circles
+  44 DIP apart. Add a subtle one-pixel divider below the four shortcuts.
+- [x] Add Circles below the compact square, keeping compact width 64 DIP and
+  increasing height to 132 DIP. Retain aligned top placement/work-area clamping.
+- [x] Share on-demand content menu construction/dispatch with the existing dock
+  context menu. References/groups/actions remain lazy and text-only.
+- [x] Cache 4x4 supersampled coverage for the new circle glyph too; existing gear,
+  grid and info use the same antialiasing path.
+- [x] Remove panel resize/content interpolation and its intermediate geometry.
+  Apply final layout once with a completed buffered redraw; retain hover/dwell ease.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance; automated/runtime tests only when requested.
+
+No worker, dependency or persistent model field added. Guide guard is transient
+and set before the message-pumping native call. Re-entry searches only native
+message dialogs owned by this controller, never another application's dialog.
+Removing resize animation removes repeated SetWindowPos and intermediate backing
+buffer sizes; one 120ms timer remains for active hover transitions only. Circle
+opening/reveal animations are unchanged. Four 26-DIP coverage masks and a reused
+frame remain small; no idle icon computation added.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. No cargo test, UI interaction/screenshot test,
+native fixture or benchmark performed, as owner requests manual acceptance first.
+CI skipped. Guide re-entry/focus, exact mode-toggle presentation, divider/spacing
+and compact Circles launch behavior await physical assessment. Existing old panel
+size/coordinate fixture assertions will need adapting when tests are requested.
+
+Installed PID 15128 via normal controller close/restart; ignored root EXE updated.
+Configuration hash unchanged. Backups: target/d50-delivery/. Installed/release SHA256:
+519FB658DF9F8C8B527A5CD6B2A44BF76C1A5E904F267AE8FD6400558269148D.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+6F3C0C51D9B2DBB7BD6DA9209063D94DCAD272118B4388A2E9D11D34D7BE5889.
