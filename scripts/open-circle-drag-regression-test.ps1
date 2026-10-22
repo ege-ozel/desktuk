@@ -235,9 +235,26 @@ try {
             $surfaceStyle=[OpenCircleDragWin]::GetWindowLong($surface,-20)
             if (($surfaceStyle -band 8) -eq 0) { throw "Circle and owned ring must remain topmost: hwnd=$surface style=$surfaceStyle" }
         }
+        if ($sourceX -eq $musicX) {
+            foreach ($ch in @('z','z')) { [void][OpenCircleDragWin]::SendMessage($ring,0x802c,[IntPtr][int][char]$ch,[IntPtr]::Zero) }
+            if ((Get-Content -LiteralPath $log -Raw) -notmatch 'ring search chars=2 results=0') { throw 'No-match query was not applied' }
+            [void][OpenCircleDragWin]::SendMessage($ring,0x802c,[IntPtr]8,[IntPtr]::Zero)
+            [void][OpenCircleDragWin]::SendMessage($ring,0x802c,[IntPtr]27,[IntPtr]::Zero)
+            if ((Get-Content -LiteralPath $log -Raw) -notmatch 'ring search chars=0 results=24') { throw 'Escape did not restore the original page' }
+        }
         $rect=[OpenCircleDragWin]::Rectangle($ring)
         $cx=($rect.right-$rect.left)/2
         $cy=($rect.bottom-$rect.top)/2
+        $grabOriginX=$rect.left+$cx-$diameter/2
+        $grabOriginY=$rect.top+$cy-$diameter/2
+        $freeX=[int][Math]::Min($work.right-$diameter,[Math]::Max($work.left,$grabOriginX+$dx))
+        $freeY=[int][Math]::Min($work.bottom-$diameter,[Math]::Max($work.top,$grabOriginY+$dy))
+        $expectedX=$freeX; $expectedY=$freeY
+        if ($Grid -ne 0) {
+            $expectedX=Snap-Axis $freeX $work.left $work.right
+            $expectedY=Snap-Axis $freeY $work.top $work.bottom
+        }
+        if ($sourceX -eq $recentX) { $expectedRecentX=$expectedX } else { $expectedMusicX=$expectedX }
         [OpenCircleDragWin]::MiddleMouse($ring,0x207,$cx,$cy)
         $guide=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.GridOverlay',[int]::MinValue,0)
         if (($Grid -ne 0) -ne ($guide -ne [IntPtr]::Zero)) { throw 'Grid guide visibility must match the selected grid on press' }
@@ -257,9 +274,6 @@ try {
         $atY=$rect.top+$cy+$dy-$sourceY
         [OpenCircleDragWin]::MiddleMouse($anchor,0x200,$atX,$atY)
         $during=[OpenCircleDragWin]::Rectangle($anchor)
-        $expectedX=if ($sourceX -eq $recentX) { $expectedRecentX } else { $expectedMusicX }
-        $freeX=[Math]::Min($work.right-$diameter,[Math]::Max($work.left,$sourceX+$dx))
-        $freeY=[Math]::Min($work.bottom-$diameter,[Math]::Max($work.top,$sourceY+$dy))
         if ($during.left -ne $freeX -or $during.top -ne $freeY) { throw 'Circle should move freely inside the work area while held' }
         # Background Desktop refresh must not restore the old saved position during a
         # live drag. The idle cleanup timer must also skip this interaction.

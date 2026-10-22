@@ -88,6 +88,22 @@ fn expanded_width(dpi: u32) -> i32 {
     scale(153, dpi)
 }
 
+pub(crate) fn context_labels() -> (&'static str, &'static str) {
+    (
+        if EXPANDED.get() { "Men\u{fc}y\u{fc} gizle" } else { "Men\u{fc}y\u{fc} g\u{f6}ster" },
+        if locked() { "Kilidi \u{e7}\u{f6}z" } else { "Kilitle" },
+    )
+}
+
+pub(crate) fn context_action(lock: bool) {
+    let hwnd = WINDOW.get();
+    if lock {
+        toggle_lock(hwnd);
+    } else {
+        set_expanded(hwnd, !EXPANDED.get());
+    }
+}
+
 pub fn locked() -> bool {
     app::app().board.try_borrow().map(|b| b.dock_locked).unwrap_or(true)
 }
@@ -106,6 +122,9 @@ fn toggle_lock(hwnd: HWND) {
     if changed {
         circles::ring::close_now();
         app::app().save_config();
+        if circles::any_visible() {
+            circles::refresh_all();
+        }
         unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
     }
 }
@@ -492,7 +511,7 @@ fn visibility_surface(size: i32, dpi: u32, visible: bool, progress: Option<f32>,
     Some(surface)
 }
 
-fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<circles::surface::Surface> {
+pub(crate) fn lock_surface(size: i32, color: u32, is_locked: bool) -> Option<circles::surface::Surface> {
     let mut surface = circles::surface::Surface::new(size, size)?;
     let factor = size as f32 / 20.0;
     let pixels = surface.pixels();
@@ -856,24 +875,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
         }
         WM_RBUTTONUP => {
             cancel_dwell(hwnd);
-            let menu = CreatePopupMenu();
-            if !menu.is_null() {
-                let label = win::wide(if EXPANDED.get() { "Menüyü gizle" } else { "Menüyü göster" });
-                AppendMenuW(menu, MF_STRING, 1, label.as_ptr());
-                AppendMenuW(menu, MF_STRING, 2, win::wide(if locked() { "Kilidi çöz" } else { "Kilitle" }).as_ptr());
-                let mut point = POINT { x: 0, y: 0 };
-                GetCursorPos(&mut point);
-                SetForegroundWindow(hwnd);
-                let command =
-                    TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, point.x, point.y, 0, hwnd, std::ptr::null());
-                DestroyMenu(menu);
-                if command == 2 {
-                    toggle_lock(hwnd);
-                }
-                if command == 1 {
-                    set_expanded(hwnd, !EXPANDED.get());
-                }
-            }
+            let mut point = POINT { x: 0, y: 0 };
+            GetCursorPos(&mut point);
+            circles::dock_menu(point);
             0
         }
         WM_MOUSEWHEEL if !EXPANDED.get() => 0,

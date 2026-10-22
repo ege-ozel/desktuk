@@ -17,7 +17,7 @@ use super::surface::Surface;
 use crate::win;
 
 pub const CIRCLE_BG: u32 = crate::theme::BG;
-pub const RECENT_BG: u32 = crate::theme::SURFACE;
+pub const RECENT_BG: u32 = CIRCLE_BG;
 pub const CENTER_BG: u32 = crate::theme::SURFACE;
 pub const ACCENT: u32 = crate::theme::ACCENT;
 pub const HOVER: u32 = crate::theme::RAISED;
@@ -105,13 +105,41 @@ fn square(cx: i32, cy: i32, side: i32) -> RECT {
 }
 
 /// A closed circle: accent rim, name (up to two lines) and the item count.
-pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, recent: bool) {
+pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool) {
     let dc = s.dc();
     let d = s.w;
     let sc = |v| win::scale(v, dpi);
     fill_rect(dc, &win::rect(0, 0, d, d), ACCENT);
     let rim = sc(3).max(2);
-    fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), if recent { RECENT_BG } else { CIRCLE_BG });
+    if locked {
+        let pixels = s.pixels();
+        for y in 0..d {
+            let blend = |shift: u32| {
+                (((ACCENT >> shift) & 255) * (d - 1 - y) as u32 + ((crate::theme::MINT >> shift) & 255) * y as u32) / (d - 1).max(1) as u32
+            };
+            let rgb = blend(0) << 16 | blend(8) << 8 | blend(16);
+            pixels[(y * d) as usize..((y + 1) * d) as usize].fill(rgb);
+        }
+    }
+    fill_disc(s, &win::rect(rim, rim, d - rim, d - rim), CIRCLE_BG);
+    if locked {
+        let side = sc(16);
+        if let Some(lock) = crate::dock::lock_surface(side, CIRCLE_BG, true) {
+            unsafe {
+                windows_sys::Win32::Graphics::Gdi::BitBlt(
+                    dc,
+                    d * 65 / 100,
+                    d * 15 / 100,
+                    side,
+                    side,
+                    lock.dc(),
+                    0,
+                    0,
+                    windows_sys::Win32::Graphics::Gdi::SRCCOPY,
+                )
+            };
+        }
+    }
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 108);
     let small = Font::new(dpi, true, 145);
@@ -119,7 +147,7 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, recent: bool)
     text(
         dc,
         name,
-        win::rect(pad, d * 20 / 100, d - pad, d * 60 / 100),
+        win::rect(pad, d * if locked { 29 } else { 20 } / 100, d - pad, d * 60 / 100),
         TEXT,
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
@@ -280,6 +308,27 @@ mod tests {
             let blended =
                 pixels[..(d * (d / 5)) as usize].iter().filter(|p| **p & 0x00ff_ffff != accent && **p & 0x00ff_ffff != background).count();
             assert!(blended > 8, "dpi {dpi}: the inner rim still has a hard aliased edge");
+        }
+    }
+
+    #[test]
+    fn recent_matches_circle_palette_and_lock_is_visible_at_desktop_dpis() {
+        for dpi in [96, 120, 144, 192] {
+            let m = geom::metrics(dpi);
+            let mut normal = Surface::new(m.circle_d, m.circle_d).unwrap();
+            let mut locked = Surface::new(m.circle_d, m.circle_d).unwrap();
+            circle(&mut normal, dpi, "Music", 4, false);
+            circle(&mut locked, dpi, "Music", 4, true);
+            assert_ne!(normal.pixels(), locked.pixels());
+            let side = m.ring_r * 2;
+            let mut a = Surface::new(side, side).unwrap();
+            let mut b = Surface::new(side, side).unwrap();
+            let mut v = RingView { title: "Title", subtitle: "4", slots: &[], hover: None, recent: false, insertion: None };
+            ring(&mut a, dpi, &m, &v);
+            v.recent = true;
+            ring(&mut b, dpi, &m, &v);
+            assert_eq!(a.pixels(), b.pixels());
+            assert_ne!(CIRCLE_BG, CENTER_BG);
         }
     }
 

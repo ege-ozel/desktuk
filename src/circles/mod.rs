@@ -51,6 +51,10 @@ pub const IDM_SORT: usize = 30;
 pub const IDM_SORT_NAME: usize = 31;
 pub const IDM_SORT_TYPE: usize = 32;
 pub const IDM_SORT_ADDED: usize = 33;
+const IDM_DOCK_EXPAND: usize = 60;
+const IDM_DOCK_LOCK: usize = 61;
+const IDM_CIRCLE_ACTIONS: usize = 62;
+const CIRCLE_ACTION_BASE: usize = 0x10000;
 const IDM_GRID: usize = 20;
 const IDM_GRID_OFF: usize = 21;
 const IDM_GRID_2: usize = 22;
@@ -477,6 +481,37 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
         for &(id, label) in entries {
             if id == 0 {
                 AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
+            } else if id == IDM_CIRCLE_ACTIONS {
+                let names: Vec<String> =
+                    app().board.try_borrow().map(|b| b.circles.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+                let submenu = CreatePopupMenu();
+                if !submenu.is_null() {
+                    for (ci, name) in names.iter().enumerate() {
+                        let actions = CreatePopupMenu();
+                        if actions.is_null() {
+                            continue;
+                        }
+                        for (offset, caption) in [
+                            "New group",
+                            "Rename...",
+                            "Delete circle",
+                            "Ada g\u{f6}re s\u{131}rala",
+                            "T\u{fc}re g\u{f6}re s\u{131}rala",
+                            "Eklenme s\u{131}ras\u{131}",
+                        ]
+                        .iter()
+                        .enumerate()
+                        {
+                            AppendMenuW(actions, MF_STRING, CIRCLE_ACTION_BASE + ci * 8 + offset, win::wide(caption).as_ptr());
+                        }
+                        if AppendMenuW(submenu, MF_POPUP, actions as usize, win::wide(name).as_ptr()) == 0 {
+                            DestroyMenu(actions);
+                        }
+                    }
+                    if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
+                        DestroyMenu(submenu);
+                    }
+                }
             } else if id == IDM_SORT {
                 let submenu = CreatePopupMenu();
                 if !submenu.is_null() {
@@ -522,15 +557,50 @@ pub fn circle_menu(which: Which, at: POINT) {
     let mut entries = vec![(IDM_NEW_CIRCLE, "&New circle")];
     if let Which::User(_) = which {
         entries.push((IDM_SORT, "Sırala"));
-        entries.extend([(IDM_NEW_GROUP, "New &group"), (IDM_RENAME, "&Rename\u{2026}"), (IDM_DELETE, "&Delete circle")]);
+        entries.extend([(IDM_NEW_GROUP, "New &group"), (IDM_RENAME, "&Rename..."), (IDM_DELETE, "&Delete circle")]);
     }
-    entries.extend([
+    entries.extend(global_entries());
+    circle_command(which, popup(&entries, at));
+}
+
+fn global_entries() -> Vec<(usize, &'static str)> {
+    vec![(0, ""), (IDM_GRID, "&Izgara"), (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL), (IDM_EXIT, "E&xit DeskTuk")]
+}
+
+pub fn dock_menu(at: POINT) {
+    let (expand, lock) = crate::dock::context_labels();
+    let mut entries = vec![
+        (IDM_DOCK_EXPAND, expand),
+        (IDM_DOCK_LOCK, lock),
         (0, ""),
-        (IDM_GRID, "&Izgara"),
-        (crate::desktop_view::MENU_ID, crate::desktop_view::MENU_LABEL),
-        (IDM_EXIT, "E&xit DeskTuk"),
-    ]);
-    match (popup(&entries, at), which) {
+        (IDM_NEW_CIRCLE, "&New circle"),
+        (IDM_CIRCLE_ACTIONS, "\u{c7}emberler"),
+    ];
+    entries.extend(global_entries());
+    let command = popup(&entries, at);
+    match command {
+        IDM_DOCK_EXPAND => crate::dock::context_action(false),
+        IDM_DOCK_LOCK => crate::dock::context_action(true),
+        command if command >= CIRCLE_ACTION_BASE => {
+            let ci = (command - CIRCLE_ACTION_BASE) / 8;
+            let action = (command - CIRCLE_ACTION_BASE) % 8;
+            let command = match action {
+                0 => IDM_NEW_GROUP,
+                1 => IDM_RENAME,
+                2 => IDM_DELETE,
+                3 => IDM_SORT_NAME,
+                4 => IDM_SORT_TYPE,
+                5 => IDM_SORT_ADDED,
+                _ => return,
+            };
+            circle_command(Which::User(ci), command);
+        }
+        _ => circle_command(Which::Recent, command),
+    }
+}
+
+fn circle_command(which: Which, command: usize) {
+    match (command, which) {
         (command @ IDM_SORT_NAME..=IDM_SORT_ADDED, _) => sort_target(which.target(), command),
         (IDM_NEW_CIRCLE, _) => new_circle(which),
         (IDM_NEW_GROUP, Which::User(ci)) => new_group(ci),

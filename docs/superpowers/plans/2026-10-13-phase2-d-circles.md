@@ -999,9 +999,9 @@ Owner request (2026-10-22): smooth middle dragging near taskbar/at speed, expose
 circle-wide commands in the dock context menu, visibly mark locked circles and
 use the same distinct centre/outer colors for Recent and ordinary rings.
 
-- [ ] Preserve the visible grab position and coalesce circle pointer input.
-- [ ] Share global commands with the dock; render a static gradient/lock state.
-- [ ] Verify required Windows MSVC checks and relevant isolated fixtures; commit/push.
+- [x] Preserve the visible grab position and coalesce circle pointer input.
+- [x] Share global commands with the dock; render a static gradient/lock state.
+- [x] Verify required Windows MSVC checks and relevant isolated fixtures; commit/push.
 
 D41 evidence: Windows MSVC fmt/release Clippy/tests pass (72 passed, 2 ignored).
 Ranking tests cover prefix-before-substring, stable existing order, grouped files,
@@ -1015,3 +1015,34 @@ Physical keyboard/IME/dead-key composition and hover feel are unperformed; direc
 Unicode layout translation supports ordinary Turkish typing, not an IME editor.
 The sandbox initially denied the existing isolated registry test; the full required
 suite passed with sandbox elevation. No user files/startup settings changed.
+
+### D43: Keep typing, sorting and icon work bounded
+
+Owner follow-up (2026-10-22): lightweight behavior is an acceptance constraint.
+Avoid repeated ranking sorts, repeated Recent enumeration/suggestions while typing,
+reloading unchanged page icons and multiple concurrent shell workers. Keep idle
+CPU/timers/threads unchanged; record measured checks separately from physical feel.
+
+- [ ] Use linear stable prefix/substring ranks and reuse page items/icons.
+- [ ] Coalesce shell requests in a single temporary worker; discard obsolete work.
+- [ ] Remove quadratic Added-sort lookups without changing ordering semantics.
+- [ ] Verify stress/correctness and required Windows MSVC checks; commit/push.
+
+D42 evidence: Windows MSVC fmt/release Clippy/tests/build pass (73 passed, 2 ignored).
+Grid=3/topmost TEMP native fixture passes shifted-centre free movement/snap,
+lock while visible/hidden, dock movement/restart, hover frame retention, paging,
+search no-match/Backspace/Escape restoration and reference hashes. Four-DPI pixel
+test verifies equal Recent/ordinary ring palettes and a distinct locked circle.
+The first sandbox fixture could not persist dock movement; elevated runs exposed
+and fixed lock repaint revealing a hidden board. Final full native fixture passes.
+Real pointer is untouched; physical high-speed capture/keyboard feel remains an
+owner acceptance check. The keyboard hook still needs physical layout assessment.
+
+Middle press now works anywhere inside the ring and preserves its visible centre
+as the drag origin after the threshold. A pending short press does not relocate it.
+The mouse hook coalesces screen samples even with capture; native duplicate release
+cannot outrun the queued final sample. Other circles cannot hover-open during a drag.
+Dock right-click shares New circle/Grid/Desktop/Exit commands and exposes each
+circle's group/rename/delete/sort commands under Cemberler. Lock adds a static
+periwinkle/mint rim plus the existing antialiased small lock, with no idle timer.
+Recent uses the ordinary dark outer area and lighter centre.

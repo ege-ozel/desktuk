@@ -140,7 +140,7 @@ pub fn render(hwnd: HWND, which: Which) {
         }
     };
     let Some(mut s) = Surface::new(m.circle_d, m.circle_d) else { return };
-    draw::circle(&mut s, dpi, &name, count, which == Which::Recent);
+    draw::circle(&mut s, dpi, &name, count, crate::dock::locked());
     let d = m.circle_d as usize;
     geom::mask_disc(s.pixels(), d, d, m.circle_d as f32 / 2.0);
     let (x, y) = clamp_to_work(pos, m.circle_d);
@@ -243,16 +243,27 @@ fn apply_pointer(hwnd: HWND) {
     }
 }
 
+pub fn native_release(hwnd: HWND) {
+    if !POINTER_ROUTE.get() {
+        end_press(hwnd, true);
+    }
+}
+
 pub fn is_release_message(hwnd: HWND, msg: u32) -> bool {
     pressed_mouse_route().is_some_and(|(target, _, release)| target == hwnd && release == msg)
 }
 
 /// A press on the open ring's centre belongs to its circle, just like a closed press.
-pub fn begin_ring_drag(hwnd: HWND, at: POINT) {
-    begin_press(hwnd, at, VK_MBUTTON);
+pub fn begin_ring_drag(hwnd: HWND, at: POINT, center: POINT) {
+    let d = geom::metrics(unsafe { GetDpiForWindow(hwnd) }.max(96)).circle_d;
+    begin_press_from(hwnd, at, VK_MBUTTON, Some((center.x - d / 2, center.y - d / 2)));
 }
 
 fn begin_press(hwnd: HWND, at: POINT, button: u16) {
+    begin_press_from(hwnd, at, button, None);
+}
+
+fn begin_press_from(hwnd: HWND, at: POINT, button: u16, origin: Option<(i32, i32)>) {
     super::grid_overlay::close();
     if let Some(old) = PRESS.take() {
         super::drag_capture::end(old.hwnd);
@@ -261,7 +272,7 @@ fn begin_press(hwnd: HWND, at: POINT, button: u16) {
     POINTER_ROUTE.set(false);
     PRESS_ID.set(PRESS_ID.get().wrapping_add(1));
     let r = win::window_rect(hwnd);
-    PRESS.set(Some(Press { hwnd, cursor: at, origin: (r.left, r.top), moving: false, button }));
+    PRESS.set(Some(Press { hwnd, cursor: at, origin: origin.unwrap_or((r.left, r.top)), moving: false, button }));
     ring::circle_drag_started();
     let captured = super::drag_capture::begin_with_button(hwnd, button);
     dlog!("circle press hwnd={hwnd:?} button={button:#x} captured={captured}");

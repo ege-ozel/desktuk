@@ -135,10 +135,9 @@ unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -
         let kind = message as u32;
         if let Some((anchor, _, release_message)) = circle_win::pressed_mouse_route() {
             if kind == WM_MOUSEMOVE || kind == release_message {
-                if !super::drag_capture::is_active_for(anchor) {
-                    let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
-                    circle_win::queue_pointer(anchor, point, kind == release_message);
-                }
+                // One coalesced screen-coordinate stream, even when native capture succeeds.
+                let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
+                circle_win::queue_pointer(anchor, point, kind == release_message);
                 return unsafe { CallNextHookEx(MOUSE_HOOK.get(), code, message, data) };
             }
         }
@@ -265,7 +264,7 @@ pub fn open(anchor: HWND, target: Target) {
     if crate::dock::locked() {
         return;
     }
-    if item_pressed_window().is_some() {
+    if item_pressed_window().is_some() || circle_win::pressed_window().is_some() {
         return;
     }
     if OPENING.with(|busy| busy.replace(true)) {
@@ -958,9 +957,10 @@ fn on_middle_down(lparam: LPARAM) {
     super::rename::commit_active();
     let (x, y) = (win::x_lparam(lparam), win::y_lparam(lparam));
     let circle =
-        with(|r| (!closing(r) && hit(r, x, y) == RingHit::Center).then(|| (r.anchor, circle_win::mouse_point(r.hwnd, lparam)))).flatten();
-    if let Some((anchor, at)) = circle {
-        circle_win::begin_ring_drag(anchor, at);
+        with(|r| (!closing(r) && hit(r, x, y) != RingHit::Outside).then(|| (r.anchor, circle_win::mouse_point(r.hwnd, lparam), r.center)))
+            .flatten();
+    if let Some((anchor, at, center)) = circle {
+        circle_win::begin_ring_drag(anchor, at, center);
     }
 }
 
@@ -1277,7 +1277,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
         }
         WM_MBUTTONUP => {
             if let Some(anchor) = with(|r| circle_win::is_release_message(r.anchor, WM_MBUTTONUP).then_some(r.anchor)).flatten() {
-                circle_win::end_press(anchor, true);
+                circle_win::native_release(anchor);
             }
             0
         }

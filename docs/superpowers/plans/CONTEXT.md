@@ -56,6 +56,11 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   prefix matches first, stable existing order; Backspace/Escape, reset on close.
   MSVC checks pass (72 tests); physical keyboard/IME acceptance is unperformed.
 
+- D42 shares global/circle actions in the dock menu; locked circles have a static
+  gradient rim/small lock, and Recent has the standard distinct centre/outer colors.
+  Shifted ring dragging preserves its visible origin and uses coalesced samples.
+  MSVC 73 tests and Grid=3/topmost native fixture pass; physical feel is unverified.
+
 ## Observed defects / checks not performed
 - D40 installer: dist/DeskTuk-0.1.0-Setup-x64.exe; path/Finish/Unicode/upgrade/uninstall pass.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
