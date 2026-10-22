@@ -1613,3 +1613,28 @@ target/d55-delivery/. Release/installed SHA256:
 97F9B762F7205FA6259B3EC8400332FF9824CBE0F7691B234E74F862C437ADF2.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 8C8142D70E77A0F84016789FC182DBD3EE08071EEDA85A712C618ECE5CECE66B.
+
+
+### D56: Final release candidate code review and manual acceptance record
+
+Owner reports no definite current defect, likes the current behavior/type/controls,
+asks how first-Down navigation was fixed and requests a final review before release.
+
+- [x] Explain focus/selection: leave results unselected during typing; first Down
+  focuses the list/selects row zero; Enter defaults to the first result.
+- [x] Inspect recent popup, keyboard, ring/dock drag, resource and packaging paths.
+  No concrete blocking defect found within this scoped code review.
+- [x] Record owner acceptance of current day-to-day D55 interaction; retain tentative
+  taskbar/open-circle drag feel as unconfirmed, with no speculative behavior change.
+- [x] Verify current candidate hashes, version resources and signature status.
+  Installer is 0.1.0 x64 and NotSigned. No release/tag/version change requested yet.
+- [x] Save docs/superpowers/reviews/2026-10-23-release-readiness.md, update context,
+  run fmt/release Clippy/diff checks, commit and push documentation only.
+- [ ] Final automated regressions and clean install/upgrade/uninstall validation,
+  followed by explicit versioned release publication. Not claimed complete.
+
+Existing manual-first constraints preserved: no automated tests, UI/native input,
+screenshot capture or benchmarks run in this review. No app code/binary/config
+changed, no app restart or external publication. Candidate revision remains D55
+9a37b0b; the review commit changes documentation only. Physical/manual acceptance
+is reported by the owner and is not extended to untested platforms/DPI/IME/reboot.

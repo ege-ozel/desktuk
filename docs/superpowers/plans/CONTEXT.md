@@ -4,8 +4,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D55 are implemented; D44-D55 await owner manual acceptance.
-  B1/B2/C stay on hold; B3 was delivered through D9.
+- A and D through D55 implemented; owner accepts current D55 interaction. D56
+  scoped release review found no blocker; final automated/install checks pending.
+- B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -20,7 +21,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
   Circle surfaces use pixel-coverage blending. No new dependencies or idle polling.
-- Product proposals and priorities: ../reviews/2026-10-18-product-review.md and D30 notes.
+- Release review: ../reviews/2026-10-23-release-readiness.md (D55 candidate, unsigned).
 - D32/D33 harden item capture/drop cancellation, defer refresh while interacting,
   and reuse grid guide windows; prior native fixtures pass. See plan evidence.
 - D34 adds left dragging for the collapsed square/expanded DeskTuk heading. The dock
@@ -55,7 +56,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   search, rounded tool/field borders and blue drag hints with larger semibold text.
   D55 adds single AA frames, visible hover editing, result keys and teal hover.
   Native text selection/Ctrl+A; D53 fixes the omitted
-  popup class name that prevented both lists and edit boxes opening; acceptance pending.
+  popup class name that prevented both lists and edit boxes opening.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -85,7 +86,6 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Settings, language, lock tips | src/settings.rs, i18n.rs, hint.rs |
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
-Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
 - Active plan: 2026-10-13-phase2-d-circles.md; D44-D55 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
