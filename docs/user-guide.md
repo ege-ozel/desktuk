@@ -83,7 +83,7 @@ Arama ve kullanım ipuçları:
   dosya adının ilk harfi dosyayı açmadan seçer, Enter ile açılır.
 - Çember üzerinde yazmaya başlamak gerçek bir metin kutusu açar. Ctrl+A,
   Shift+oklar, Home/End, Ctrl+C/X/V/Z ve fareyle metin seçimi kullanılabilir.
-  Enter kutuyu kapatıp aramayı korur; Esc aramayı temizler. Etkin sorgu varken
+  Yukarı/aşağı oklar sonuçları seçer, Enter seçileni açar; Esc aramayı temizler. Etkin sorgu varken
   merkeze tıklamak kutuyu tekrar açar; sayfalamak için tekerleği kullanın.
   Çember/grup adını düzenlerken de Ctrl+A desteklenir.
 - Kullanım ipuçları, panel düğmelerinin işlevlerini teal çerçeveyle açıklar;
@@ -99,22 +99,37 @@ Search and usage tips:
   navigates groups and Back. Context menus remain available; a filename's first
   letter selects without launching it. Enter opens the selected file.
 - Typing over a circle opens a native text field supporting Ctrl+A, Shift+arrows,
-  Home/End, Ctrl+C/X/V/Z and mouse selection. Enter keeps the query and dismisses
-  the field; Escape clears it. Clicking the centre with an active query reopens
+  Home/End, Ctrl+C/X/V/Z and mouse selection. Up/Down selects results and Enter opens the selected item; Escape clears it. Clicking the centre with an active query reopens
   the editor; the wheel still pages. Circle/group rename also supports Ctrl+A.
 - Usage tips explain panel controls with a teal border; locked controls use red.
   Settings → Usage tips toggles both kinds together.
 
 
 Panel düğmeleri yuvarlatılmış sabit zemin/çerçeveyle görünür, hover sırasında
-mavileşir. Boş taşınabilir alanlarda mavi çerçeveli sürükleme ipucu bulunur.
+teal çerçevesi ve zemini parlaklaşır. Boş taşınabilir alanlarda mavi çerçeveli sürükleme ipucu bulunur.
 Kilit, paneldeki dosya aramasını engellemez; engellenen göster/gizle düğmesine
 basınca kilit açıklaması hemen görünür. İpuçları Ayarlar'dan birlikte kapatılır.
 Arama penceresi ve alanı yuvarlatılmıştır; dosya listesi sayfa düğmeleri yerine
 tek scrollbar kullanır. Yalnızca görünür satırların metni çizilir.
 
-Panel tools have persistent rounded surfaces/borders and blue hover feedback.
+Panel tools have persistent rounded surfaces/borders and teal hover feedback.
 Blank draggable areas show a blue-bordered hint. Lock leaves panel file search
 available; clicking the disabled show/hide tile displays its explanation immediately.
 Usage tips can all be disabled in Settings. Search uses rounded window/field frames
 and a single scrollbar; only visible list rows are painted.
+
+
+Arama penceresinde yalnızca dış çerçeve çizilir; küçük köşe önbelleği kesilmeyi
+önler ve kenar yumuşatma uygular. Çember arama çubuğu, yer varsa çemberin dışında
+veya uygun boş kenarda açılır. Hiç yer kalmazsa dosya adlarını örtmemek için merkez
+çemberin içine sığan küçük bir alan kullanılır. Windows odağı vermediğinde de kutu
+kaybolmaz; çember/kutu üzerinde yazma ve düzenleme geçici olarak yönlendirilir.
+Başka bir uygulamaya tıklamak kutuyu kapatır. Popup dışındaki kısayollar korunur.
+Dosya aramasında ilk aşağı ok ilk satırı seçer; Enter seçilmemişse ilk sonucu açar.
+
+Search has a single outer frame with tiny cached antialiased corners. The circle
+editor prefers free space outside the ring; when no outer space exists it fits
+inside the centre disc to avoid file labels. It remains visible if Windows denies
+foreground activation, using transient hover routing over the ring/editor. Clicking
+elsewhere dismisses it. First Down selects the first list row; Enter defaults to the
+first result if none is selected. Shift+arrows continue native text selection.

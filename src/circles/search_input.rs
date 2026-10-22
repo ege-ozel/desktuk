@@ -1,4 +1,4 @@
-//! Temporary hover typing without activating a ring or changing another app's focus.
+//! Transient hover typing, also routing edit keys when Windows denies popup activation.
 use std::cell::Cell;
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -6,6 +6,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub const WM_SEARCH_CHAR: u32 = WM_APP + 44;
+pub const WM_SEARCH_KEY: u32 = WM_APP + 77;
 thread_local! {
     static HOOK: Cell<HHOOK> = const { Cell::new(std::ptr::null_mut()) };
     static TAKEN: Cell<[bool; 256]> = const { Cell::new([false; 256]) };
@@ -40,6 +41,23 @@ unsafe extern "system" fn keyboard(code: i32, message: WPARAM, data: LPARAM) -> 
                     if vk == 0x41 && down(VK_CONTROL) && !down(VK_MENU) && !down(VK_LWIN) && !down(VK_RWIN) {
                         unsafe {
                             PostMessageW(hwnd, WM_SEARCH_CHAR, 1, 0);
+                        }
+                        taken[vk] = true;
+                        TAKEN.set(taken);
+                        return 1;
+                    }
+                    let editor = super::launcher::hover_editor();
+                    let edit_shortcut = down(VK_CONTROL) && matches!(vk, 0x43 | 0x58 | 0x56 | 0x5a);
+                    if editor
+                        && !down(VK_LWIN)
+                        && !down(VK_RWIN)
+                        && !down(VK_MENU)
+                        && (matches!(vk as u16, VK_UP | VK_DOWN | VK_RETURN | VK_LEFT | VK_RIGHT | VK_HOME | VK_END | VK_DELETE)
+                            || edit_shortcut)
+                    {
+                        let modifiers = usize::from(down(VK_SHIFT)) | (usize::from(down(VK_CONTROL)) << 1);
+                        unsafe {
+                            PostMessageW(hwnd, WM_SEARCH_KEY, vk, modifiers as isize);
                         }
                         taken[vk] = true;
                         TAKEN.set(taken);

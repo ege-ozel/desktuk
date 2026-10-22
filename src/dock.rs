@@ -853,7 +853,7 @@ fn tool_ink(kind: usize, x: f32, y: f32) -> bool {
     }
 }
 
-unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, kind: usize, background: u32, ink: u32) {
+unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, kind: usize, background: u32, glow: f32) {
     use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
     let side = rect.right - rect.left;
     TOOL_ICONS.with(|slot| {
@@ -896,8 +896,8 @@ unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi
             for (index, (pixel, coverage)) in pixels.iter_mut().zip(&c.masks[kind]).enumerate() {
                 *pixel = 0xff00_0000 | (BG & 255) << 16 | BG & 0xff00 | (BG >> 16) & 255;
                 blend_pixel(pixel, background, f32::from(c.body[index]) / 255.0);
-                blend_pixel(pixel, ACCENT, f32::from(c.edge[index]) / 255.0);
-                blend_pixel(pixel, ink, f32::from(*coverage) / 255.0);
+                blend_pixel(pixel, TEAL, (f32::from(c.edge[index]) / 255.0 * (0.5 + 1.5 * glow)).min(1.0));
+                blend_pixel(pixel, TEAL, f32::from(*coverage) / 255.0);
             }
             // Only BitBlt runs under this borrow; it does not pump window messages.
             BitBlt(dc, rect.left, rect.top, side, side, c.frame.dc(), 0, 0, SRCCOPY);
@@ -1036,8 +1036,8 @@ fn paint(hwnd: HWND) {
                     rect,
                     dpi,
                     i,
-                    mix_color(crate::theme::SURFACE, win::rgb(40, 64, 94), control_hover[i + 2]),
-                    mix_color(TEAL, crate::theme::ACCENT, control_hover[i + 2]),
+                    mix_color(crate::theme::SURFACE, win::rgb(25, 61, 61), control_hover[i + 2]),
+                    control_hover[i + 2],
                 );
             }
         }

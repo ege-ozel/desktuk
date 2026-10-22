@@ -1,4 +1,5 @@
 //! On-demand native edit/search popup. No filesystem reads, icons, workers or idle timers.
+use super::surface::Surface;
 use super::view::{self, SlotRef, Target};
 use crate::{app::app, i18n, theme, win};
 use std::cell::RefCell;
@@ -14,6 +15,57 @@ const CLASS: &str = "DeskTuk.Search";
 const CLOSE: u32 = WM_APP + 75;
 const OPEN: u32 = WM_APP + 76;
 const EM_LIMITTEXT: u32 = 0x00c5;
+// Four tiny cached corner tiles keep coverage smooth without a full popup bitmap.
+struct FrameCorners {
+    pixels: Surface,
+    size: i32,
+    inset: i32,
+}
+impl FrameCorners {
+    fn new(w: i32, h: i32, dpi: u32) -> Option<Self> {
+        let size = win::scale(12, dpi);
+        let inset = win::scale(2, dpi);
+        let radius = win::scale(6, dpi) as f32;
+        let mut surface = Surface::new(size * 4, size)?;
+        for corner in 0..4 {
+            let ox = if corner % 2 == 0 { 0 } else { w - size };
+            let oy = if corner < 2 { 0 } else { h - size };
+            for y in 0..size {
+                for x in 0..size {
+                    let qx = (ox as f32 + x as f32 + 0.5 - w as f32 / 2.0).abs() - (w as f32 / 2.0 - inset as f32 - 0.5 - radius);
+                    let qy = (oy as f32 + y as f32 + 0.5 - h as f32 / 2.0).abs() - (h as f32 / 2.0 - inset as f32 - 0.5 - radius);
+                    let d = qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - radius;
+                    let alpha = (1.0 - d.abs()).clamp(0.0, 1.0);
+                    let channel = |shift: u32| {
+                        (((theme::BG >> shift & 255) as f32 * (1.0 - alpha) + (theme::MINT >> shift & 255) as f32 * alpha).round()) as u32
+                    };
+                    surface.pixels()[(y * size * 4 + corner * size + x) as usize] =
+                        0xff00_0000 | channel(0) << 16 | channel(8) << 8 | channel(16);
+                }
+            }
+        }
+        Some(Self { pixels: surface, size, inset })
+    }
+    unsafe fn draw(&self, dc: HDC, w: i32, h: i32) {
+        let brush = GetStockObject(DC_BRUSH);
+        SetDCBrushColor(dc, theme::MINT);
+        let c = self.size;
+        let i = self.inset;
+        for rect in [
+            win::rect(c, i, w - c, i + 1),
+            win::rect(c, h - i - 1, w - c, h - i),
+            win::rect(i, c, i + 1, h - c),
+            win::rect(w - i - 1, c, w - i, h - c),
+        ] {
+            FillRect(dc, &rect, brush);
+        }
+        for corner in 0..4 {
+            let x = if corner % 2 == 0 { 0 } else { w - c };
+            let y = if corner < 2 { 0 } else { h - c };
+            BitBlt(dc, x, y, c, c, self.pixels.dc(), corner * c, 0, SRCCOPY);
+        }
+    }
+}
 struct State {
     hwnd: HWND,
     edit: HWND,
@@ -21,6 +73,7 @@ struct State {
     status: HWND,
     font: HFONT,
     brush: HBRUSH,
+    corners: Option<FrameCorners>,
     target: Option<Target>,
     base: Vec<SlotRef>,
     source: Vec<SlotRef>,
@@ -79,6 +132,60 @@ fn refs(target: Target) -> Vec<SlotRef> {
 fn candidates(target: Target, base: &[SlotRef]) -> Vec<SlotRef> {
     app().board.try_borrow().map(|b| view::search_candidates(&b, target, base.to_vec())).unwrap_or_else(|_| base.to_vec())
 }
+pub fn hover_editor() -> bool {
+    ACTIVE.with(|s| s.borrow().as_ref().is_some_and(|s| s.target.is_none() && unsafe { GetForegroundWindow() } != s.hwnd))
+}
+pub fn contains_editor(point: POINT) -> bool {
+    let window = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.hwnd));
+    window.is_some_and(|h| win::rect_contains(&win::window_rect(h), point))
+}
+pub fn dismiss_outside(point: POINT) {
+    let window = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.hwnd));
+    if let Some(h) = window {
+        if !win::rect_contains(&win::window_rect(h), point) {
+            unsafe {
+                PostMessageW(h, CLOSE, 0, 0);
+            }
+        }
+    }
+}
+pub fn ring_key(key: u32, modifiers: usize) {
+    let edit = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.edit));
+    let Some(edit) = edit else {
+        return;
+    };
+    if modifiers == 0 && matches!(key as u16, VK_UP | VK_DOWN | VK_RETURN) {
+        super::ring::search_key(key);
+        return;
+    }
+    unsafe {
+        if modifiers & 2 != 0 {
+            let message = match key {
+                0x43 => WM_COPY,
+                0x58 => WM_CUT,
+                0x56 => WM_PASTE,
+                0x5a => WM_UNDO,
+                _ => 0,
+            };
+            if message != 0 {
+                SendMessageW(edit, message, 0, 0);
+                return;
+            }
+        }
+        let mut previous = [0u8; 256];
+        GetKeyboardState(previous.as_mut_ptr());
+        let mut state = previous;
+        for vk in [VK_SHIFT, VK_LSHIFT, VK_RSHIFT] {
+            state[vk as usize] = if modifiers & 1 != 0 { 0x80 } else { 0 };
+        }
+        for vk in [VK_CONTROL, VK_LCONTROL, VK_RCONTROL] {
+            state[vk as usize] = if modifiers & 2 != 0 { 0x80 } else { 0 };
+        }
+        SetKeyboardState(state.as_ptr());
+        SendMessageW(edit, WM_KEYDOWN, key as usize, 1);
+        SetKeyboardState(previous.as_ptr());
+    }
+}
 pub fn ring_char(value: u32) -> bool {
     let edit = ACTIVE.with(|s| s.borrow().as_ref().filter(|s| s.target.is_none()).map(|s| s.edit));
     let Some(edit) = edit else {
@@ -115,7 +222,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
     close();
     crate::hint::hide();
     let sc = |v| win::scale(v, dpi);
-    let (w, h) = (sc(340), sc(if target.is_some() { 380 } else { 48 }));
+    let (mut w, h) = (sc(340), sc(if target.is_some() { 380 } else { 48 }));
     let mut mi: MONITORINFO = unsafe { std::mem::zeroed() };
     mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
     unsafe {
@@ -123,18 +230,29 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             return;
         }
     }
-    let preferred_x = if target.is_some() {
+    let (preferred_x, preferred_y) = if target.is_some() {
         let dock = win::window_rect(crate::dock::window());
-        if dock.right + w + sc(4) <= mi.rcWork.right {
-            dock.right + sc(4)
+        (if dock.right + w + sc(4) <= mi.rcWork.right { dock.right + sc(4) } else { dock.left - w - sc(4) }, at.y)
+    } else if let Some((bounds, center, circle_d)) = super::ring::search_area() {
+        let left = bounds.left - mi.rcWork.left - sc(8);
+        let right = mi.rcWork.right - bounds.right - sc(8);
+        if left.max(right) >= sc(180) {
+            w = w.min(left.max(right));
+            (if right >= left { bounds.right + sc(8) } else { bounds.left - sc(8) - w }, center.y - h / 2)
+        } else if bounds.top - mi.rcWork.top >= h + sc(8) {
+            (center.x - w / 2, bounds.top - h - sc(8))
+        } else if mi.rcWork.bottom - bounds.bottom >= h + sc(8) {
+            (center.x - w / 2, bounds.bottom + sc(8))
         } else {
-            dock.left - w - sc(4)
+            // A compact field inside the centre disc cannot cover file slots.
+            w = circle_d - sc(16);
+            (center.x - w / 2, center.y - h / 2)
         }
     } else {
-        at.x
+        (at.x, at.y)
     };
     let x = preferred_x.clamp(mi.rcWork.left, (mi.rcWork.right - w).max(mi.rcWork.left));
-    let y = at.y.clamp(mi.rcWork.top, (mi.rcWork.bottom - h).max(mi.rcWork.top));
+    let y = preferred_y.clamp(mi.rcWork.top, (mi.rcWork.bottom - h).max(mi.rcWork.top));
     let base = target.map(refs).unwrap_or_default();
     let source = target.map(|t| candidates(t, &base)).unwrap_or_default();
     unsafe {
@@ -192,7 +310,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
                 std::ptr::null(),
             )
         };
-        let edit = child("EDIT", initial, WS_TABSTOP | ES_AUTOHSCROLL as u32, 1, sc(10), sc(10), w - sc(22), sc(26));
+        let edit = child("EDIT", initial, WS_TABSTOP | ES_AUTOHSCROLL as u32 | ES_NOHIDESEL as u32, 1, sc(10), sc(10), w - sc(22), sc(26));
         let list = if target.is_some() {
             child(
                 "LISTBOX",
@@ -238,22 +356,27 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
             SendMessageW(status, WM_SETFONT, font as usize, 1);
         }
         let brush = CreateSolidBrush(theme::BG);
-        ACTIVE.with(|s| *s.borrow_mut() = Some(State { hwnd, edit, list, status, font, brush, target, base, source, matches: Vec::new() }));
+        let corners = FrameCorners::new(w, h, dpi);
+        ACTIVE.with(|s| {
+            *s.borrow_mut() = Some(State { hwnd, edit, list, status, font, brush, corners, target, base, source, matches: Vec::new() })
+        });
         if target.is_none() {
             super::ring::editing_started();
         } else {
             refresh();
         }
-        ShowWindow(hwnd, SW_SHOW);
+        ShowWindow(hwnd, if target.is_none() { SW_SHOWNOACTIVATE } else { SW_SHOW });
         SetForegroundWindow(hwnd);
         if target.is_none() && GetForegroundWindow() != hwnd {
-            // Windows can deny foreground activation from a hover keyboard hook.
-            // Keep the filtered ring and restore hover typing; a centre click can
-            // open the editor with ordinary user-input foreground permission.
-            close();
-            return;
+            // Keep a visible native editor and the transient hover keyboard route.
+            // Never inject input or force another application's foreground permission.
+            super::search_input::install();
+        } else {
+            if target.is_none() {
+                super::search_input::uninstall();
+            }
+            SetFocus(edit);
         }
-        SetFocus(edit);
     }
 }
 fn label(slot: &SlotRef, target: Target) -> String {
@@ -306,7 +429,7 @@ fn render() {
     unsafe {
         SendMessageW(list, WM_SETREDRAW, 0, 0);
         SendMessageW(list, LB_SETCOUNT, total.min(i32::MAX as usize), 0);
-        SendMessageW(list, LB_SETCURSEL, if total == 0 { usize::MAX } else { 0 }, 0);
+        SendMessageW(list, LB_SETCURSEL, usize::MAX, 0);
         SendMessageW(list, LB_SETTOPINDEX, 0, 0);
         SendMessageW(list, WM_SETREDRAW, 1, 0);
         InvalidateRect(list, std::ptr::null(), 1);
@@ -404,14 +527,29 @@ unsafe extern "system" fn input_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM,
         }
         WM_KEYDOWN if w == VK_RETURN as usize => {
             if let Some((h, _, list)) = handles() {
-                PostMessageW(h, if list.is_null() { CLOSE } else { OPEN }, 0, 0);
+                if list.is_null() {
+                    super::ring::search_key(VK_RETURN as u32);
+                } else {
+                    if SendMessageW(list, LB_GETCURSEL, 0, 0) < 0 && SendMessageW(list, LB_GETCOUNT, 0, 0) > 0 {
+                        SendMessageW(list, LB_SETCURSEL, 0, 0);
+                    }
+                    PostMessageW(h, OPEN, 0, 0);
+                }
             }
             0
         }
-        WM_KEYDOWN if w == VK_DOWN as usize => {
+        WM_KEYDOWN if matches!(w as u16, VK_DOWN | VK_UP) && GetKeyState(VK_SHIFT as i32) >= 0 => {
             if let Some((_, edit, list)) = handles() {
-                if hwnd == edit && !list.is_null() {
+                if list.is_null() {
+                    super::ring::search_key(w as u32);
+                    return 0;
+                }
+                if hwnd == edit {
                     SetFocus(list);
+                    let first = if w == VK_UP as usize { SendMessageW(list, LB_GETCOUNT, 0, 0) - 1 } else { 0 };
+                    if first >= 0 {
+                        SendMessageW(list, LB_SETCURSEL, first as usize, 0);
+                    }
                     return 0;
                 }
             }
@@ -490,26 +628,14 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LR
             if let Some(brush) = brush {
                 FillRect(dc, &ps.rcPaint, brush);
             }
-            let pen = CreatePen(PS_SOLID, 1, theme::MINT);
-            let old_pen = SelectObject(dc, pen);
-            let old_brush = SelectObject(dc, GetStockObject(NULL_BRUSH));
-            let mut r = win::rect(0, 0, 0, 0);
-            GetClientRect(hwnd, &mut r);
-            let dpi = GetDpiForWindow(hwnd).max(96);
-            let radius = win::scale(12, dpi);
-            RoundRect(dc, 0, 0, r.right, r.bottom, radius, radius);
-            RoundRect(
-                dc,
-                win::scale(8, dpi),
-                win::scale(7, dpi),
-                r.right - win::scale(8, dpi),
-                win::scale(39, dpi),
-                win::scale(8, dpi),
-                win::scale(8, dpi),
-            );
-            SelectObject(dc, old_brush);
-            SelectObject(dc, old_pen);
-            DeleteObject(pen);
+            let mut rect = win::rect(0, 0, 0, 0);
+            GetClientRect(hwnd, &mut rect);
+            ACTIVE.with(|s| {
+                let state = s.borrow();
+                if let Some(corners) = state.as_ref().and_then(|s| s.corners.as_ref()) {
+                    corners.draw(dc, rect.right, rect.bottom);
+                }
+            });
             EndPaint(hwnd, &ps);
             0
         }

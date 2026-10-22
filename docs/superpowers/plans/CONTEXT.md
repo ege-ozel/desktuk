@@ -4,8 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D54 are implemented; D44-D54 await owner manual acceptance.
+- A and D through D55 are implemented; D44-D55 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -14,9 +13,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D54 installed SHA256: AF878D001CE05290FC624B8B1351B732B4E593B3E14D4DA0A9DF00A65069D56D.
-  D44-D54 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D54 config unchanged; installed dock is 168 px wide at system 96 DPI.
+- D55 installed SHA256: 97F9B762F7205FA6259B3EC8400332FF9824CBE0F7691B234E74F862C437ADF2.
+  D44-D55 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D55 config unchanged; installed dock is 168 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -54,7 +53,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   enables blank-area dragging on all four rails with saved edge/cancel restoration.
 - D52 adds positive hints and dock search; D54 uses one virtual scrollbar, locked
   search, rounded tool/field borders and blue drag hints with larger semibold text.
-  Ring text selection/Ctrl+A use native controls; D53 fixes the omitted
+  D55 adds single AA frames, visible hover editing, result keys and teal hover.
+  Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening; acceptance pending.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
@@ -87,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D54 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D55 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;

@@ -1563,3 +1563,53 @@ hash unchanged. Backups target/d54-delivery/. Release/installed SHA256:
 AF878D001CE05290FC624B8B1351B732B4E593B3E14D4DA0A9DF00A65069D56D.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 3A6B0EEED403C6EC5622D3BC18B3F18CE3A01C064FE14E615A3841329F07F843.
+
+
+### D55: Single smooth search frame, reliable hover editor and result keyboard navigation
+
+Owner reports clipped/double frames, a hover editor requiring a click, overlap with
+file labels, two-step Down navigation and mismatched blue tool hover colors.
+
+- [x] Remove the inner EDIT outline in both search windows. Inset the one outer
+  border beyond the native region clip; cache four 12-DIP antialiased corner tiles
+  and draw straight spans without a full-window bitmap. Cache released on close.
+- [x] Keep ring editing visible when Windows denies SetForegroundWindow. Show the
+  popup without activation first, retain the existing temporary hook only when
+  needed and scope its input to the ring/editor. Do not inject keys or bypass
+  foreground policy. Native mouse focus/selection still works on click.
+- [x] Route native edit text, Ctrl+A/C/X/V/Z and navigation/selection keys during
+  denied activation; snapshot/restore only this UI thread's modifier state around
+  direct EDIT key handling. Normal application shortcuts outside this hover scope
+  pass through. Outside clicks dismiss the unfocused popup too.
+- [x] Place the ring bar outside the ring in available left/right space, shrinking
+  to at least 180 DIP there if needed; otherwise try above/below. If no outer space
+  exists, fit a compact native field inside the centre disc, avoiding file labels.
+- [x] Up/Down selects ring results across pages and redraws the existing highlight;
+  Enter opens the selected/default first file or navigates groups/Back. Preserve
+  Shift+arrows and ordinary left/right caret editing. No second selection model.
+- [x] In the dock list, leave rows unselected while editing; first Down focuses and
+  selects row zero immediately. Enter defaults to the first result without another
+  navigation press. Virtual continuous scroll and explicit activation are retained.
+- [x] Keep tool glyphs teal; brighten the cached teal border and tinted background
+  on hover, retaining existing ease and fixed hit rectangles.
+- [x] Format/static-check/build, install/rebuild installer, commit/push.
+- [ ] Owner manual acceptance: hover typing without click, first-key handoff,
+  Ctrl/Shift edits, ring highlight/Enter across pages, outside click, list first
+  Down/Enter, single corner border at alternate DPI and placement on small screens.
+
+Owner's manual-first instruction remains: no automated tests, native input fixture,
+GUI screenshot capture or benchmark. CI skipped. Native keyboard/IME/foreground
+acceptance is not inferred from compilation. Input routing remains transient and
+never applies outside the hovered ring/editor; no global typing capture at idle.
+The 96-DPI corner cache is 48x12x4 = 2304 pixel bytes per open popup; no full-size
+backing bitmap/dependency/worker added. Existing reference-only linear search and
+icon loading/coalescing stay in place. Shared borrows end before native EDIT, focus,
+DestroyWindow or shell calls; frame borrowing spans only non-pumping GDI calls.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. Installed PID 27536 through normal controller
+close/restart, ignored root EXE updated. Config hash unchanged. Backups:
+target/d55-delivery/. Release/installed SHA256:
+97F9B762F7205FA6259B3EC8400332FF9824CBE0F7691B234E74F862C437ADF2.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+8C8142D70E77A0F84016789FC182DBD3EE08071EEDA85A712C618ECE5CECE66B.

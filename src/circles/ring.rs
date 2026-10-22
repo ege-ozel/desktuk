@@ -11,12 +11,14 @@
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON, VK_RETURN, VK_UP,
+};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -154,6 +156,9 @@ unsafe extern "system" fn mouse_hook(code: i32, message: WPARAM, data: LPARAM) -
             let point = unsafe { (*(data as *const MSLLHOOKSTRUCT)).pt };
             let outside = with(|ring| hit_screen(ring, point) == RingHit::Outside).unwrap_or(false);
             let pointer_only = kind == WM_MOUSEMOVE;
+            if outside && !pointer_only {
+                super::launcher::dismiss_outside(point);
+            }
             if outside && !(pointer_only && crate::dock::contains_screen(point)) {
                 let hwnd = with(|ring| ring.hwnd).unwrap_or(std::ptr::null_mut());
                 if !hwnd.is_null() {
@@ -595,20 +600,84 @@ fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
     to_load
 }
 
+pub(super) fn search_area() -> Option<(RECT, POINT, i32)> {
+    with(|r| {
+        (
+            win::rect(
+                r.center.x - r.metrics.ring_r,
+                r.center.y - r.metrics.ring_r,
+                r.center.x + r.metrics.ring_r,
+                r.center.y + r.metrics.ring_r,
+            ),
+            r.center,
+            r.metrics.circle_d,
+        )
+    })
+}
 pub(super) fn search_window() -> Option<HWND> {
     let mut point = POINT { x: 0, y: 0 };
-    unsafe { GetCursorPos(&mut point) };
+    unsafe {
+        GetCursorPos(&mut point);
+    }
+    let hover_editor = super::launcher::hover_editor();
+    let over_editor = hover_editor && super::launcher::contains_editor(point);
     with(|r| {
         (!closing(r)
-            && !r.menu_open
             && !super::rename::is_active()
-            && !super::launcher::is_active()
             && r.press.is_none()
             && circle_win::pressed_window().is_none()
-            && hit_screen(r, point) != RingHit::Outside)
+            && (hover_editor || (!r.menu_open && !super::launcher::is_active()))
+            && (over_editor || hit_screen(r, point) != RingHit::Outside))
             .then_some(r.hwnd)
     })
     .flatten()
+}
+
+pub(super) fn search_key(key: u32) {
+    let action = with(|r| {
+        if closing(r) || r.refs.is_empty() {
+            return Action::None;
+        }
+        if key == VK_RETURN as u32 {
+            return match r.page.get(r.hover.unwrap_or(0)).map(|s| s.r.clone()) {
+                Some(SlotRef::Item(p)) => Action::Open(p),
+                Some(SlotRef::Group(gi)) => {
+                    if let Target::Circle(ci) = r.target {
+                        Action::Load(set_target(r, Target::Group(ci, gi)))
+                    } else {
+                        Action::None
+                    }
+                }
+                Some(SlotRef::Back) => {
+                    if let Target::Group(ci, _) = r.target {
+                        Action::Load(set_target(r, Target::Circle(ci)))
+                    } else {
+                        Action::None
+                    }
+                }
+                Some(SlotRef::Suggestion(i)) => r.suggestions.get(i).cloned().map(Action::Accept).unwrap_or(Action::None),
+                _ => Action::None,
+            };
+        }
+        let index = match r.hover {
+            Some(i) if key == VK_UP as u32 => (r.start + i).saturating_sub(1),
+            Some(i) => (r.start + i + 1).min(r.refs.len() - 1),
+            None if key == VK_UP as u32 => r.refs.len() - 1,
+            None => 0,
+        };
+        let start = index / r.metrics.per_page() * r.metrics.per_page();
+        let paths = if start != r.start {
+            r.start = start;
+            Some(load_page(r))
+        } else {
+            None
+        };
+        r.hover = Some(index - r.start);
+        redraw(r);
+        paths.map(Action::Load).unwrap_or(Action::None)
+    })
+    .unwrap_or(Action::None);
+    run(action);
 }
 
 fn search_char(value: u32) {
@@ -646,7 +715,7 @@ fn search_char(value: u32) {
 
 pub(super) fn editing_started() {
     with(|r| r.menu_open = true);
-    super::search_input::uninstall();
+    // Keep the temporary hook until foreground activation succeeds.
 }
 pub(super) fn editing_finished() {
     if with(|r| r.menu_open = false).is_some() {
@@ -1433,6 +1502,10 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             super::drag_capture::end(hwnd);
             super::interaction_ended();
             close_if_outside();
+            0
+        }
+        super::search_input::WM_SEARCH_KEY => {
+            super::launcher::ring_key(wparam as u32, lparam as usize);
             0
         }
         super::search_input::WM_SEARCH_CHAR => {
