@@ -5,7 +5,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D48 are implemented; D44-D48 await owner manual acceptance.
+- A and D through D49 are implemented; D44-D49 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
@@ -14,9 +14,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D48 installed SHA256: 2BFF8E806741F01D2ADAC5ACA801B477E22E7BF8456B14C23A500A65DCE03DFB.
-  D44-D48 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D48 config unchanged; installed dock is 153 px wide at system 96 DPI.
+- D49 installed SHA256: 7F371D8FB5D3341AB689A2CB80A0E80D953F8F973DA9CC113FEBF5405067BA66.
+  D44-D49 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D49 config unchanged; installed dock is 153 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D45 eases transitions and retains its top edge within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -49,9 +49,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D46 stabilizes transition frames/timer; static gradient rim and immediate lock.
 - D47 keeps centre rims/text aligned, separates compact controls (64x92 DIP), adds
   left centre/background drag and lazy 32-file dock launch pages. Manual checks pending.
-- D48 adds native bilingual settings/guide, optional lock hints and explicit Align
-  now. Selection preserves positions; first installs use 4x4, legacy choices stay.
-  New UI is pending manual acceptance. Guide: docs/user-guide.md.
+- D48 adds bilingual settings/guide, lock hints and Align now. Grid selection
+  preserves positions; first installs use 4x4. Guide: docs/user-guide.md.
+- D49 restores lazy menu notifications, places hints outside the dock and adds a
+  settings/grid/info row with cached antialiased glyphs. Manual acceptance pending.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -83,7 +84,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D48 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D49 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

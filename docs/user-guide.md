@@ -20,7 +20,8 @@
 - Panelin sağ tık menüsündeki Çemberler bölümünden içerikleri açabilirsiniz.
   Büyük listeler 32'şer öğelik Devamı alt menülerine ayrılır. Dosyalar varsayılan
   uygulamasında, programlar doğrudan, klasörler Explorer'da açılır.
-- Açık paneldeki dişli Ayarlar'ı, ⓘ kısa kılavuzu açar. İkisi de sağ tık menüsünde
+- Açık panelde merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgara
+  seçeneklerini, ⓘ kısa kılavuzu açar. Bu seçenekler sağ tık menüsünde
   bulunur. Ayarlar → Dil / Language seçimi hemen uygulanır ve kaydedilir.
   Çemberlerin/grupların verdiğiniz adları ve dosya adları çevrilmez.
 
@@ -46,6 +47,7 @@
 - Right-click the panel → Circles to launch contents. Large lists have 32 entries
   per More submenu. Files use their default app, programs launch directly and
   folders open in Explorer.
-- The expanded panel's gear opens Settings; ⓘ opens the short guide. Both are also
+- Below the expanded panel's centre button, the gear opens Settings, the grid
+  shortcut opens grid choices and ⓘ opens the short guide. Settings/help are also
   in the context menu. Language selection applies immediately and is saved.
   User-supplied circle/group names and filenames are never translated.

@@ -78,8 +78,10 @@ pub fn fire(owner: HWND) {
         hide();
         return;
     }
-    let left_of_target = p.target.left - w - sc(4) >= mi.rcWork.left;
-    let x = if left_of_target { p.target.left - w - sc(4) } else { p.target.right + sc(4) }
+    // Keep the whole bubble outside the dock, even for its inset centre tile.
+    let panel = win::window_rect(owner);
+    let left_of_target = panel.left - w - sc(4) >= mi.rcWork.left;
+    let x = if left_of_target { panel.left - w - sc(4) } else { panel.right + sc(4) }
         .clamp(mi.rcWork.left, (mi.rcWork.right - w).max(mi.rcWork.left));
     let y = (center.y - h / 2).clamp(mi.rcWork.top, (mi.rcWork.bottom - h).max(mi.rcWork.top));
     let Some(mut surface) = Surface::new(w, h) else { return };

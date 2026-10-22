@@ -34,6 +34,7 @@ const MAX_ROWS: usize = 7;
 const PAD: i32 = 8;
 const HEADER_H: i32 = 40;
 const ACTION_SIZE: i32 = 48;
+const TOOLS_H: i32 = 30;
 const GAP: i32 = 4;
 const ROW_H: i32 = 28;
 const ACTION_TIMER: usize = 1;
@@ -86,6 +87,13 @@ struct LockFrames {
     frame: circles::surface::Surface,
 }
 
+struct ToolIcons {
+    dpi: u32,
+    side: i32,
+    masks: [Vec<u8>; 3],
+    frame: circles::surface::Surface,
+}
+
 #[derive(Clone, Copy)]
 enum Entry {
     Target(Which),
@@ -105,8 +113,9 @@ thread_local! {
     static TOP_ANCHOR: Cell<Option<i32>> = const { Cell::new(None) };
     static PANEL_EASE: Cell<Option<PanelEase>> = const { Cell::new(None) };
     static HEADER_HOVER: Cell<u8> = const { Cell::new(0) };
-    static CONTROL_EASE: Cell<Option<HoverEase<4>>> = const { Cell::new(None) };
+    static CONTROL_EASE: Cell<Option<HoverEase<5>>> = const { Cell::new(None) };
     static ROW_EASE: Cell<Option<HoverEase<MAX_ROWS>>> = const { Cell::new(None) };
+    static TOOL_ICONS: RefCell<Option<ToolIcons>> = const { RefCell::new(None) };
     static LOCK_FRAMES: RefCell<Option<LockFrames>> = const { RefCell::new(None) };
     static POSITION: Cell<Option<(i32,i32)>> = const { Cell::new(None) };
     static EXPANDED: Cell<bool> = const { Cell::new(true) };
@@ -233,12 +242,16 @@ fn mode_menu(dpi: u32, expanded: bool) -> RECT {
 fn arrow_rect(dpi: u32) -> RECT {
     PANEL_EASE.get().map_or_else(|| mode_menu(dpi, EXPANDED.get()), |a| mix_rect(a.menu.0, a.menu.1, a.amount()))
 }
-fn extra_rect(dpi: u32, info: bool) -> Option<RECT> {
-    if !EXPANDED.get() || PANEL_EASE.get().is_some() {
+fn list_top(dpi: u32) -> i32 {
+    scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H, dpi)
+}
+fn extra_rect(dpi: u32, index: usize) -> Option<RECT> {
+    if !EXPANDED.get() || PANEL_EASE.get().is_some() || index >= 3 {
         return None;
     }
-    let left = if info { expanded_width(dpi) - scale(34, dpi) } else { scale(8, dpi) };
-    Some(win::rect(left, scale(55, dpi), left + scale(26, dpi), scale(81, dpi)))
+    let left = (expanded_width(dpi) - scale(98, dpi)) / 2 + scale(index as i32 * 36, dpi);
+    let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi);
+    Some(win::rect(left, top, left + scale(26, dpi), top + scale(26, dpi)))
 }
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
     if !EXPANDED.get() {
@@ -246,7 +259,7 @@ fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
         return (side, side + scale(28, dpi));
     }
     let visible = visible_row_count(dpi, count) as i32;
-    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H + PAD, dpi))
+    (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H + visible * ROW_H + PAD, dpi))
 }
 fn mode_action(dpi: u32, expanded: bool) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
@@ -300,15 +313,17 @@ fn control_at(dpi: u32, point: POINT) -> u8 {
         1
     } else if win::rect_contains(&arrow_rect(dpi), point) {
         2
-    } else if extra_rect(dpi, false).is_some_and(|r| win::rect_contains(&r, point)) {
+    } else if extra_rect(dpi, 0).is_some_and(|r| win::rect_contains(&r, point)) {
         3
-    } else if extra_rect(dpi, true).is_some_and(|r| win::rect_contains(&r, point)) {
+    } else if extra_rect(dpi, 1).is_some_and(|r| win::rect_contains(&r, point)) {
         4
+    } else if extra_rect(dpi, 2).is_some_and(|r| win::rect_contains(&r, point)) {
+        5
     } else {
         0
     }
 }
-fn control_weights(now: f64) -> [f32; 4] {
+fn control_weights(now: f64) -> [f32; 5] {
     CONTROL_EASE.get().map_or_else(|| std::array::from_fn(|i| f32::from(HEADER_HOVER.get() == i as u8 + 1)), |a| a.value(now))
 }
 fn set_control_hover(hwnd: HWND, next: u8) {
@@ -381,14 +396,14 @@ fn ui_tick(hwnd: HWND) {
 
 fn row_rect(dpi: u32, index: usize) -> RECT {
     let scroll = SCROLL.with(Cell::get);
-    let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi) + index.saturating_sub(scroll) as i32 * scale(ROW_H, dpi);
+    let top = list_top(dpi) + index.saturating_sub(scroll) as i32 * scale(ROW_H, dpi);
     win::rect(scale(8, dpi), top, expanded_width(dpi) - scale(PAD, dpi), top + scale(ROW_H, dpi))
 }
 
 fn visible_row_count(dpi: u32, count: usize) -> usize {
     let work = work_area();
     let row = scale(ROW_H, dpi).max(1);
-    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + GAP + PAD, dpi);
+    let fixed = scale(HEADER_H + GAP + ACTION_SIZE + GAP + TOOLS_H + PAD, dpi);
     let available = (work.bottom - work.top - fixed).max(0);
     let fit = (available / row) as usize;
     count.min(MAX_ROWS).min(fit.max(1))
@@ -851,31 +866,57 @@ unsafe fn draw_button(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dp
     unsafe { BitBlt(dc, rect.left, rect.top, w, h, surface.dc(), 0, 0, SRCCOPY) };
 }
 
-unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, info: bool, background: u32) {
-    use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
-    let (w, h) = (rect.right - rect.left, rect.bottom - rect.top);
-    let Some(mut surface) = rounded_surface(w, h, scale(5, dpi), background) else { return };
-    let factor = dpi as f32 / 96.0;
-    let pixels = surface.pixels();
-    for y in 0..h {
-        for x in 0..w {
-            let px = (x as f32 + 0.5 - w as f32 / 2.0) / factor;
-            let py = (y as f32 + 0.5 - h as f32 / 2.0) / factor;
-            let radius = px.hypot(py);
-            let ink = if info {
-                (radius - 7.0).abs() <= 0.7
-                    || (px.abs() <= 0.8 && (py + 3.5).abs() <= 0.8)
-                    || (px.abs() <= 0.7 && (-1.0..=4.0).contains(&py))
-            } else {
-                let outer = 6.6 + 1.0 * (px.atan2(py) * 8.0).cos();
-                (4.2..=outer).contains(&radius) || (radius - 2.2).abs() <= 0.7
-            };
-            if ink {
-                blend_pixel(&mut pixels[(y * w + x) as usize], TEAL, 1.0);
-            }
+fn tool_ink(kind: usize, x: f32, y: f32) -> bool {
+    let radius = x.hypot(y);
+    match kind {
+        0 => {
+            let outer = 6.6 + (x.atan2(y) * 8.0).cos();
+            (4.2..=outer).contains(&radius) || (radius - 2.2).abs() <= 0.7
         }
+        1 => {
+            let inside = x.abs() <= 7.2 && y.abs() <= 7.2;
+            inside && ((x.abs() - 6.5).abs() <= 0.7 || (y.abs() - 6.5).abs() <= 0.7 || x.abs() <= 0.6 || y.abs() <= 0.6)
+        }
+        _ => (radius - 7.0).abs() <= 0.7 || (x.abs() <= 0.8 && (y + 3.5).abs() <= 0.8) || (x.abs() <= 0.7 && (-1.0..=4.0).contains(&y)),
     }
-    BitBlt(dc, rect.left, rect.top, w, h, surface.dc(), 0, 0, SRCCOPY);
+}
+
+unsafe fn draw_extra(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, kind: usize, background: u32) {
+    use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
+    let side = rect.right - rect.left;
+    TOOL_ICONS.with(|slot| {
+        let mut cache = slot.borrow_mut();
+        if cache.as_ref().is_none_or(|c| c.dpi != dpi || c.side != side) {
+            let factor = dpi as f32 / 96.0;
+            let masks = std::array::from_fn(|kind| {
+                let mut mask = vec![0; (side * side) as usize];
+                for y in 0..side {
+                    for x in 0..side {
+                        let mut covered = 0;
+                        for sy in 0..4 {
+                            for sx in 0..4 {
+                                let px = (x as f32 + (sx as f32 + 0.5) / 4.0 - side as f32 / 2.0) / factor;
+                                let py = (y as f32 + (sy as f32 + 0.5) / 4.0 - side as f32 / 2.0) / factor;
+                                covered += u32::from(tool_ink(kind, px, py));
+                            }
+                        }
+                        mask[(y * side + x) as usize] = ((covered * 255 + 8) / 16) as u8;
+                    }
+                }
+                mask
+            });
+            *cache = circles::surface::Surface::new(side, side).map(|frame| ToolIcons { dpi, side, masks, frame });
+        }
+        if let Some(c) = cache.as_mut() {
+            let pixels = c.frame.pixels();
+            for (pixel, coverage) in pixels.iter_mut().zip(&c.masks[kind]) {
+                *pixel = 0xff00_0000 | (background & 255) << 16 | background & 0xff00 | (background >> 16) & 255;
+                blend_pixel(pixel, TEAL, f32::from(*coverage) / 255.0);
+            }
+            // Only BitBlt runs under this borrow; it does not pump window messages.
+            BitBlt(dc, rect.left, rect.top, side, side, c.frame.dc(), 0, 0, SRCCOPY);
+        }
+    });
 }
 
 fn update_lock_hint(hwnd: HWND, dpi: u32, point: POINT, count: usize) {
@@ -989,9 +1030,9 @@ fn paint(hwnd: HWND) {
         }
         draw_menu(hdc, arrow_rect(dpi), dpi, EXPANDED.get(), mix_color(BG, ROW_HOVER, control_hover[1]));
         draw_lock(hdc, lock_rect(dpi), dpi, is_locked, mix_color(BG, ROW_HOVER, control_hover[0]));
-        for (i, info) in [false, true].into_iter().enumerate() {
-            if let Some(rect) = extra_rect(dpi, info) {
-                draw_extra(hdc, rect, dpi, info, mix_color(BG, ROW_HOVER, control_hover[i + 2]));
+        for i in 0..3 {
+            if let Some(rect) = extra_rect(dpi, i) {
+                draw_extra(hdc, rect, dpi, i, mix_color(BG, ROW_HOVER, control_hover[i + 2]));
             }
         }
         SetTextColor(hdc, TEXT);
@@ -999,7 +1040,7 @@ fn paint(hwnd: HWND) {
             SetTextColor(hdc, mix_color(BG, SUBTEXT, content_weight));
             for visible_index in 0..visible_count.min(count.saturating_sub(scroll)) {
                 let index = scroll + visible_index;
-                let top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, dpi) + visible_index as i32 * row_h;
+                let top = list_top(dpi) + visible_index as i32 * row_h;
                 let row = win::rect(scale(8, dpi), top, client.right - scale(8, dpi), top + row_h);
                 let weight = row_weights(now)[visible_index];
                 if weight > 0.0 {
@@ -1042,6 +1083,11 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
         ClientToScreen(hwnd, &mut at);
         crate::settings::show(crate::app::app().controller.get(), at);
     } else if control_at(dpi, POINT { x, y }) == 4 {
+        let rect = extra_rect(dpi, 1).unwrap_or_default();
+        let mut at = POINT { x: rect.left, y: rect.bottom + scale(4, dpi) };
+        ClientToScreen(hwnd, &mut at);
+        circles::grid_menu(at);
+    } else if control_at(dpi, POINT { x, y }) == 5 {
         crate::settings::guide(crate::app::app().controller.get());
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
         cancel_dwell(hwnd);
@@ -1049,9 +1095,9 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
             finish_visibility(hwnd);
         }
         ACTION_INSIDE.set(true);
-    } else if !locked() && EXPANDED.get() && y >= action_bottom + scale(GAP, dpi) {
+    } else if !locked() && EXPANDED.get() && y >= list_top(dpi) {
         let entries = rows();
-        let start = action_bottom + scale(GAP, dpi);
+        let start = list_top(dpi);
         let visible = visible_row_count(dpi, entries.len());
         let row_height = scale(ROW_H, dpi).max(1);
         let offset = ((y - start).max(0) / row_height) as usize;
@@ -1114,7 +1160,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 ACTION_INSIDE.set(false);
             }
             let entries = rows();
-            let list_top = action_bottom + scale(GAP, dpi);
+            let list_top = list_top(dpi);
             let scroll = SCROLL.with(Cell::get);
             let list_index = if EXPANDED.get() && y >= list_top {
                 Some(scroll.saturating_add(((y - list_top) / scale(ROW_H, dpi).max(1)) as usize))
@@ -1240,7 +1286,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
                 let rect = row_rect(GetDpiForWindow(hwnd).max(96), old_hover as usize);
                 unsafe { InvalidateRect(hwnd, &rect, 0) };
             }
-            let list_top = scale(HEADER_H + GAP + ACTION_SIZE + GAP, GetDpiForWindow(hwnd).max(96));
+            let list_top = list_top(GetDpiForWindow(hwnd).max(96));
             let mut client: RECT = unsafe { std::mem::zeroed() };
             unsafe { GetClientRect(hwnd, &mut client) };
             let list_rect = win::rect(0, list_top, client.right, client.bottom);
@@ -1278,6 +1324,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: usize, lparam: i
             CONTROL_EASE.set(None);
             ROW_EASE.set(None);
             LOCK_FRAMES.with(|slot| slot.borrow_mut().take());
+            TOOL_ICONS.with(|slot| slot.borrow_mut().take());
             cancel_dwell(hwnd);
             PAINT_BUFFER.with(|slot| slot.borrow_mut().take());
             VISIBILITY_CACHE.with(|slot| slot.borrow_mut().take());

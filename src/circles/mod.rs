@@ -513,31 +513,9 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     }
                 }
             } else if id == IDM_GRID {
-                let grid = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
                 let submenu = CreatePopupMenu();
                 if !submenu.is_null() {
-                    for (command, size, caption) in [
-                        (IDM_GRID_OFF, 0, "Kapal\u{131}"),
-                        (IDM_GRID_2, 2, "2 \u{d7} 2"),
-                        (IDM_GRID_3, 3, "3 \u{d7} 3"),
-                        (IDM_GRID_4, 4, "4 \u{d7} 4"),
-                        (IDM_GRID_6, 6, "6 \u{d7} 6"),
-                        (IDM_GRID_8, 8, "8 \u{d7} 8"),
-                    ] {
-                        AppendMenuW(
-                            submenu,
-                            MF_STRING | if grid == size { MF_CHECKED } else { 0 },
-                            command,
-                            win::wide(crate::i18n::text(caption)).as_ptr(),
-                        );
-                    }
-                    AppendMenuW(submenu, MF_SEPARATOR, 0, std::ptr::null());
-                    AppendMenuW(
-                        submenu,
-                        MF_STRING | if grid == 0 { MF_GRAYED } else { 0 },
-                        IDM_ALIGN,
-                        win::wide(crate::i18n::choose("Şimdi hizala", "Align now")).as_ptr(),
-                    );
+                    append_grid_items(submenu);
                     if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(crate::i18n::text(label)).as_ptr()) == 0 {
                         DestroyMenu(submenu);
                     }
@@ -548,7 +526,7 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
             }
         }
         SetForegroundWindow(ctl);
-        let cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, at.x, at.y, 0, ctl, std::ptr::null()) as usize;
+        let cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, 0, ctl, std::ptr::null()) as usize;
         PostMessageW(ctl, WM_NULL, 0, 0);
         DestroyMenu(m);
         if menu_contents::finish(cmd) {
@@ -557,6 +535,46 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
             cmd
         }
     }
+}
+
+unsafe fn append_grid_items(menu: HMENU) {
+    let grid = app().board.try_borrow().map(|b| b.grid).unwrap_or(0);
+    for (command, size, caption) in [
+        (IDM_GRID_OFF, 0, "Kapal\u{131}"),
+        (IDM_GRID_2, 2, "2 × 2"),
+        (IDM_GRID_3, 3, "3 × 3"),
+        (IDM_GRID_4, 4, "4 × 4"),
+        (IDM_GRID_6, 6, "6 × 6"),
+        (IDM_GRID_8, 8, "8 × 8"),
+    ] {
+        AppendMenuW(menu, MF_STRING | if grid == size { MF_CHECKED } else { 0 }, command, win::wide(crate::i18n::text(caption)).as_ptr());
+    }
+    AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null());
+    AppendMenuW(
+        menu,
+        MF_STRING | if grid == 0 { MF_GRAYED } else { 0 },
+        IDM_ALIGN,
+        win::wide(crate::i18n::choose("Şimdi hizala", "Align now")).as_ptr(),
+    );
+}
+
+/// The toolbar shortcut opens the grid choices directly below its button.
+pub fn grid_menu(at: POINT) {
+    crate::hint::hide();
+    let owner = app().controller.get();
+    let command = unsafe {
+        let menu = CreatePopupMenu();
+        if menu.is_null() {
+            return;
+        }
+        append_grid_items(menu);
+        SetForegroundWindow(owner);
+        let command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, 0, owner, std::ptr::null()) as usize;
+        PostMessageW(owner, WM_NULL, 0, 0);
+        DestroyMenu(menu);
+        command
+    };
+    circle_command(Which::Recent, command);
 }
 
 pub fn circle_menu(which: Which, at: POINT) {

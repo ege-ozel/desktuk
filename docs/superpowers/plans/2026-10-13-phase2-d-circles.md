@@ -1291,3 +1291,46 @@ Installed/release SHA256:
 2BFF8E806741F01D2ADAC5ACA801B477E22E7BF8456B14C23A500A65DCE03DFB.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 3D967A5BA4ABD5F9F29B24E1E0565593F1BABEB2A43159F590EA4690366D88E8.
+
+### D49: Separate dock tools, smooth glyphs and restore lazy menu notifications
+
+Owner screenshots show the centre lock hint cut off by the dock and Circles
+submenus stuck at their placeholder. Owner requests antialiasing on the info icon
+and a grid shortcut beside settings/info in a row below the centre visibility tile,
+with the circle list below. Existing manual-first test preference remains active.
+
+- [x] Place lock hints outside the whole dock rather than its inset hovered tile,
+  retaining work-area clamping and the target-facing arrow without z-order polling.
+- [x] Remove TPM_NONOTIFY from the circle popup so WM_INITMENUPOPUP can populate
+  lazy contents; retain return-command dispatch, bounded pages and session cleanup.
+- [x] Put settings/grid/info in a dedicated 30-DIP row below the visibility tile.
+  Share list origin across painting, hit testing, scrolling and work-area sizing.
+- [x] Open grid choices directly below its shortcut; reuse grid menu construction.
+- [x] Supersample all three tool glyphs at 4x4 coverage; cache masks per DPI/size
+  and reuse one compositing surface for hover paints. Release cache on shutdown.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance; runtime/automated checks only when requested.
+
+This is a small placement fix for the tooltip rather than new topmost arbitration:
+its body and arrow now fit outside panel bounds when side space is available.
+WM_INITMENUPOPUP is already routed by the controller; TPM_NONOTIFY had suppressed
+menu preparation notifications, leaving disabled '...' items visible in the user's
+screenshot. Removing that flag retains lazy text-only population without filesystem
+I/O or icon loading. Runtime confirmation is explicitly left to the owner.
+
+Glyph coverage is computed once on first use or DPI change. Three byte masks and
+one reused 26-DIP DIB cost roughly 4.7 KB at 96 DPI; there is no new idle timer,
+worker or dependency. Pixel coverage blends glyph edges with the current hover
+background, preserving sharp interiors rather than applying a blur filter.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. No cargo test, live screenshot, routed-input
+fixture or benchmark run. Only owner-provided screenshots were inspected. CI is
+skipped pending manual assessment. Verify lazy file launching, toolbar hit regions,
+info edges and lock hint placement physically; no runtime pass is inferred.
+
+Installed PID 20472 via normal controller close/restart; ignored root EXE updated.
+Config hash unchanged. Backups: target/d49-delivery/. Installed/release SHA256:
+7F371D8FB5D3341AB689A2CB80A0E80D953F8F973DA9CC113FEBF5405067BA66.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+9B33B57709B52BEB0EFB1C99822E53179028ECF23B887E48FC05A3546094E59E.
