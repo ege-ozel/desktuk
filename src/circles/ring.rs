@@ -16,7 +16,7 @@ use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONI
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON};
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -944,6 +944,7 @@ enum Action {
 }
 
 enum LeftPress {
+    Circle(HWND, POINT, POINT),
     Item(HWND),
 }
 
@@ -962,7 +963,7 @@ fn on_left_down(lparam: LPARAM) {
             return None;
         }
         match hit(r, x, y) {
-            RingHit::Center => None,
+            RingHit::Center | RingHit::Ring => Some(LeftPress::Circle(r.anchor, circle_win::mouse_point(r.hwnd, lparam), r.center)),
             RingHit::Slot(k) => match &r.page[k].r {
                 SlotRef::Item(p) => {
                     r.press = Some(Press { path: p.clone(), cursor: circle_win::mouse_point(r.hwnd, lparam), active: false });
@@ -976,6 +977,7 @@ fn on_left_down(lparam: LPARAM) {
     })
     .flatten();
     match capture {
+        Some(LeftPress::Circle(anchor, at, center)) => circle_win::begin_ring_drag(anchor, at, center, VK_LBUTTON),
         Some(LeftPress::Item(h)) if !super::drag_capture::begin(h) => {
             // Keep the press: the already installed hook routes screen samples.
             install_mouse_hook();
@@ -992,7 +994,31 @@ fn on_middle_down(lparam: LPARAM) {
         with(|r| (!closing(r) && hit(r, x, y) != RingHit::Outside).then(|| (r.anchor, circle_win::mouse_point(r.hwnd, lparam), r.center)))
             .flatten();
     if let Some((anchor, at, center)) = circle {
-        circle_win::begin_ring_drag(anchor, at, center);
+        circle_win::begin_ring_drag(anchor, at, center, VK_MBUTTON);
+    }
+}
+
+/// A centre click still pages; a left press that crossed the drag threshold moves.
+pub fn center_click(anchor: HWND) -> bool {
+    let paths = with(|r| {
+        if r.anchor != anchor || closing(r) {
+            return None;
+        }
+        if r.refs.len() <= r.metrics.per_page() {
+            return Some(Vec::new());
+        }
+        let next = geom::scroll(r.refs.len(), r.start, 1, r.metrics.per_page());
+        r.start = if next == r.start { 0 } else { next };
+        let paths = load_page(r);
+        redraw(r);
+        Some(paths)
+    })
+    .flatten();
+    if let Some(paths) = paths {
+        spawn_loader(paths);
+        true
+    } else {
+        false
     }
 }
 

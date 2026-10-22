@@ -1,23 +1,22 @@
 # Repository context
 Keep this guide under 100 lines. Live Git/CI outrank snapshots.
-
 ## Start here
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
 - Reuse the checkout owning the work. Normal workspace: D:/CodeSpace/desktuk.
-- A and D through D46 are implemented; D44-D46 await owner manual acceptance.
+- A and D through D47 are implemented; D44-D47 await owner manual acceptance.
   B1/B2/C stay on hold; B3 was delivered through D9.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
   native shell icons, context menus, persistence, tray and startup are implemented.
-- Middle-button drag moves circles freely, snapping on release; centre left click pages.
+- Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D46 installed SHA256: 294E07EEFCC7ECF8F226C18586EAEF13483E96149871FDC409E098BC48BD5EF0.
-  D44-D46 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D46 shutdown saved latest APPS position; installed dock is 153 px wide at system 96 DPI.
+- D47 installed SHA256: 1D972121E8CCEE8792DB5FA01C67B1BDC9B16261031608A526385C9A7592A399.
+  D44-D47 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
+  D47 config unchanged; installed dock is 153 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D45 eases transitions and retains its top edge within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -42,7 +41,6 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   gradient rim/small lock, and Recent has the standard distinct centre/outer colors.
   Shifted ring dragging preserves its visible origin and uses coalesced samples.
   MSVC 73 tests and Grid=3/topmost native fixture pass; physical feel is unverified.
-
 - D43 uses linear search ranks, a transient source snapshot, page icon reuse and
   one coalescing shell worker which exits when idle. Added sort caches path ranks.
   76 MSVC tests and both native fixtures pass. Idle medians: 0 ms CPU/3s, 32 DLLs;
@@ -52,9 +50,9 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D45 adds left lock/right menu in both modes, rounded hover, 8-DIP bottom padding
   and transient eased menu/lock/hover transitions. Only fmt/Clippy/build performed;
   user expressly defers tests/CI. Manual acceptance and later fixture updates pending.
-- D46 enlarges locks, removes lock-state easing, outlines/centres the teal menu
-  chevron and restores a static gradient rim. Panel frames share one progress
-  sample; hover no longer restarts its timer. Physical smoothness awaits acceptance.
+- D46 stabilizes transition frames/timer; static gradient rim and immediate lock.
+- D47 keeps centre rims/text aligned, separates compact controls (64x92 DIP), adds
+  left centre/background drag and lazy 32-file dock launch pages. Manual checks pending.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
@@ -69,7 +67,6 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Do not alter production single-instance behavior to bypass that precondition.
 - Do not run scripts/windows-integration-test.ps1 without an explicit task: it generates
   physical input and Desktop writes. Isolated routed-message fixtures are separate.
-
 ## Source routing
 | Topic | Files |
 |---|---|
@@ -85,9 +82,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 Short names share the preceding directory. Tests live with their Rust module.
-
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D44-D46 installed for manual acceptance.
+- Active plan: 2026-10-13-phase2-d-circles.md; D44-D47 installed for manual acceptance.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Historical implementation/evidence: ../archive/2026-10-13-phase2-d-circles-implementation.md.

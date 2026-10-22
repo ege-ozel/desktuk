@@ -1195,3 +1195,43 @@ Release/installed SHA256:
 294E07EEFCC7ECF8F226C18586EAEF13483E96149871FDC409E098BC48BD5EF0.
 Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
 53A39EB81C816F9BDC9B1ABBC0E928138864A3BEFB0A24C6B001BA3B5B29F54D.
+
+### D47: Stable circle centres, touchpad dragging and lazy dock launch menus
+
+Owner manual feedback (2026-10-22): retain a lighter/thinner centre border when
+open, stop title/count jumping, give lock/menu matching controls and separate
+compact controls above the square. Support left dragging for touchpads. Owner
+clarified that content access belongs in dock right-click > Circles, not a new
+folder-backed circle model, and requested click-to-open for files/programs/folders.
+
+- [x] Keep a 2-DIP centre accent rim in open rings; share title/count font and
+  diameter-relative vertical bands between closed/open states.
+- [x] Match rounded teal lock/menu outlines; give compact controls their own
+  28-DIP strip above the visibility square (64x92 DIP compact panel).
+- [x] Left drag from ring centre/background uses existing threshold/capture and
+  coalesced pointer routing; retain middle drag, item drag and centre-click paging.
+- [x] Populate circle/group launch menus only on WM_INITMENUPOPUP; use text-only
+  stored references, including Recent. Retain circle management in a submenu.
+- [x] Bound native menu construction to 32 files per page; further pages share the
+  source snapshot and populate on entry. Release transient session on dismissal.
+- [x] Open selected references with the existing Windows ShellExecute path.
+- [x] Format/static-check/build, install, rebuild installer, commit and push.
+- [ ] Owner manual acceptance; automated/runtime tests only when requested.
+
+No folder enumeration, icon extraction or metadata lookup is needed for the new
+launch menu. Thus no spinner/worker/dependency/idle timer was added. Filenames are
+shown directly (including extension); literal ampersands are escaped. This exposes
+existing references and does not alter user files or persist new model fields.
+
+cargo fmt, cargo clippy --release --locked -- -D warnings, cargo build --release
+--locked and git diff --check pass. Owner's test-first preference means manual
+assessment first: no cargo test, native/UI/screen test or benchmark was performed.
+Commit uses [skip ci]. Physical left drag, lazy native menu delivery, launch actions,
+compact layout and typography remain unverified; adapt old size/coordinate fixtures
+when automated testing is requested. No runtime pass is inferred from compilation.
+
+Installed PID 25880 using normal controller shutdown, also updated ignored root
+EXE. Configuration hash unchanged. Backups: target/d47-delivery/. Installed/release
+SHA256: 1D972121E8CCEE8792DB5FA01C67B1BDC9B16261031608A526385C9A7592A399.
+Installer dist/DeskTuk-0.1.0-Setup-x64.exe SHA256:
+C480854B840DD51DE10C45E4DF5C8E3A65F63842E9EBC28006B9A56FDA7C61DE.

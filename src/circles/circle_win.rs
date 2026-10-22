@@ -254,9 +254,9 @@ pub fn is_release_message(hwnd: HWND, msg: u32) -> bool {
 }
 
 /// A press on the open ring's centre belongs to its circle, just like a closed press.
-pub fn begin_ring_drag(hwnd: HWND, at: POINT, center: POINT) {
+pub fn begin_ring_drag(hwnd: HWND, at: POINT, center: POINT, button: u16) {
     let d = geom::metrics(unsafe { GetDpiForWindow(hwnd) }.max(96)).circle_d;
-    begin_press_from(hwnd, at, VK_MBUTTON, Some((center.x - d / 2, center.y - d / 2)));
+    begin_press_from(hwnd, at, button, Some((center.x - d / 2, center.y - d / 2)));
 }
 
 fn begin_press(hwnd: HWND, at: POINT, button: u16) {
@@ -354,7 +354,7 @@ pub fn end_press(hwnd: HWND, released: bool) {
     if p.moving {
         let r = win::window_rect(hwnd);
         super::moved(which, (r.left, r.top));
-    } else if released && p.button == VK_LBUTTON {
+    } else if released && p.button == VK_LBUTTON && !ring::center_click(hwnd) {
         ring::open(hwnd, which.target());
     }
     super::interaction_ended();

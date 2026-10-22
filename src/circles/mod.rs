@@ -17,6 +17,7 @@ pub mod draw;
 pub mod geom;
 mod grid;
 mod grid_overlay;
+pub(crate) mod menu_contents;
 pub mod model;
 pub mod rename;
 pub mod ring;
@@ -473,6 +474,7 @@ pub fn dismiss_suggestion(s: &Suggestion) {
 /// An id of 0 adds a separator. Returns the chosen id or 0.
 pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
     let ctl = app().controller.get();
+    menu_contents::reset();
     unsafe {
         let m = CreatePopupMenu();
         if m.is_null() {
@@ -486,27 +488,9 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     app().board.try_borrow().map(|b| b.circles.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
                 let submenu = CreatePopupMenu();
                 if !submenu.is_null() {
+                    menu_contents::append_target(submenu, "Recent", Target::Recent);
                     for (ci, name) in names.iter().enumerate() {
-                        let actions = CreatePopupMenu();
-                        if actions.is_null() {
-                            continue;
-                        }
-                        for (offset, caption) in [
-                            "New group",
-                            "Rename...",
-                            "Delete circle",
-                            "Ada g\u{f6}re s\u{131}rala",
-                            "T\u{fc}re g\u{f6}re s\u{131}rala",
-                            "Eklenme s\u{131}ras\u{131}",
-                        ]
-                        .iter()
-                        .enumerate()
-                        {
-                            AppendMenuW(actions, MF_STRING, CIRCLE_ACTION_BASE + ci * 8 + offset, win::wide(caption).as_ptr());
-                        }
-                        if AppendMenuW(submenu, MF_POPUP, actions as usize, win::wide(name).as_ptr()) == 0 {
-                            DestroyMenu(actions);
-                        }
+                        menu_contents::append_target(submenu, name, Target::Circle(ci));
                     }
                     if AppendMenuW(m, MF_POPUP, submenu as usize, win::wide(label).as_ptr()) == 0 {
                         DestroyMenu(submenu);
@@ -549,7 +533,11 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
         let cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, at.x, at.y, 0, ctl, std::ptr::null()) as usize;
         PostMessageW(ctl, WM_NULL, 0, 0);
         DestroyMenu(m);
-        cmd
+        if menu_contents::finish(cmd) {
+            0
+        } else {
+            cmd
+        }
     }
 }
 

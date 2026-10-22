@@ -215,7 +215,7 @@ fn mode_lock(dpi: u32, expanded: bool) -> RECT {
     if expanded {
         win::rect(scale(4, dpi), scale(7, dpi), scale(30, dpi), scale(33, dpi))
     } else {
-        win::rect(scale(1, dpi), scale(1, dpi), scale(27, dpi), scale(27, dpi))
+        win::rect(scale(2, dpi), scale(1, dpi), scale(28, dpi), scale(27, dpi))
     }
 }
 fn lock_rect(dpi: u32) -> RECT {
@@ -226,7 +226,7 @@ fn mode_menu(dpi: u32, expanded: bool) -> RECT {
     if expanded {
         win::rect(width - scale(28, dpi), scale(9, dpi), width - scale(6, dpi), scale(31, dpi))
     } else {
-        win::rect(width - scale(22, dpi), scale(1, dpi), width - scale(2, dpi), scale(21, dpi))
+        win::rect(width - scale(28, dpi), scale(1, dpi), width - scale(2, dpi), scale(27, dpi))
     }
 }
 fn arrow_rect(dpi: u32) -> RECT {
@@ -235,7 +235,7 @@ fn arrow_rect(dpi: u32) -> RECT {
 fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
     if !EXPANDED.get() {
         let side = scale(ACTION_SIZE + PAD * 2, dpi);
-        return (side, side);
+        return (side, side + scale(28, dpi));
     }
     let visible = visible_row_count(dpi, count) as i32;
     (expanded_width(dpi), scale(HEADER_H + GAP + ACTION_SIZE + GAP + visible * ROW_H + PAD, dpi))
@@ -243,7 +243,7 @@ fn dimensions(dpi: u32, count: usize) -> (i32, i32) {
 fn mode_action(dpi: u32, expanded: bool) -> RECT {
     let size = scale(ACTION_SIZE, dpi);
     let left = if expanded { (expanded_width(dpi) - size) / 2 } else { scale(PAD, dpi) };
-    let top = scale(if expanded { HEADER_H + GAP } else { PAD }, dpi);
+    let top = scale(if expanded { HEADER_H + GAP } else { PAD + 28 }, dpi);
     win::rect(left, top, left + size, top + size)
 }
 fn action_rect(dpi: u32) -> RECT {
@@ -765,7 +765,8 @@ fn lock_distance(px: f32, py: f32, closed: bool) -> f32 {
 }
 
 unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u32, is_locked: bool, background: u32) {
-    let side = scale(26, dpi);
+    let side = scale(22, dpi);
+    rounded_outline(dc, r, dpi, background);
     LOCK_FRAMES.with(|slot| {
         let mut cache = slot.borrow_mut();
         if cache.as_ref().is_none_or(|c| c.size != side) {
@@ -803,13 +804,21 @@ unsafe fn draw_lock(dc: windows_sys::Win32::Graphics::Gdi::HDC, r: RECT, dpi: u3
     });
 }
 
+unsafe fn rounded_outline(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, background: u32) {
+    draw_button(dc, rect, dpi, None, background);
+}
+
 unsafe fn draw_menu(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, expanded: bool, background: u32) {
+    draw_button(dc, rect, dpi, Some(expanded), background);
+}
+
+unsafe fn draw_button(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi: u32, expanded: Option<bool>, background: u32) {
     use windows_sys::Win32::Graphics::Gdi::{BitBlt, SRCCOPY};
     let (w, h) = (rect.right - rect.left, rect.bottom - rect.top);
     let Some(mut surface) = rounded_surface(w, h, scale(5, dpi), background) else { return };
     let factor = dpi as f32 / 96.0;
     let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
-    let direction = if expanded { -1.0 } else { 1.0 };
+    let direction = if expanded.unwrap_or(false) { -1.0 } else { 1.0 };
     let pixels = surface.pixels();
     for y in 0..h {
         for x in 0..w {
@@ -821,7 +830,7 @@ unsafe fn draw_menu(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dpi:
             let b = (cx, cy + direction * 2.5 * factor);
             let c = (cx + 5.0 * factor, a.1);
             let glyph = line_distance(px, py, a, b).min(line_distance(px, py, b, c));
-            let coverage = (factor * 0.8 + 0.5 - glyph).clamp(0.0, 1.0);
+            let coverage = if expanded.is_some() { (factor * 0.8 + 0.5 - glyph).clamp(0.0, 1.0) } else { 0.0 };
             let border = (factor * 0.5 + 0.5 - edge).clamp(0.0, 1.0);
             blend_pixel(&mut pixels[(y * w + x) as usize], TEAL, coverage.max(border * 0.65));
         }

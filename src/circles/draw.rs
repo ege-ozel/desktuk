@@ -145,13 +145,13 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
         }
     }
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
-    let bold = Font::new(dpi, true, 108);
+    let bold = Font::new(dpi, true, 100);
     let small = Font::new(dpi, false, COUNT_PERCENT);
     let pad = sc(10);
     text(
         dc,
         name,
-        win::rect(pad, d * 20 / 100, d - pad, d * if locked { 46 } else { 60 } / 100),
+        win::rect(pad, d * 20 / 100, d - pad, d * 46 / 100),
         TEXT,
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
@@ -159,7 +159,7 @@ pub fn circle(s: &mut Surface, dpi: u32, name: &str, count: usize, locked: bool)
     text(
         dc,
         &count.to_string(),
-        win::rect(pad, d * if locked { 65 } else { 60 } / 100, d - pad, d * 86 / 100),
+        win::rect(pad, d * 65 / 100, d - pad, d * 86 / 100),
         SUBTEXT,
         &small,
         DT_CENTER | DT_SINGLELINE | DT_VCENTER,
@@ -204,7 +204,8 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
     fill_rect(dc, &win::rect(0, 0, size, size), ACCENT);
     let rim = sc(3).max(2);
     fill_disc(s, &win::rect(rim, rim, size - rim, size - rim), bg);
-    fill_disc(s, &square(c, c, m.circle_d), CENTER_BG);
+    fill_disc(s, &square(c, c, m.circle_d), ACCENT);
+    fill_disc(s, &square(c, c, m.circle_d - sc(4)), CENTER_BG);
     unsafe { SetBkMode(dc, TRANSPARENT as i32) };
     let bold = Font::new(dpi, true, 100);
     let small = Font::new(dpi, false, 100);
@@ -212,7 +213,12 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
     text(
         dc,
         v.title,
-        win::rect(c - inner, c - inner, c + inner, c + sc(6)),
+        win::rect(
+            c - m.circle_d / 2 + sc(10),
+            c - m.circle_d / 2 + m.circle_d * 20 / 100,
+            c + m.circle_d / 2 - sc(10),
+            c - m.circle_d / 2 + m.circle_d * 46 / 100,
+        ),
         TEXT,
         &bold,
         DT_CENTER | DT_WORDBREAK | DT_EDITCONTROL | DT_END_ELLIPSIS,
@@ -223,7 +229,7 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
         text(
             dc,
             &format!("Ara: {query}"),
-            win::rect(c - inner, c + sc(4), c + inner, c + sc(24)),
+            win::rect(c - inner, c - sc(2), c + inner, c + sc(14)),
             crate::theme::MINT,
             &small,
             DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
@@ -231,13 +237,20 @@ pub fn ring(s: &mut Surface, dpi: u32, m: &Metrics, v: &RingView) {
         text(
             dc,
             &format!("{count} sonu\u{e7}"),
-            win::rect(c - inner, c + sc(24), c + inner, c + inner),
+            win::rect(c - inner, c - m.circle_d / 2 + m.circle_d * 65 / 100, c + inner, c - m.circle_d / 2 + m.circle_d * 86 / 100),
             if count == 0 { ACCENT } else { crate::theme::MINT },
             &count_font,
             DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
         );
     } else {
-        text(dc, v.subtitle, win::rect(c - inner, c + sc(8), c + inner, c + inner), SUBTEXT, &count_font, DT_CENTER | DT_WORDBREAK);
+        text(
+            dc,
+            v.subtitle,
+            win::rect(c - inner, c - m.circle_d / 2 + m.circle_d * 65 / 100, c + inner, c - m.circle_d / 2 + m.circle_d * 86 / 100),
+            SUBTEXT,
+            &count_font,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+        );
     }
 
     for (k, slot) in v.slots.iter().enumerate().take(m.per_page()) {
