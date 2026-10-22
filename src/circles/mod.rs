@@ -20,6 +20,7 @@ mod grid_overlay;
 pub mod model;
 pub mod rename;
 pub mod ring;
+mod search_input;
 pub mod suggest;
 pub mod surface;
 pub mod view;

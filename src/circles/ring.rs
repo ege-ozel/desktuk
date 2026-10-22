@@ -71,6 +71,7 @@ struct Ring {
     anchor: HWND,
     target: Target,
     refs: Vec<SlotRef>,
+    query: String,
     suggestions: Vec<Suggestion>,
     start: usize,
     page: Vec<PageSlot>,
@@ -325,6 +326,7 @@ pub fn open(anchor: HWND, target: Target) {
         anchor,
         target,
         refs,
+        query: String::new(),
         suggestions,
         start: 0,
         page: Vec::new(),
@@ -368,6 +370,7 @@ pub fn open(anchor: HWND, target: Target) {
         SetTimer(hwnd, TIMER_ANIM, FRAME_MS, None);
     }
     install_mouse_hook();
+    super::search_input::install();
     dlog!(
         "ring opened target={target:?} slots={slots} icon_px={} per_page={} diameter={size} inner_slots={} inner_r={} outer_r={}",
         m.icon,
@@ -426,6 +429,7 @@ pub fn apply_batch(batch: items::RingBatch) {
 
 /// Destroys the ring immediately (no animation). Safe to call when none is open.
 pub fn close_now() {
+    super::search_input::uninstall();
     reset_item_pointer();
     let taken = RING.with(|cell| cell.try_borrow_mut().ok().and_then(|mut g| g.take()));
     if let Some(r) = taken {
@@ -466,6 +470,7 @@ fn begin_close() {
         unsafe { SetTimer(r.hwnd, TIMER_ANIM, FRAME_MS, None) };
     });
     uninstall_mouse_hook();
+    super::search_input::uninstall();
 }
 
 /// Keep a short-lived global fallback while dragging a circle. A no-activate layered
@@ -488,7 +493,12 @@ pub fn refresh() {
         return;
     }
     let to_load = with(|r| {
-        let (refs, suggestions) = super::slots_for(r.target);
+        let (mut refs, suggestions) = super::slots_for(r.target);
+        if !r.query.is_empty() {
+            if let Ok(board) = app().board.try_borrow() {
+                refs = view::search_refs(&board, r.target, &super::recent_paths(), &suggestions, &r.query);
+            }
+        }
         r.suggestions = suggestions;
         let mut to_load = Vec::new();
         if refs != r.refs {
@@ -558,6 +568,7 @@ fn load_page(r: &mut Ring) -> Vec<PathBuf> {
 }
 
 fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
+    r.query.clear();
     r.target = t;
     let (refs, suggestions) = super::slots_for(t);
     r.refs = refs;
@@ -568,7 +579,58 @@ fn set_target(r: &mut Ring, t: Target) -> Vec<PathBuf> {
     to_load
 }
 
+pub(super) fn search_window() -> Option<HWND> {
+    let mut point = POINT { x: 0, y: 0 };
+    unsafe { GetCursorPos(&mut point) };
+    with(|r| {
+        (!closing(r)
+            && !r.menu_open
+            && r.press.is_none()
+            && circle_win::pressed_window().is_none()
+            && hit_screen(r, point) != RingHit::Outside)
+            .then_some(r.hwnd)
+    })
+    .flatten()
+}
+
+fn search_char(value: u32) {
+    let paths = with(|r| {
+        match value {
+            8 => {
+                r.query.pop();
+            }
+            27 => {
+                r.query.clear();
+            }
+            _ => {
+                if let Some(c) = char::from_u32(value).filter(|c| !c.is_control()) {
+                    if r.query.chars().count() < 80 {
+                        r.query.push(c);
+                    }
+                }
+            }
+        }
+        let (mut refs, suggestions) = super::slots_for(r.target);
+        if let Ok(board) = app().board.try_borrow() {
+            refs = view::search_refs(&board, r.target, &super::recent_paths(), &suggestions, &r.query);
+        }
+        r.refs = refs;
+        r.suggestions = suggestions;
+        r.start = 0;
+        let paths = load_page(r);
+        redraw(r);
+        dlog!("ring search chars={} results={}", r.query.chars().count(), r.refs.len());
+        paths
+    });
+    if let Some(paths) = paths {
+        spawn_loader(paths);
+    }
+}
+
 fn subtitle(r: &Ring) -> String {
+    if !r.query.is_empty() {
+        return format!("Ara: {}\n{} sonu\u{e7}", r.query, r.refs.len());
+    }
     if r.press.as_ref().is_some_and(|p| p.active) {
         return if r.hover.is_some() {
             if r.drop_after {
@@ -588,7 +650,7 @@ fn subtitle(r: &Ring) -> String {
         let no_circles = app().board.try_borrow().map(|b| b.circles.is_empty()).unwrap_or(false);
         return if r.target == Target::Recent && no_circles { "Right-click: New circle".into() } else { "Drop files here".into() };
     }
-    String::new()
+    "Aramak i\u{e7}in yaz\u{131}n".into()
 }
 
 fn render(r: &mut Ring) {
@@ -1255,6 +1317,10 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             close_if_outside();
             0
         }
+        super::search_input::WM_SEARCH_CHAR => {
+            search_char(wparam as u32);
+            0
+        }
         WM_RBUTTONUP => {
             on_right_up(lparam);
             0
@@ -1276,6 +1342,7 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
             0
         }
         WM_DESTROY => {
+            super::search_input::uninstall();
             reset_item_pointer();
             if circle_win::pressed_window().is_none() {
                 uninstall_mouse_hook();

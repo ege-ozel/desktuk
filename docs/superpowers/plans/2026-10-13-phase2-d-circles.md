@@ -982,3 +982,36 @@ The final rebuild changes completion wording only relative to the production
 wizard capture; final fixture checks both locales. Installer is unsigned; a
 publisher signing certificate has not been supplied. D39 CI 39276403418 passed;
 D40 CI runs on push and is not claimed passed locally.
+
+### D41: Search the hovered circle by typing
+
+Owner request (2026-10-22): typing over an open circle filters file names;
+prefix matches precede substring matches, preserving existing order within ranks.
+Search includes grouped files, is transient, supports Backspace/Escape and resets
+when the ring closes. Keep other applications' shortcuts/focus intact.
+
+- [x] Implement transient hover keyboard input, ranked filtering and query feedback.
+- [x] Verify ranking/reset behavior and required Windows MSVC checks; commit/push.
+
+### D42: Reliable dragging, shared menus and consistent circle appearance
+
+Owner request (2026-10-22): smooth middle dragging near taskbar/at speed, expose
+circle-wide commands in the dock context menu, visibly mark locked circles and
+use the same distinct centre/outer colors for Recent and ordinary rings.
+
+- [ ] Preserve the visible grab position and coalesce circle pointer input.
+- [ ] Share global commands with the dock; render a static gradient/lock state.
+- [ ] Verify required Windows MSVC checks and relevant isolated fixtures; commit/push.
+
+D41 evidence: Windows MSVC fmt/release Clippy/tests pass (72 passed, 2 ignored).
+Ranking tests cover prefix-before-substring, stable existing order, grouped files,
+case/Unicode names, empty/no-match query and unchanged board serialization.
+A temporary keyboard hook exists only while a ring is open, checks actual pointer
+geometry and skips menus/drags/Ctrl/Alt/Win shortcuts (AltGr remains text input).
+It translates with the foreground thread keyboard layout, posts Unicode scalar
+values to the UI thread, and never activates the ring. Backspace removes a scalar;
+Escape clears, target changes/close reset, each edit resets paging and icon loads.
+Physical keyboard/IME/dead-key composition and hover feel are unperformed; direct
+Unicode layout translation supports ordinary Turkish typing, not an IME editor.
+The sandbox initially denied the existing isolated registry test; the full required
+suite passed with sandbox elevation. No user files/startup settings changed.

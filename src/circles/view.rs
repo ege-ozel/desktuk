@@ -41,6 +41,31 @@ pub fn slot_refs(board: &Board, target: Target, recent: &[PathBuf], suggestions:
     }
 }
 
+/// Search names only; stable ranks keep the owner's current sort/manual order.
+/// Circle searches also include references inside its groups.
+pub fn search_refs(board: &Board, target: Target, recent: &[PathBuf], suggestions: &[Suggestion], query: &str) -> Vec<SlotRef> {
+    if query.is_empty() {
+        return slot_refs(board, target, recent, suggestions);
+    }
+    let mut refs = slot_refs(board, target, recent, &[]);
+    if let Target::Circle(ci) = target {
+        if let Some(c) = board.circles.get(ci) {
+            refs.extend(c.groups.iter().flat_map(|g| g.items.iter().cloned().map(SlotRef::Item)));
+        }
+    }
+    let query = query.to_lowercase();
+    let mut matches: Vec<_> = refs
+        .into_iter()
+        .filter_map(|slot| {
+            let SlotRef::Item(path) = &slot else { return None };
+            let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().to_lowercase();
+            name.find(&query).map(|offset| (usize::from(offset != 0), slot))
+        })
+        .collect();
+    matches.sort_by_key(|(rank, _)| *rank);
+    matches.into_iter().map(|(_, slot)| slot).collect()
+}
+
 pub fn title(board: &Board, target: Target) -> String {
     match target {
         Target::Recent => "Recent".to_string(),
@@ -84,6 +109,23 @@ mod tests {
         b.assign(&p(r"C:\D\a.wav"), Place::Circle(m));
         b.assign(&p(r"C:\D\b.wav"), Place::Group(m, g));
         b
+    }
+
+    #[test]
+    fn search_ranks_prefixes_stably_and_includes_groups_without_mutation() {
+        let mut b = board();
+        b.circles[0].items = vec![p("xxAB.wav"), p("abZ.wav"), p("AbA.wav"), p("other.wav")];
+        b.circles[0].groups[0].items = vec![p("group-ab.wav")];
+        let before = b.render();
+        assert_eq!(
+            search_refs(&b, Target::Circle(0), &[], &[], "aB"),
+            ["abZ.wav", "AbA.wav", "xxAB.wav", "group-ab.wav"].map(|s| SlotRef::Item(p(s)))
+        );
+        assert!(search_refs(&b, Target::Circle(0), &[], &[], "missing").is_empty());
+        assert_eq!(search_refs(&b, Target::Circle(0), &[], &[], ""), slot_refs(&b, Target::Circle(0), &[], &[]));
+        assert_eq!(search_refs(&b, Target::Group(0, 0), &[], &[], "ab"), vec![SlotRef::Item(p("group-ab.wav"))]);
+        assert_eq!(search_refs(&b, Target::Recent, &[p("Ödev.txt")], &[], "öD"), vec![SlotRef::Item(p("Ödev.txt"))]);
+        assert_eq!(b.render(), before);
     }
 
     #[test]

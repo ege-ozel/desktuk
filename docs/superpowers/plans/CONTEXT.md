@@ -52,6 +52,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D38 adds persisted lock, cached glow/dwell state icon and smooth lock joins; 70 tests pass.
 - D39 buffers hover frames/holds endpoints; 71 tests and both native fixtures pass.
 
+- D41 adds transient typing search over the hovered ring (including grouped files):
+  prefix matches first, stable existing order; Backspace/Escape, reset on close.
+  MSVC checks pass (72 tests); physical keyboard/IME acceptance is unperformed.
+
 ## Observed defects / checks not performed
 - D40 installer: dist/DeskTuk-0.1.0-Setup-x64.exe; path/Finish/Unicode/upgrade/uninstall pass.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
