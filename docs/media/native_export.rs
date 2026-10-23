@@ -14,31 +14,23 @@ fn docs_native_export() {
     assert!(com >= 0, "COM initialization: {com:#x}");
     let output = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/d58-media");
     std::fs::create_dir_all(&output).expect("export directory");
-    let samples = output.join("samples");
-    std::fs::create_dir_all(&samples).expect("example directory");
-    // Only exporter-owned files under target/. Never enumerate the real Desktop.
+    // These are .ico example references, not new folder themes or file-type skins.
     let names =
-        ["Mix notes.txt", "Mixer preset.txt", "Summer mix.wav", "Session.wav", "Artwork.bmp", "Reference.txt", "Readme.txt", "Master.wav"];
-    let mut items: Vec<crate::items::Item> = names
-        .iter()
-        .map(|name| {
-            let path = samples.join(name);
-            if !path.exists() {
-                std::fs::write(&path, b"DeskTuk README example\r\n").expect("example file");
-            }
-            crate::items::Item::load(path)
-        })
-        .collect();
+        ["Mix notes.ico", "Mixer preset.ico", "Summer mix.ico", "Session.ico", "Artwork.ico", "Reference.ico", "Readme.ico", "Master.ico"];
+    let files = ["text-documents", "folder", "music", "archive", "pictures", "web", "documents", "movies"];
     let dpi = 192;
     let m = geom::desktop_metrics(dpi, win::scale(48, dpi), win::scale(700, dpi));
-    let views: Vec<draw::SlotView<'_>> = items
-        .iter_mut()
-        .map(|item| draw::SlotView { label: "", look: draw::SlotLook::Item { icon: item.icon(m.icon), dim: false } })
-        .zip(names)
-        .map(|(mut view, name)| {
-            view.label = name;
-            view
+    let icons: Vec<PreviewIcon> = files
+        .iter()
+        .map(|name| {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("docs/media/icons/bluefx-{name}.ico"));
+            PreviewIcon::load(&path, m.icon)
         })
+        .collect();
+    let views: Vec<draw::SlotView<'_>> = icons
+        .iter()
+        .zip(names)
+        .map(|(icon, name)| draw::SlotView { label: name, look: draw::SlotLook::Item { icon: icon.0, dim: false } })
         .collect();
     let mut ring = Surface::new(m.ring_r * 2, m.ring_r * 2).expect("ring surface");
     draw::ring(
@@ -58,7 +50,7 @@ fn docs_native_export() {
     let side = ring.w as usize;
     geom::mask_disc(ring.pixels(), side, side, m.ring_r as f32);
     let (w, h) = (2160usize, 1600usize);
-    let mut canvas = vec![0xff0c1219u32; w * h];
+    let mut canvas = backdrop(w, h);
     composite(&mut canvas, w, h, &mut ring, 180, 120);
     let mut circle = Surface::new(m.circle_d, m.circle_d).expect("circle surface");
     for (x, y, label, count) in [(36, 120, "Recent", 12), (60, 1210, "Apps", 5)] {
@@ -102,13 +94,13 @@ fn docs_native_export() {
         },
     );
     geom::mask_disc(ring.pixels(), side, side, m.ring_r as f32);
-    let mut search = vec![0xff0c1219u32; (side + 48) * (side + 48)];
+    let mut search = backdrop(side + 48, side + 48);
     composite(&mut search, side + 48, side + 48, &mut ring, 24, 24);
     save_bgra(&output.join("search-results.bgra"), &search);
     std::fs::write(output.join("sizes.txt"), format!("desktop-overview {w} {h}\nsearch-results {} {}\n", side + 48, side + 48))
         .expect("size manifest");
     drop(views);
-    drop(items);
+    drop(icons);
     if com >= 0 {
         unsafe { CoUninitialize() };
     }
@@ -134,4 +126,37 @@ fn composite(canvas: &mut [u32], width: usize, height: usize, source: &mut Surfa
 fn save_bgra(path: &Path, pixels: &[u32]) {
     let bytes: Vec<u8> = pixels.iter().flat_map(|p| p.to_le_bytes()).collect();
     std::fs::write(path, bytes).expect("BGRA export");
+}
+
+// Native ICO loader used only for the documentation fixture. Ownership is local.
+struct PreviewIcon(windows_sys::Win32::UI::WindowsAndMessaging::HICON);
+impl PreviewIcon {
+    fn load(path: &Path, side: i32) -> Self {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{LoadImageW, IMAGE_ICON, LR_LOADFROMFILE};
+        let icon = unsafe { LoadImageW(std::ptr::null_mut(), win::wide_path(path).as_ptr(), IMAGE_ICON, side, side, LR_LOADFROMFILE) };
+        assert!(!icon.is_null(), "example ICO: {}", path.display());
+        Self(icon)
+    }
+}
+impl Drop for PreviewIcon {
+    fn drop(&mut self) {
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::DestroyIcon(self.0);
+        }
+    }
+}
+
+// Presentation background only: keep native UI pixels/palette unchanged.
+fn backdrop(w: usize, h: usize) -> Vec<u32> {
+    let mut pixels = Vec::with_capacity(w * h);
+    for y in 0..h {
+        for x in 0..w {
+            let dx = (x as f32 / w as f32 - 0.48) / 0.9;
+            let dy = (y as f32 / h as f32 - 0.44) / 1.0;
+            let amount = (1.0 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
+            let channel = |a: f32, b: f32| (a + (b - a) * amount).round() as u32;
+            pixels.push(0xff000000 | channel(12.0, 27.0) << 16 | channel(18.0, 43.0) << 8 | channel(25.0, 57.0));
+        }
+    }
+    pixels
 }

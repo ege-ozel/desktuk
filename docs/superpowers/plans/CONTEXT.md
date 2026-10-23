@@ -4,7 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D58 implemented; D58 uses native README renders and paired TR/EN.
+- A and D through D59 implemented; README has native renders, licensed ICOs and TR/EN.
   D56 scoped D55 review found no blocker; final automated/install checks pending.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes

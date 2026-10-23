@@ -1732,3 +1732,39 @@ validation and is not substituted into the previously recorded candidate artifac
 An extra all-targets Clippy check exposed the pre-existing bool_assert_comparison
 at src/host/window.rs:403; this unrelated test-only style issue is not changed or
 reported as an all-targets pass. The required standard release Clippy passes.
+
+
+### D59: Licensed example ICO references and restored presentation gradient
+
+Owner authorizes inspecting Desktop/Icons read-only and researching image sources
+and licenses. Use real icons if permitted; otherwise standard Windows folders.
+Restore the earlier subtle gradient behind README visuals.
+
+- [x] Inventory the supplied collection without changing source files. Run image
+  search and source/license queries. Scope findings to selected candidates only.
+- [x] Exclude Betelgeuse, Tools Hardware, Gadgets and Musical Instruments candidates
+  with non-commercial terms. Select 3D BlueFX Desktop by WallpaperFX, listed as
+  CC BY 4.0 with commercial use/backlink permitted on its distribution pages.
+- [x] Copy eight ICOs unchanged as documentation assets; record names/hashes,
+  source/designer/license links, scaling/composition and attribution in asset
+  credits and both README captions. App MIT license does not replace asset CC BY.
+- [x] Load real ICO resources in the test-only native exporter. Label examples as
+  .ico references, rather than implying a new theme or changed file-type imagery.
+- [x] Restore the slate/blue radial presentation backdrop behind native UI surfaces;
+  retain actual native geometry/colors/controls. No app/runtime dependency added.
+- [x] Re-export/inspect both images; fmt/release Clippy/build and link checks;
+  commit/push. Installed D57 candidate and installer are not changed for docs.
+
+Sources and exclusions are linked in docs/media/icons/README.md. Royalty-free is
+not equated with public domain: selected artwork requires CC BY attribution.
+Native export only, not full automated/physical-input testing; manual-first
+interaction workflow remains. Original Desktop icons remain unmodified.
+
+
+Both PNGs inspected after the native export: real ICO resources replace generic
+blank-file icons; gradient is visible around unchanged native circle/panel surfaces.
+Eight copied files match their source bytes and their recorded SHA-256 values.
+cargo fmt, standard release Clippy, release build, local README/credit links and
+git diff --check pass. Only the ignored native media exporter ran (78 other tests
+filtered out); no application input/regression tests, installed restart or new
+installer. Assets are under docs/media/ only and never loaded by shipping code.

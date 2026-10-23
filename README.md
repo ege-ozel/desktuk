@@ -24,8 +24,8 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/ege-ozel/desktuk/main/docs/media/desktop-overview.png"><img src="docs/media/desktop-overview.png" width="1080" alt="DeskTuk native rendering: Music circle with Windows file icons, Recent and Apps circles, and the edge panel"></a>
-  <br><sub>Exported from DeskTuk’s native drawing code with example files; not a live desktop capture.</sub>
+  <a href="https://raw.githubusercontent.com/ege-ozel/desktuk/main/docs/media/desktop-overview.png"><img src="docs/media/desktop-overview.png" width="1080" alt="DeskTuk native rendering: Music circle with licensed example ICO files, Recent and Apps circles, and the edge panel"></a>
+  <br><sub>Native DeskTuk rendering with example ICO files; not a live desktop capture. Icons: <a href="https://wallpaperfx.com/">WallpaperFX</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (<a href="docs/media/icons/README.md">credits</a>).</sub>
 </p>
 
 <table>
@@ -93,7 +93,7 @@ Both search fields support familiar editing: **Ctrl+A**, **Ctrl+C/X/V/Z**,
 
 <p align="center">
   <a href="https://raw.githubusercontent.com/ege-ozel/desktuk/main/docs/media/search-results.png"><img src="docs/media/search-results.png" width="800" alt="DeskTuk native Music circle filtered to Mix notes, Mixer preset and Summer mix, with the first result highlighted"></a>
-  <br><sub>Native search rendering with example files. Prefix matches come first; existing order is preserved within each match group.</sub>
+  <br><sub>Native search rendering with example ICO files. Prefix matches come first. Icons: <a href="https://wallpaperfx.com/">WallpaperFX</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
 </p>
 
 ## Small details, everyday use
@@ -163,4 +163,6 @@ Contributors and coding agents start with [AGENTS.md](AGENTS.md) and the
 
 ## License
 
-DeskTuk is released under the [MIT License](LICENSE).
+DeskTuk is released under the [MIT License](LICENSE). README example icons are
+3D BlueFX Desktop by [WallpaperFX](https://wallpaperfx.com/), licensed separately
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); see [credits and sources](docs/media/icons/README.md).
