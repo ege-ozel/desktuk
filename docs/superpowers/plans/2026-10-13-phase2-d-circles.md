@@ -1799,3 +1799,20 @@ GitHub guide on a phone. GitHub Markdown does not provide custom responsive CSS.
 Documentation-only change; no application build, regression tests or installed
 app changes. Source checks confirm 24 topic headings, no table markup and all
 original topic titles/bodies retained. Actual phone rendering is owner acceptance.
+
+
+### D62: Remove rectangular fade seams on light README pages
+
+Owner's phone capture shows D60's nearest-edge fade making diagonal corner seams
+and a heavy rectangular frame on white. Owner authorizes the suggested oval shadow.
+
+- [x] Replace edge-based opacity with one low-opacity elliptical radial falloff.
+- [x] Add transparent breathing room around the unchanged native UI composition.
+- [x] Regenerate both PNGs and inspect side-by-side composites on white and #0d1117
+  backgrounds at phone-like widths; rectangular seams are absent.
+- [x] Run fmt, standard release Clippy, targeted media export and diff checks;
+  document the change and commit/push.
+
+Only the ignored documentation exporter ran (78 other tests filtered out). No
+application regression/input tests or installed app/installer changes. Local
+preview is target/d58-media/theme-preview.png (not a tracked README asset).

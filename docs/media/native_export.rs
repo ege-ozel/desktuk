@@ -49,15 +49,17 @@ fn docs_native_export() {
     );
     let side = ring.w as usize;
     geom::mask_disc(ring.pixels(), side, side, m.ring_r as f32);
-    let (w, h) = (2160usize, 1600usize);
+    // Breathing room lets the oval shadow finish before the image boundary.
+    let pad = 160;
+    let (w, h) = (2160usize + pad * 2, 1600usize + pad * 2);
     let mut canvas = backdrop(w, h);
-    composite(&mut canvas, w, h, &mut ring, 180, 120);
+    composite(&mut canvas, w, h, &mut ring, 180 + pad, 120 + pad);
     let mut circle = Surface::new(m.circle_d, m.circle_d).expect("circle surface");
     for (x, y, label, count) in [(36, 120, "Recent", 12), (60, 1210, "Apps", 5)] {
         draw::circle(&mut circle, dpi, label, count, false);
         let d = circle.w as usize;
         geom::mask_disc(circle.pixels(), d, d, d as f32 / 2.0);
-        composite(&mut canvas, w, h, &mut circle, x, y);
+        composite(&mut canvas, w, h, &mut circle, x + pad, y + pad);
     }
     let entries = vec![
         (Entry::Target(Which::Recent), "Recent".into()),
@@ -75,7 +77,7 @@ fn docs_native_export() {
     for pixel in dock.pixels() {
         *pixel |= 0xff000000;
     }
-    composite(&mut canvas, w, h, &mut dock, 1776, 420);
+    composite(&mut canvas, w, h, &mut dock, 1776 + pad, 420 + pad);
     save_bgra(&output.join("desktop-overview.bgra"), &canvas);
 
     let filtered = &views[..3];
@@ -94,10 +96,11 @@ fn docs_native_export() {
         },
     );
     geom::mask_disc(ring.pixels(), side, side, m.ring_r as f32);
-    let mut search = backdrop(side + 48, side + 48);
-    composite(&mut search, side + 48, side + 48, &mut ring, 24, 24);
+    let search_side = side + pad * 2;
+    let mut search = backdrop(search_side, search_side);
+    composite(&mut search, search_side, search_side, &mut ring, pad, pad);
     save_bgra(&output.join("search-results.bgra"), &search);
-    std::fs::write(output.join("sizes.txt"), format!("desktop-overview {w} {h}\nsearch-results {} {}\n", side + 48, side + 48))
+    std::fs::write(output.join("sizes.txt"), format!("desktop-overview {w} {h}\nsearch-results {search_side} {search_side}\n"))
         .expect("size manifest");
     drop(views);
     drop(icons);
@@ -160,14 +163,13 @@ fn backdrop(w: usize, h: usize) -> Vec<u32> {
     let mut pixels = Vec::with_capacity(w * h);
     for y in 0..h {
         for x in 0..w {
-            let dx = (x as f32 / w as f32 - 0.48) / 0.9;
-            let dy = (y as f32 / h as f32 - 0.44) / 1.0;
-            let amount = (1.0 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
-            // Smoothly disappear into any README theme at every canvas edge.
-            let edge = (x.min(w - 1 - x) as f32 / (w as f32 * 0.12)).min(y.min(h - 1 - y) as f32 / (h as f32 * 0.12)).clamp(0.0, 1.0);
-            let alpha = (255.0 * edge * edge * (3.0 - 2.0 * edge)).round() as u32;
-            let channel = |a: f32, b: f32| (a + (b - a) * amount).round() as u32;
-            pixels.push(alpha << 24 | channel(12.0, 27.0) << 16 | channel(18.0, 43.0) << 8 | channel(25.0, 57.0));
+            let dx = 2.0 * x as f32 / (w - 1) as f32 - 1.0;
+            let dy = 2.0 * y as f32 / (h - 1) as f32 - 1.0;
+            // A single low-opacity ellipse: no nearest-edge/minimum operation,
+            // rectangular plateau or diagonal seams on a white README page.
+            let falloff = (1.0 - dx * dx - dy * dy).max(0.0);
+            let alpha = (80.0 * falloff * falloff).round() as u32;
+            pixels.push(alpha << 24 | 0x121b24);
         }
     }
     pixels

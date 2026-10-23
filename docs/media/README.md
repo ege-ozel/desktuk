@@ -11,9 +11,10 @@ offscreen client export. The square client outline is retained rather than inven
 a different rounded window. Fonts depend on the exporting Windows installation and text settings. The native
 ICO loader supplies the licensed example icons at the actual display size.
 
-The presentation background uses the earlier subtle slate/blue radial gradient,
-with a smooth alpha fade to full transparency at all four edges so it blends into
-the README viewer's background in either theme.
+The presentation background is a low-opacity slate oval shadow with a smooth
+radial fade and transparent padding. It has no rectangular edge bands or corner
+seams. Native exports were composited over white and GitHub-dark backgrounds
+for visual inspection; the native UI itself remains opaque.
 It sits behind the native UI and does not change native surface colors or corners.
 Icon credit: 3D BlueFX Desktop by [WallpaperFX](https://wallpaperfx.com/),
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See [asset provenance](icons/README.md).
