@@ -1784,3 +1784,18 @@ Only the documentation exporter ran (78 other tests filtered out), respecting
 manual-first app testing. Both PNGs have edge alpha 0 and centre alpha 255.
 Native UI remains opaque; installed app and installer were not changed. No new
 runtime dependencies, app behavior changes or application regression tests.
+
+
+### D61: Make the bilingual guide readable on mobile
+
+Owner reports narrow Turkish text and clipped heading anchors in the two-column
+GitHub guide on a phone. GitHub Markdown does not provide custom responsive CSS.
+
+- [x] Replace the paired table with full-width Turkish then English sections.
+- [x] Add language navigation at the top and between/after the sections.
+- [x] Preserve all 12 topics and their exact body text in both languages.
+- [x] Check content preservation, section/link structure and diff; commit/push.
+
+Documentation-only change; no application build, regression tests or installed
+app changes. Source checks confirm 24 topic headings, no table markup and all
+original topic titles/bodies retained. Actual phone rendering is owner acceptance.
