@@ -1768,3 +1768,19 @@ cargo fmt, standard release Clippy, release build, local README/credit links and
 git diff --check pass. Only the ignored native media exporter ran (78 other tests
 filtered out); no application input/regression tests, installed restart or new
 installer. Assets are under docs/media/ only and never loaded by shipping code.
+
+### D60: Fade README presentation backdrops into the viewer
+
+Owner requests the earlier edge-fading background rather than a rectangular
+opaque gradient.
+
+- [x] Smoothly fade the slate/blue backdrop to transparent at all four edges.
+- [x] Preserve native UI opacity and colors using source-over alpha composition;
+  export straight-alpha PNGs that blend with light or dark README viewers.
+- [x] Regenerate and inspect both native README images; document the fade.
+- [x] Run fmt, standard release Clippy, media export and diff checks; commit/push.
+
+Only the documentation exporter ran (78 other tests filtered out), respecting
+manual-first app testing. Both PNGs have edge alpha 0 and centre alpha 255.
+Native UI remains opaque; installed app and installer were not changed. No new
+runtime dependencies, app behavior changes or application regression tests.

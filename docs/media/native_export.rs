@@ -118,8 +118,17 @@ fn composite(canvas: &mut [u32], width: usize, height: usize, source: &mut Surfa
             }
             let dst = &mut canvas[(top + y) * width + left + x];
             let a = src >> 24;
-            let channel = |shift: u32| (((src >> shift) & 255) + ((*dst >> shift) & 255) * (255 - a) / 255).min(255) << shift;
-            *dst = 0xff000000 | channel(16) | channel(8) | channel(0);
+            let da = (*dst >> 24) * (255 - a) / 255;
+            let out_a = a + da;
+            // Native surfaces are premultiplied; the PNG canvas uses straight alpha.
+            let channel = |shift: u32| {
+                if out_a == 0 {
+                    0
+                } else {
+                    ((((src >> shift) & 255) * 255 + ((*dst >> shift) & 255) * da) / out_a).min(255) << shift
+                }
+            };
+            *dst = out_a << 24 | channel(16) | channel(8) | channel(0);
         }
     }
 }
@@ -154,8 +163,11 @@ fn backdrop(w: usize, h: usize) -> Vec<u32> {
             let dx = (x as f32 / w as f32 - 0.48) / 0.9;
             let dy = (y as f32 / h as f32 - 0.44) / 1.0;
             let amount = (1.0 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
+            // Smoothly disappear into any README theme at every canvas edge.
+            let edge = (x.min(w - 1 - x) as f32 / (w as f32 * 0.12)).min(y.min(h - 1 - y) as f32 / (h as f32 * 0.12)).clamp(0.0, 1.0);
+            let alpha = (255.0 * edge * edge * (3.0 - 2.0 * edge)).round() as u32;
             let channel = |a: f32, b: f32| (a + (b - a) * amount).round() as u32;
-            pixels.push(0xff000000 | channel(12.0, 27.0) << 16 | channel(18.0, 43.0) << 8 | channel(25.0, 57.0));
+            pixels.push(alpha << 24 | channel(12.0, 27.0) << 16 | channel(18.0, 43.0) << 8 | channel(25.0, 57.0));
         }
     }
     pixels
