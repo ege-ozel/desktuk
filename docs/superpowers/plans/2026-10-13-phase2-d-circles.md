@@ -1898,3 +1898,20 @@ page expands. The close control also needs hover feedback, and startup needs its
 
 Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
 `dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).
+
+### D68: Reopen the DeskTuk main dock from the collapsed circle mark
+
+Owner expects the three-circle mark shown while the dock is collapsed to reopen the
+DeskTuk-styled main dock instead of showing a native Windows popup. Owner also asks for
+middle-button press-and-drag auto-scroll inside File Explorer; this app cannot safely
+control another process's list scrolling without global input interception.
+
+- [x] Make the collapsed three-circle control expand the DeskTuk dock and update its hint.
+- [x] Defer Explorer middle-button auto-scroll: it requires cross-process global input interception and should not be silently enabled by this UI change.
+- [x] Run fmt, release Clippy and release tests; record the result below.
+
+Release Clippy passed. Tests: 75 passed, 3 ignored, 1 known failure at
+`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected). The failure
+predates D68; no test exercises physical Explorer auto-scroll. Product preview is an
+isolated six-scene GIF composed from DeskTuk's native offscreen UI exports and generic
+demo content; it does not capture a live desktop session.

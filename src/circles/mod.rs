@@ -532,20 +532,6 @@ unsafe fn track_contents(menu: HMENU, at: POINT) -> usize {
     }
 }
 
-pub fn contents_menu(at: POINT) {
-    crate::hint::hide();
-    menu_contents::reset();
-    let command = unsafe {
-        let menu = CreatePopupMenu();
-        if menu.is_null() {
-            return;
-        }
-        append_circle_items(menu);
-        track_contents(menu, at)
-    };
-    dock_command(command);
-}
-
 /// File launch menu anchored to a visible dock row; leaves circle visibility alone.
 pub fn target_menu(which: Which, at: POINT) {
     crate::hint::hide();

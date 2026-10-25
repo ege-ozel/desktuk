@@ -1121,10 +1121,9 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
     } else if control_at(dpi, POINT { x, y }) == 5 {
         crate::settings::guide(hwnd);
     } else if control_at(dpi, POINT { x, y }) == 6 {
-        let rect = extra_rect(dpi, 3).unwrap_or_default();
-        let mut at = POINT { x: rect.left, y: rect.bottom + scale(4, dpi) };
-        ClientToScreen(hwnd, &mut at);
-        circles::contents_menu(at);
+        // The collapsed three-circle mark is the entry point back to DeskTuk's
+        // own main menu. Do not open the platform's unstyled contents popup here.
+        set_expanded(hwnd, true);
     } else if x >= action_left && x < action_right && y >= action_top && y < action_bottom {
         cancel_dwell(hwnd);
         if locked() {

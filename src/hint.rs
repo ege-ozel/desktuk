@@ -50,10 +50,7 @@ impl Tip {
                 "Choose a grid. Use Align now separately to rearrange circles.",
             ),
             Self::Guide => i18n::choose("Kısa kullanım kılavuzunu açın.", "Open the quick guide."),
-            Self::Circles => i18n::choose(
-                "Çemberlerin dosya ve grup menülerini açın. Oklarla seçin, Enter ile açın.",
-                "Browse circle files and groups. Select with arrow keys and press Enter to open.",
-            ),
+            Self::Circles => i18n::choose("Ana DeskTuk menüsünü açın.", "Open the DeskTuk main menu."),
             Self::Visibility => i18n::choose(
                 "Çemberleri göster / gizle. Düğmenin üzerinde bekleyin veya tıklayın.",
                 "Show / hide circles. Hover briefly over the button or click it.",
