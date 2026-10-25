@@ -1858,3 +1858,15 @@ Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
 completed with exit code 0; installed image matches release SHA256
 `BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305`; running PID
 16948 responded. Physical appearance and drag smoothness remain owner acceptance.
+
+### D65: Persist Settings and Quick Guide text size
+
+Owner asks for larger menu text or size choices, with the current smallest size as
+the default and the selection retained in memory/configuration.
+
+- [x] Add a DeskTuk-styled three-step text-size choice for Settings and Quick Guide.
+- [x] Keep the smallest option at the existing effective size and persist larger choices.
+- [x] Run fmt, release Clippy and release tests; record the result below.
+
+Release Clippy passed. Tests: 75 passed, 3 ignored, 1 existing failure at
+`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).

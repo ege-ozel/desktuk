@@ -33,6 +33,8 @@ pub struct Board {
     pub dock_locked: bool,
     pub english: bool,
     pub hints: bool,
+    /// Settings and Quick Guide text scale: 90, 100, or 110 percent.
+    pub menu_text_scale: u8,
     pub circles: Vec<Circle>,
     /// Top-left of the built-in Recent circle; `None` = default position.
     pub recent_pos: Option<(i32, i32)>,
@@ -51,6 +53,7 @@ impl Default for Board {
             dock_locked: false,
             english: false,
             hints: true,
+            menu_text_scale: 90,
             circles: Vec::new(),
             recent_pos: None,
             dock_pos: None,
@@ -329,6 +332,9 @@ impl Board {
             }
             "language" => self.english = value.trim() == "en",
             "usage_tips" => self.hints = value.trim() != "0",
+            "menu_text_scale" => {
+                self.menu_text_scale = value.trim().parse::<u8>().ok().filter(|n| matches!(n, 90 | 100 | 110)).unwrap_or(90);
+            }
             "dock_edge" => self.dock_edge = crate::dock_layout::Edge::parse(value.trim()),
             "dock_locked" => self.dock_locked = value.trim() == "1",
             "added_order" => {
@@ -412,6 +418,9 @@ impl Board {
         }
         if !self.hints {
             s += "usage_tips=0\n";
+        }
+        if self.menu_text_scale != 90 {
+            s += &format!("menu_text_scale={}\n", self.menu_text_scale);
         }
         if self.dock_locked {
             s += "dock_locked=1\n";

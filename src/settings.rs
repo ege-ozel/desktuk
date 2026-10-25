@@ -123,7 +123,7 @@ fn size(page: u8, dpi: u32) -> (i32, i32) {
     if page == GUIDE {
         (scale(540, dpi), scale(710, dpi))
     } else {
-        (scale(380, dpi), scale(420, dpi))
+        (scale(380, dpi), scale(480, dpi))
     }
 }
 
@@ -165,6 +165,10 @@ fn settings_state() -> (bool, bool) {
     app().board.try_borrow().map(|b| (b.english, b.hints)).unwrap_or((i18n::english(), true))
 }
 
+fn text_scale() -> i32 {
+    app().board.try_borrow().map(|b| i32::from(b.menu_text_scale)).unwrap_or(90)
+}
+
 #[allow(clippy::too_many_arguments)] // GDI text needs independent geometry, font and color attributes.
 fn color_text(
     dc: windows_sys::Win32::Graphics::Gdi::HDC,
@@ -176,7 +180,7 @@ fn color_text(
     percent: i32,
     flags: u32,
 ) {
-    let font = crate::theme::font(dpi, bold, percent);
+    let font = crate::theme::font(dpi, bold, percent * text_scale() / 90);
     let old_font = unsafe { SelectObject(dc, font) };
     let mut text = win::wide(text);
     unsafe {
@@ -347,22 +351,66 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         );
     }
 
-    rounded(dc, text_rect(18, 330, 344, 54, dpi), dpi, crate::theme::RAISED, crate::theme::BORDER);
+    rounded(dc, text_rect(18, 330, 344, 68, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
+    color_text(
+        dc,
+        t("Yazı boyutu", "Text size"),
+        text_rect(32, 333, 115, 25, dpi),
+        dpi,
+        crate::theme::TEXT,
+        true,
+        100,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+    );
+    let scale_value = text_scale();
+    for (index, (x, label)) in [(152, "A"), (218, "A"), (284, "A")].into_iter().enumerate() {
+        let value = [90, 100, 110][index];
+        let rect = text_rect(x, 337, 56, 42, dpi);
+        rounded(
+            dc,
+            rect,
+            dpi,
+            if scale_value == value { crate::theme::RAISED } else { crate::theme::SURFACE },
+            if scale_value == value { crate::theme::ACCENT } else { crate::theme::BORDER },
+        );
+        color_text(
+            dc,
+            label,
+            rect,
+            dpi,
+            if scale_value == value { crate::theme::MINT } else { crate::theme::TEXT },
+            true,
+            80 + index as i32 * 20,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        );
+    }
+    color_text(
+        dc,
+        t("Küçük     Varsayılan     Büyük", "Small     Default     Large"),
+        text_rect(148, 380, 203, 16, dpi),
+        dpi,
+        crate::theme::MUTED,
+        false,
+        76,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+    );
+
+    rounded(dc, text_rect(18, 400, 344, 54, dpi), dpi, crate::theme::RAISED, crate::theme::BORDER);
     color_text(
         dc,
         t("Hızlı kılavuzu aç", "Open the quick guide"),
-        text_rect(32, 341, 280, 30, dpi),
+        text_rect(32, 410, 280, 30, dpi),
         dpi,
         crate::theme::ACCENT,
         true,
         105,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
-    color_text(dc, "›", text_rect(328, 338, 22, 34, dpi), dpi, crate::theme::MINT, true, 150, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    color_text(dc, "›", text_rect(328, 407, 22, 34, dpi), dpi, crate::theme::MINT, true, 150, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     color_text(
         dc,
         t("DeskTuk görünümüne uygun ayarlar", "Settings styled for DeskTuk"),
-        text_rect(24, 390, 330, 18, dpi),
+        text_rect(24, 458, 330, 18, dpi),
         dpi,
         crate::theme::MUTED,
         false,
@@ -552,7 +600,20 @@ fn click(hwnd: HWND, x: i32, y: i32) {
                 }
             }
         }
-    } else if (330..=384).contains(&y) {
+    } else if (337..=379).contains(&y) {
+        let value = match x {
+            152..=207 => Some(90),
+            218..=273 => Some(100),
+            284..=340 => Some(110),
+            _ => None,
+        };
+        if let Some(value) = value {
+            if let Ok(mut board) = app().board.try_borrow_mut() {
+                board.menu_text_scale = value;
+            }
+            app().save_config();
+        }
+    } else if (400..=454).contains(&y) {
         PAGE.set(GUIDE);
         let (w, h) = size(GUIDE, dpi);
         let at = reposition_for_size(hwnd, w, h);
