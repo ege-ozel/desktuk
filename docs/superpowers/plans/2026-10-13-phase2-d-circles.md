@@ -1910,8 +1910,9 @@ control another process's list scrolling without global input interception.
 - [x] Defer Explorer middle-button auto-scroll: it requires cross-process global input interception and should not be silently enabled by this UI change.
 - [x] Run fmt, release Clippy and release tests; record the result below.
 
-Release Clippy passed. Tests: 75 passed, 3 ignored, 1 known failure at
-`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected). The failure
-predates D68; no test exercises physical Explorer auto-scroll. Product preview is an
-isolated six-scene GIF composed from DeskTuk's native offscreen UI exports and generic
-demo content; it does not capture a live desktop session.
+Release Clippy passed. Tests: 76 passed, 3 ignored, 0 failed. The stale
+`dock_dimensions_scale_with_dpi` assertions now match the current collapsed control size
+(64×132 at 96 DPI; 128×264 at 192 DPI) and visibility-button placement. No test exercises
+physical Explorer auto-scroll. Product preview is an isolated six-scene GIF composed from
+DeskTuk's native offscreen UI exports and generic demo content; it does not capture a live
+desktop session.

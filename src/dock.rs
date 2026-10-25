@@ -1487,10 +1487,10 @@ mod tests {
         assert!(width > ACTION_SIZE + PAD * 2);
         assert!(dimensions(192, 8).0 >= width * 2 - 4);
         EXPANDED.set(false);
-        assert_eq!(dimensions(96, 8), (64, 64));
-        assert_eq!(dimensions(192, 8), (128, 128));
+        assert_eq!(dimensions(96, 8), (64, 132));
+        assert_eq!(dimensions(192, 8), (128, 264));
         let action = action_rect(192);
-        assert_eq!((action.left, action.top, 128 - action.right, 128 - action.bottom), (16, 16, 16, 16));
+        assert_eq!((action.left, action.top, 128 - action.right, 264 - action.bottom), (16, 72, 16, 96));
         EXPANDED.set(true);
         assert_eq!(scale(ACTION_DWELL_MS as i32, 192), 600);
         assert_eq!(scale(ROW_H, 192), 56);
