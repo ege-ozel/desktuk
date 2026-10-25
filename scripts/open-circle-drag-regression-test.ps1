@@ -142,13 +142,22 @@ try {
     Save-DockPreview $dock "collapsed.png"
     $collapsed=[OpenCircleDragWin]::Rectangle($dock)
     $side=[Math]::Floor((64*$dpi+48)/96)
-    if ($collapsed.right-$collapsed.left -ne $side -or $collapsed.bottom-$collapsed.top -ne $side) { throw 'Collapsed dock must contain only the padded square' }
+    $collapsedHeight=$side+[Math]::Floor((68*$dpi+48)/96)
+    if ($collapsed.right-$collapsed.left -ne $side -or $collapsed.bottom-$collapsed.top -ne $collapsedHeight) { throw 'Collapsed dock dimensions did not include its circle-menu button' }
+    $circleMenuY=[Math]::Round(105*$dpi/96)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$circleMenuY)
+    $reopened=[OpenCircleDragWin]::Rectangle($dock)
+    if ($reopened.right-$reopened.left -ne $dockRect.right-$dockRect.left -or $reopened.bottom-$reopened.top -ne $dockRect.bottom-$dockRect.top) { throw 'Collapsed three-circle button did not reopen the DeskTuk main menu' }
+    [OpenCircleDragWin]::Mouse($dock,0x202,$arrowX,$arrowY)
+    $collapsed=[OpenCircleDragWin]::Rectangle($dock)
+    if ($collapsed.right-$collapsed.left -ne $side -or $collapsed.bottom-$collapsed.top -ne $collapsedHeight) { throw 'Re-collapsing the main menu changed compact dock dimensions' }
     $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$recentX,$sourceY)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsing menu changed circle visibility' }
-    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    $visibilityY=[Math]::Round(60*$dpi/96)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$visibilityY)
     if ([OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsed visibility square did not hide circles' }
     [void][OpenCircleDragWin]::SendMessage($dock,0x2A3,[IntPtr]::Zero,[IntPtr]::Zero)
-    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$visibilityY)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Collapsed visibility square did not show circles' }
     # Move the collapsed tile along its detected taskbar rail; a drag must not
     # toggle circles, take focus or run the dwell action while held.
@@ -161,7 +170,7 @@ try {
     [OpenCircleDragWin]::Mouse($dock,0x200,($side/2+$moveX),($side/2+$moveY))
     [void][OpenCircleDragWin]::SendMessage($dock,0x113,[IntPtr]1,[IntPtr]::Zero)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Menu drag fired the visibility hover timer' }
-    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$visibilityY)
     $movedDock=[OpenCircleDragWin]::Rectangle($dock)
     if (($vertical -and ($movedDock.left -ne $beforeDock.left -or $movedDock.top -eq $beforeDock.top)) -or (-not $vertical -and ($movedDock.top -ne $beforeDock.top -or $movedDock.left -eq $beforeDock.left))) { throw 'Collapsed menu did not move along its taskbar rail' }
     if ([OpenCircleDragWin]::GetForegroundWindow() -ne $fg) { throw 'Moving menu took focus' }
@@ -185,7 +194,7 @@ try {
     Write-Host 'Expanded heading drag and cancellation restore saved position : PASS'
     Write-Host 'Compact dock collapse, visibility square and menu recovery : PASS'
     # Lock both native click and hover routes without moving the physical pointer.
-    $lockX=[Math]::Round(114*$dpi/96); $lockY=[Math]::Round(20*$dpi/96)
+    $lockX=[Math]::Round(17*$dpi/96); $lockY=[Math]::Round(20*$dpi/96)
     $tileX=[Math]::Round(76*$dpi/96); $tileY=[Math]::Round(68*$dpi/96)
     $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$musicX,$sourceY)
     [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
@@ -206,9 +215,9 @@ try {
     if ([OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Locked click revealed hidden circles' }
     [OpenCircleDragWin]::Mouse($dock,0x202,$arrowX,$arrowY)
     Save-DockPreview $dock 'compact-locked.png'
-    [OpenCircleDragWin]::Mouse($dock,0x202,[Math]::Round(53*$dpi/96),[Math]::Round(11*$dpi/96))
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
     if ((Get-Content -LiteralPath $cfg -Raw) -match '(?m)^dock_locked=1') { throw 'Compact unlock did not work' }
-    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$visibilityY)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor)) { throw 'Compact visibility click failed after unlocking' }
     # No physical pointer movement: an already queued, cancelled dwell must be inert.
     for ($frame=0; $frame -lt 24; $frame++) {
@@ -333,10 +342,10 @@ try {
     $restoredDock=[OpenCircleDragWin]::Rectangle($dock)
     if ($restoredDock.left -ne $movedDock.left -or $restoredDock.top -ne $movedDock.top) { throw 'Collapsed DeskTuk position did not survive restart' }
     $anchor=[OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Circle',$expectedMusicX,$expectedY)
-    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$side/2)
+    [OpenCircleDragWin]::Mouse($dock,0x202,$side/2,$visibilityY)
     [OpenCircleDragWin]::Mouse($anchor,0x200,20,20)
     if (-not [OpenCircleDragWin]::IsWindowVisible($anchor) -or [OpenCircleDragWin]::Find([uint32]$p.Id,'DeskTuk.Ring',[int]::MinValue,0) -ne [IntPtr]::Zero) { throw 'Restart did not preserve the lock' }
-    [OpenCircleDragWin]::Mouse($dock,0x202,[Math]::Round(53*$dpi/96),[Math]::Round(11*$dpi/96))
+    [OpenCircleDragWin]::Mouse($dock,0x202,$lockX,$lockY)
     Write-Host 'DeskTuk rail position and lock survive restart : PASS'
     $hashesAfter=@($files | ForEach-Object { (Get-FileHash -LiteralPath $_).Hash })
     if (@(Compare-Object $hashes $hashesAfter).Count -ne 0) { throw 'Referenced fixture files changed' }

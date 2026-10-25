@@ -260,8 +260,12 @@ fn set_expanded(hwnd: HWND, expanded: bool) {
     }
     let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
     let from = win::window_rect(hwnd);
+    let old_action = mode_action(dpi, EXPANDED.get());
+    let old_action_center_y = (old_action.top + old_action.bottom) / 2;
     EXPANDED.set(expanded);
-    TOP_ANCHOR.set(Some(from.top));
+    let new_action = mode_action(dpi, expanded);
+    let new_action_center_y = (new_action.top + new_action.bottom) / 2;
+    TOP_ANCHOR.set(Some(from.top + old_action_center_y - new_action_center_y));
     cancel_dwell(hwnd);
     ACTION_INSIDE.set(false);
     ACTION_HOVER.set(false);
