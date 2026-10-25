@@ -4,7 +4,7 @@ use std::cell::Cell;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, CreatePen, CreateRoundRectRgn, CreateSolidBrush, DeleteObject, DrawTextW, Ellipse, EndPaint, FillRect, GetMonitorInfoW,
+    BeginPaint, CreatePen, CreateRoundRectRgn, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, GetMonitorInfoW,
     InvalidateRect, MonitorFromPoint, RoundRect, ScreenToClient, SelectObject, SetBkMode, SetTextColor, SetWindowRgn, DT_CENTER, DT_LEFT,
     DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, MONITORINFO, MONITOR_DEFAULTTONEAREST, PAINTSTRUCT, PS_SOLID, TRANSPARENT,
 };
@@ -51,15 +51,19 @@ pub fn guide(owner: HWND) {
 fn open(owner: HWND, at: POINT, page: u8) {
     let startup = crate::autostart::is_enabled().ok();
     STARTUP_ENABLED.set(startup);
-    PAGE.set(page);
     register_class();
     if !PANEL.get().is_null() && unsafe { IsWindow(PANEL.get()) } != 0 {
         let hwnd = PANEL.get();
+        if PAGE.get() == page {
+            unsafe { DestroyWindow(hwnd) };
+            return;
+        }
+        PAGE.set(page);
         let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
         let (w, h) = size(page, dpi);
-        let at = reposition_for_size(hwnd, w, h);
+        let (x, y) = position_left_of(owner, at, w, h, dpi);
         unsafe {
-            SetWindowPos(hwnd, HWND_TOPMOST, at.x, at.y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             shape(hwnd, dpi, w, h);
             InvalidateRect(hwnd, std::ptr::null(), 1);
             ShowWindow(hwnd, SW_SHOWNORMAL);
@@ -68,9 +72,10 @@ fn open(owner: HWND, at: POINT, page: u8) {
         return;
     }
 
+    PAGE.set(page);
     let dpi = unsafe { GetDpiForWindow(owner) }.max(96);
     let (w, h) = size(page, dpi);
-    let (x, y) = clamp_to_work_area(at, w, h);
+    let (x, y) = position_left_of(owner, at, w, h, dpi);
     let hwnd = unsafe {
         CreateWindowExW(
             WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
@@ -101,6 +106,16 @@ fn open(owner: HWND, at: POINT, page: u8) {
     }
 }
 
+fn position_left_of(owner: HWND, fallback: POINT, width: i32, height: i32, dpi: u32) -> (i32, i32) {
+    let mut rect = RECT::default();
+    if !owner.is_null() && unsafe { IsWindowVisible(owner) } != 0 && unsafe { GetWindowRect(owner, &mut rect) } != 0 {
+        let at = POINT { x: rect.left - width - scale(8, dpi), y: rect.top };
+        clamp_to_work_area(at, width, height)
+    } else {
+        clamp_to_work_area(fallback, width, height)
+    }
+}
+
 fn register_class() {
     if CLASS_READY.get() {
         return;
@@ -123,7 +138,7 @@ fn size(page: u8, dpi: u32) -> (i32, i32) {
     if page == GUIDE {
         (scale(540, dpi), scale(710, dpi))
     } else {
-        (scale(380, dpi), scale(480, dpi))
+        (scale(380, dpi), scale(520, dpi))
     }
 }
 
@@ -227,22 +242,25 @@ fn text_rect(x: i32, y: i32, w: i32, h: i32, dpi: u32) -> RECT {
     win::rect(scale(x, dpi), scale(y, dpi), scale(x + w, dpi), scale(y + h, dpi))
 }
 
-fn draw_toggle(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32, x: i32, y: i32, on: bool) {
-    let track = text_rect(x, y, 44, 26, dpi);
-    rounded(dc, track, dpi, if on { crate::theme::MINT } else { crate::theme::BORDER }, crate::theme::BORDER);
-    let side = scale(18, dpi);
-    let inset = scale(4, dpi);
-    let left = if on { track.right - side - inset } else { track.left + inset };
-    let top = track.top + (track.bottom - track.top - side) / 2;
-    let brush = unsafe { CreateSolidBrush(crate::theme::TEXT) };
-    let old = unsafe { SelectObject(dc, brush) };
-    unsafe {
-        Ellipse(dc, left, top, left + side, top + side);
-        SelectObject(dc, old);
-        if !brush.is_null() {
-            DeleteObject(brush);
-        }
-    }
+fn draw_icon_toggle(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32, x: i32, y: i32, on: bool, glyph: &'static str) {
+    let rect = text_rect(x, y, 38, 38, dpi);
+    rounded(
+        dc,
+        rect,
+        dpi,
+        if on { crate::theme::RAISED } else { crate::theme::SURFACE },
+        if on { crate::theme::ACCENT } else { crate::theme::BORDER },
+    );
+    color_text(
+        dc,
+        glyph,
+        rect,
+        dpi,
+        if on { crate::theme::MINT } else { crate::theme::MUTED },
+        true,
+        115,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+    );
 }
 
 fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
@@ -268,7 +286,7 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         t("Dil / Language", "Language / Dil"),
         text_rect(32, 87, 310, 20, dpi),
         dpi,
-        crate::theme::MUTED,
+        crate::theme::TEXT,
         true,
         95,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
@@ -313,7 +331,7 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         90,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
-    draw_toggle(dc, dpi, 304, 195, hints);
+    draw_icon_toggle(dc, dpi, 304, 189, hints, "i");
 
     rounded(dc, text_rect(18, 252, 344, 68, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
     color_text(
@@ -337,12 +355,12 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
     if let Some(enabled) = startup {
-        draw_toggle(dc, dpi, 304, 273, enabled);
+        draw_icon_toggle(dc, dpi, 304, 267, enabled, "↗");
     } else {
         color_text(
             dc,
             t("Kullanılamıyor", "Unavailable"),
-            text_rect(286, 273, 62, 26, dpi),
+            text_rect(286, 267, 62, 38, dpi),
             dpi,
             crate::theme::MUTED,
             false,
@@ -351,11 +369,11 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         );
     }
 
-    rounded(dc, text_rect(18, 330, 344, 68, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
+    rounded(dc, text_rect(18, 330, 344, 84, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
     color_text(
         dc,
-        t("Yazı boyutu", "Text size"),
-        text_rect(32, 333, 115, 25, dpi),
+        t("Menü yazı boyutu", "Menu text size"),
+        text_rect(32, 337, 115, 25, dpi),
         dpi,
         crate::theme::TEXT,
         true,
@@ -387,7 +405,7 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
     color_text(
         dc,
         t("Küçük     Varsayılan     Büyük", "Small     Default     Large"),
-        text_rect(148, 380, 203, 16, dpi),
+        text_rect(148, 385, 203, 18, dpi),
         dpi,
         crate::theme::MUTED,
         false,
@@ -395,28 +413,18 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         DT_CENTER | DT_VCENTER | DT_SINGLELINE,
     );
 
-    rounded(dc, text_rect(18, 400, 344, 54, dpi), dpi, crate::theme::RAISED, crate::theme::BORDER);
+    rounded(dc, text_rect(18, 430, 344, 68, dpi), dpi, crate::theme::RAISED, crate::theme::BORDER);
     color_text(
         dc,
         t("Hızlı kılavuzu aç", "Open the quick guide"),
-        text_rect(32, 410, 280, 30, dpi),
+        text_rect(32, 449, 280, 30, dpi),
         dpi,
         crate::theme::ACCENT,
         true,
         105,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
-    color_text(dc, "›", text_rect(328, 407, 22, 34, dpi), dpi, crate::theme::MINT, true, 150, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    color_text(
-        dc,
-        t("DeskTuk görünümüne uygun ayarlar", "Settings styled for DeskTuk"),
-        text_rect(24, 458, 330, 18, dpi),
-        dpi,
-        crate::theme::MUTED,
-        false,
-        85,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
-    );
+    color_text(dc, "›", text_rect(328, 447, 22, 34, dpi), dpi, crate::theme::MINT, true, 150, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
 fn guide_topics(english: bool) -> [(&'static str, &'static str); 9] {
@@ -511,6 +519,13 @@ unsafe extern "system" fn panel_proc(hwnd: HWND, message: u32, wparam: WPARAM, l
             FillRect(dc, &client, background);
             DeleteObject(background);
             let dpi = GetDpiForWindow(hwnd).max(96);
+            rounded(
+                dc,
+                win::rect(scale(1, dpi), scale(1, dpi), client.right - scale(1, dpi), client.bottom - scale(1, dpi)),
+                dpi,
+                crate::theme::BG,
+                crate::theme::BORDER,
+            );
             if PAGE.get() == GUIDE {
                 paint_guide(dc, dpi);
             } else {
@@ -600,7 +615,7 @@ fn click(hwnd: HWND, x: i32, y: i32) {
                 }
             }
         }
-    } else if (337..=379).contains(&y) {
+    } else if (337..=413).contains(&y) {
         let value = match x {
             152..=207 => Some(90),
             218..=273 => Some(100),
@@ -613,7 +628,7 @@ fn click(hwnd: HWND, x: i32, y: i32) {
             }
             app().save_config();
         }
-    } else if (400..=454).contains(&y) {
+    } else if (430..=498).contains(&y) {
         PAGE.set(GUIDE);
         let (w, h) = size(GUIDE, dpi);
         let at = reposition_for_size(hwnd, w, h);

@@ -1112,14 +1112,14 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
     } else if control_at(dpi, POINT { x, y }) == 3 {
         let mut at = POINT { x, y };
         ClientToScreen(hwnd, &mut at);
-        crate::settings::show(crate::app::app().controller.get(), at);
+        crate::settings::show(hwnd, at);
     } else if control_at(dpi, POINT { x, y }) == 4 {
         let rect = extra_rect(dpi, 1).unwrap_or_default();
         let mut at = POINT { x: rect.left, y: rect.bottom + scale(4, dpi) };
         ClientToScreen(hwnd, &mut at);
         circles::grid_menu(at);
     } else if control_at(dpi, POINT { x, y }) == 5 {
-        crate::settings::guide(crate::app::app().controller.get());
+        crate::settings::guide(hwnd);
     } else if control_at(dpi, POINT { x, y }) == 6 {
         let rect = extra_rect(dpi, 3).unwrap_or_default();
         let mut at = POINT { x: rect.left, y: rect.bottom + scale(4, dpi) };

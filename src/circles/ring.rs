@@ -1067,9 +1067,6 @@ fn move_item(c: POINT) {
                 p.active = true;
             }
             if p.active {
-                unsafe { SetCursor(LoadCursorW(std::ptr::null_mut(), IDC_SIZEALL)) };
-            }
-            if p.active {
                 let surface = if started {
                     let icon = r.page.iter().filter_map(|s| s.item.as_ref()).find(|it| it.path == p.path).map(|it| it.cached_icon());
                     draw::drag_icon(icon.unwrap_or(std::ptr::null_mut()), dpi)

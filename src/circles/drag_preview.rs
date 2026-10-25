@@ -25,9 +25,11 @@ pub fn register_class() {
     unsafe { RegisterClassW(&wc) };
 }
 
-pub fn show(surface: Surface, owner: HWND, at: POINT, dpi: u32) {
+pub fn show(surface: Surface, owner: HWND, at: POINT, _dpi: u32) {
     close();
-    let offset = win::scale(12, dpi);
+    // Keep the icon's visual centre under the pointer; offset previews obscure
+    // the actual drop point and make precise drags harder.
+    let offset = -(surface.w.min(surface.h) / 2);
     let hwnd = unsafe {
         CreateWindowExW(
             WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
@@ -89,6 +91,8 @@ mod tests {
         move_to(POINT { x: -29900, y: -29800 });
         let rect = win::window_rect(hwnd);
         assert_eq!((rect.left, rect.top), (-29900 + offset, -29800 + offset));
+        assert_eq!((rect.left + rect.right) / 2, -29900);
+        assert_eq!((rect.top + rect.bottom) / 2, -29800);
         close();
         assert_eq!(unsafe { IsWindow(hwnd) }, 0);
         assert!(WINDOW.get().is_none());

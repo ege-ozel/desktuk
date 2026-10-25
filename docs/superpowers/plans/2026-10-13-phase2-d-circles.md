@@ -1870,3 +1870,18 @@ the default and the selection retained in memory/configuration.
 
 Release Clippy passed. Tests: 75 passed, 3 ignored, 1 existing failure at
 `dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).
+
+### D66: Refine Settings and centre drag previews
+
+Owner requests consistent Settings cards and headings, icon-style toggles, cleaner
+panel placement, toggle-to-close Quick Guide, and a cursor-centred drag image.
+
+- [x] Match card sizing, heading color, spacing, outer border and remove the footer caption.
+- [x] Restyle setting toggles as colored icon controls and place the panel left of the dock.
+- [x] Let the Quick Guide trigger close the guide when activated again.
+- [x] Centre the internal drag preview on the pointer and retain the normal cursor.
+- [x] Preserve Recent ring mouse-wheel paging (already implemented).
+- [x] Run fmt, release Clippy and release tests; record the result below.
+
+Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
+`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).
