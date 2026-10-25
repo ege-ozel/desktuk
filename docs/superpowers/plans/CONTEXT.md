@@ -47,17 +47,17 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   left centre/background drag and lazy 32-file dock launch pages. Manual checks pending.
 - D48 adds bilingual settings/guide, lock hints and Align now. Grid selection
   preserves positions; first installs use 4x4. Guide: docs/user-guide.md.
-- D49 fixes lazy menu notifications/hint placement and caches antialiased tools.
-- D50 guards guide re-entry and removes resize easing; hover effects remain.
+- D49 fixes lazy menu notifications/hint placement; D50 guards guide re-entry and removes resize easing.
 - D51 makes rows launch menus, keeps compact Circles, cleans borders/insets and
   enables blank-area dragging on all four rails with saved edge/cancel restoration.
 - D52 adds positive hints and dock search; D54 uses one virtual scrollbar, locked
   search, rounded tool/field borders and blue drag hints with larger semibold text.
-  D55 adds single AA frames, visible hover editing, result keys and teal hover.
+  D55 adds AA frames, visible hover editing and teal hover; D57 reuses hover styling,
+  and D58 shares native paint for docs.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
-- D57 reuses hover styling for initial/key selection; D58 shares native paint for docs.
 - D63 adds the bilingual startup toggle and Ctrl+drag OLE copy export; internal drags remain unchanged. Physical drop is unverified; one collapsed-dock size test fails.
+- D64 replaces system Settings/guide dialogs with DeskTuk's rounded slate/mint panel and removes OLE handoff redraw/focus work. Installed SHA256: BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.

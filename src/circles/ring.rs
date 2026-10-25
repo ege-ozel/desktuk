@@ -998,6 +998,29 @@ fn on_mouse_move(wparam: WPARAM, lparam: LPARAM) {
 }
 
 fn move_item(c: POINT) {
+    let export_requested = unsafe { GetAsyncKeyState(VK_CONTROL as i32) } < 0;
+    let requested = with(|r| r.press.as_ref().is_some_and(|p| p.external_requested)).unwrap_or(false);
+    if requested {
+        return;
+    }
+    let export = if export_requested && with(|r| r.press.as_ref().is_some_and(|p| p.active)).unwrap_or(false) {
+        with(|r| {
+            let hwnd = r.hwnd;
+            let p = r.press.as_mut()?;
+            if p.external_requested {
+                return None;
+            }
+            p.external_requested = true;
+            Some((hwnd, p.path.clone()))
+        })
+        .flatten()
+    } else {
+        None
+    };
+    if let Some((hwnd, _path)) = export {
+        unsafe { PostMessageW(hwnd, WM_APP_EXTERNAL_DRAG, 0, 0) };
+        return;
+    }
     with(|r| {
         if r.press.is_some() {
             let next = geom::drag_slot(&r.metrics, r.page.len(), c.x - r.center.x, c.y - r.center.y, r.hover, win::scale(6, r.dpi));
@@ -1019,7 +1042,6 @@ fn move_item(c: POINT) {
             }
         }
     });
-    let export_requested = unsafe { GetAsyncKeyState(VK_CONTROL as i32) } < 0;
     let export = with(|r| {
         let hwnd = r.hwnd;
         let p = r.press.as_mut()?;
@@ -1079,20 +1101,21 @@ fn start_external_drag(hwnd: HWND) {
         let press = r.press.take()?;
         r.hover = None;
         redraw(r);
-        Some((r.anchor, press.path))
+        Some(press.path)
     })
     .flatten();
-    let Some((anchor, path)) = source else { return };
+    let Some(path) = source else { return };
 
     reset_item_pointer();
     super::drag_preview::close();
     uninstall_mouse_hook();
-    super::drag_capture::end(hwnd);
-    circle_win::end_press(anchor, false);
     match super::external_drag::start(hwnd, &path) {
         Ok(()) => dlog!("external file drag finished: {}", path.display()),
         Err(error) => dlog!("external file drag failed for {}: {error}", path.display()),
     }
+    // Keep foreground/capture ownership through OLE startup; ending it first caused
+    // an unnecessary focus/z-order round trip right at the start of an external drag.
+    super::drag_capture::end(hwnd);
     if with(|r| r.hwnd == hwnd).unwrap_or(false) {
         install_mouse_hook();
         close_if_outside();

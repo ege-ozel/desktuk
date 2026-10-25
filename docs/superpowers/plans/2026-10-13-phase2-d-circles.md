@@ -1836,3 +1836,25 @@ Release Clippy passed. Release tests: 75 passed, 3 ignored, 1 failed at the exis
 `dock_dimensions_scale_with_dpi` assertion (actual collapsed dimensions `(64, 132)`,
 expected `(64, 64)`). OLE file drops are not physically verified; no installed app
 or installer was changed.
+
+
+### D64: Match Settings and Quick Guide to DeskTuk; smooth external drag handoff
+
+Owner reports the system Settings/Quick Guide presentation does not match DeskTuk,
+and Ctrl+drag to external applications works but moves in a choppy way.
+
+- [x] Replace the system popup and MessageBox with a custom rounded panel using
+  DeskTuk's slate, periwinkle and mint colors; show language, usage tips and startup
+  controls together and render the guide as readable in-panel topic cards.
+- [x] Keep the custom panel within the active monitor's work area, support DPI scaling,
+  header dragging, close-on-focus-loss and navigation between Settings and Guide.
+- [x] Avoid ring hit-testing/redraw once external export starts and preserve the
+  existing drag capture through OLE initialization to remove the focus/z-order roundtrip.
+- [x] Run fmt, release Clippy and release tests; rebuild and install the new package.
+- [ ] Owner confirms custom panel appearance and Ctrl+drag smoothness on the desktop.
+
+Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
+`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected). Installer
+completed with exit code 0; installed image matches release SHA256
+`BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305`; running PID
+16948 responded. Physical appearance and drag smoothness remain owner acceptance.
