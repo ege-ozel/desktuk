@@ -1816,3 +1816,23 @@ and a heavy rectangular frame on white. Owner authorizes the suggested oval shad
 Only the ignored documentation exporter ran (78 other tests filtered out). No
 application regression/input tests or installed app/installer changes. Local
 preview is target/d58-media/theme-preview.png (not a tracked README asset).
+
+
+### D63: Start with Windows in Settings and export files with OLE drag
+
+Owner requests a bilingual Windows startup setting in Settings and real file
+dragging from a circle to browsers or other applications. Preserve DeskTuk's
+internal reference drag and keep source files in place.
+
+- [x] Add a bilingual, checked Windows startup toggle to the existing Settings
+  menu; read the live per-user Run value when opened and report write errors.
+- [x] Add Ctrl+drag handoff to the Shell OLE drag loop, exposing the selected path
+  as a copy-only shell data object; leave unmodified drags as internal moves.
+- [x] Document the Ctrl modifier and copy-preserving behavior in the bilingual guide.
+- [x] Run formatting, release Clippy and release tests; record the result below.
+- [ ] Owner verifies Ctrl+drag to a browser and another Windows drop target.
+
+Release Clippy passed. Release tests: 75 passed, 3 ignored, 1 failed at the existing
+`dock_dimensions_scale_with_dpi` assertion (actual collapsed dimensions `(64, 132)`,
+expected `(64, 64)`). OLE file drops are not physically verified; no installed app
+or installer was changed.

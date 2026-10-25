@@ -17,7 +17,7 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON, VK_RETURN, VK_UP,
+    GetAsyncKeyState, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT, VK_CONTROL, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON, VK_RETURN, VK_UP,
 };
 use windows_sys::Win32::UI::Shell::{DragAcceptFiles, HDROP};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
@@ -67,6 +67,7 @@ struct Press {
     path: PathBuf,
     cursor: POINT,
     active: bool,
+    external_requested: bool,
 }
 
 struct Ring {
@@ -111,6 +112,7 @@ thread_local! {
 
 const WM_ITEM_POINTER: u32 = WM_APP + 43;
 const WM_APP_OUTSIDE_POINTER: u32 = WM_APP + 41;
+const WM_APP_EXTERNAL_DRAG: u32 = WM_APP + 46;
 
 fn install_mouse_hook() {
     MOUSE_HOOK.with(|hook| {
@@ -1017,6 +1019,22 @@ fn move_item(c: POINT) {
             }
         }
     });
+    let export_requested = unsafe { GetAsyncKeyState(VK_CONTROL as i32) } < 0;
+    let export = with(|r| {
+        let hwnd = r.hwnd;
+        let p = r.press.as_mut()?;
+        if p.active && export_requested && !p.external_requested {
+            p.external_requested = true;
+            Some((hwnd, p.path.clone()))
+        } else {
+            None
+        }
+    })
+    .flatten();
+    if let Some((hwnd, _path)) = export {
+        unsafe { PostMessageW(hwnd, WM_APP_EXTERNAL_DRAG, 0, 0) };
+        return;
+    }
     let preview = with(|r| {
         let dpi = r.dpi;
         if let Some(p) = r.press.as_mut() {
@@ -1053,6 +1071,35 @@ fn move_item(c: POINT) {
     }
 }
 
+fn start_external_drag(hwnd: HWND) {
+    let source = with(|r| {
+        if r.hwnd != hwnd {
+            return None;
+        }
+        let press = r.press.take()?;
+        r.hover = None;
+        redraw(r);
+        Some((r.anchor, press.path))
+    })
+    .flatten();
+    let Some((anchor, path)) = source else { return };
+
+    reset_item_pointer();
+    super::drag_preview::close();
+    uninstall_mouse_hook();
+    super::drag_capture::end(hwnd);
+    circle_win::end_press(anchor, false);
+    match super::external_drag::start(hwnd, &path) {
+        Ok(()) => dlog!("external file drag finished: {}", path.display()),
+        Err(error) => dlog!("external file drag failed for {}: {error}", path.display()),
+    }
+    if with(|r| r.hwnd == hwnd).unwrap_or(false) {
+        install_mouse_hook();
+        close_if_outside();
+    }
+    super::interaction_ended();
+}
+
 /// Something the ring must do after its state borrow has ended.
 enum Action {
     None,
@@ -1085,7 +1132,12 @@ fn on_left_down(lparam: LPARAM) {
             RingHit::Center | RingHit::Ring => Some(LeftPress::Circle(r.anchor, circle_win::mouse_point(r.hwnd, lparam), r.center)),
             RingHit::Slot(k) => match &r.page[k].r {
                 SlotRef::Item(p) => {
-                    r.press = Some(Press { path: p.clone(), cursor: circle_win::mouse_point(r.hwnd, lparam), active: false });
+                    r.press = Some(Press {
+                        path: p.clone(),
+                        cursor: circle_win::mouse_point(r.hwnd, lparam),
+                        active: false,
+                        external_requested: false,
+                    });
                     ITEM_WINDOW.set(r.hwnd);
                     Some(LeftPress::Item(r.hwnd))
                 }
@@ -1535,6 +1587,10 @@ unsafe extern "system" fn ring_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam
         }
         WM_APP_OUTSIDE_POINTER => {
             close_if_outside();
+            0
+        }
+        WM_APP_EXTERNAL_DRAG => {
+            start_external_drag(hwnd);
             0
         }
         WM_DESTROY => {

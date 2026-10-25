@@ -24,6 +24,8 @@ pub fn help_label() -> &'static str {
 pub fn show(owner: HWND, at: POINT) {
     crate::hint::hide();
     let (en, hints) = app().board.try_borrow().map(|b| (b.english, b.hints)).unwrap_or((false, true));
+    // Read the live Run value when Settings opens, just as the tray menu does.
+    let startup = crate::autostart::is_enabled();
     let command = unsafe {
         let menu = CreatePopupMenu();
         let languages = CreatePopupMenu();
@@ -47,6 +49,15 @@ pub fn show(owner: HWND, at: POINT) {
             3,
             win::wide(i18n::choose("Kullanım ipuçları", "Usage tips")).as_ptr(),
         );
+        let startup_flags = match startup {
+            Ok(true) => MF_STRING | MF_CHECKED,
+            Ok(false) => MF_STRING,
+            Err(ref e) => {
+                crate::dlog!("startup status unavailable in Settings: {e}");
+                MF_STRING | MF_GRAYED
+            }
+        };
+        AppendMenuW(menu, startup_flags, 5, win::wide(i18n::choose("Windows ile başlat", "Start with Windows")).as_ptr());
         AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null());
         AppendMenuW(menu, MF_STRING, 4, win::wide(help_label()).as_ptr());
         SetForegroundWindow(owner);
@@ -57,6 +68,25 @@ pub fn show(owner: HWND, at: POINT) {
     };
     if command == 4 {
         guide(owner);
+        return;
+    }
+    if command == 5 {
+        let result = crate::autostart::is_enabled().and_then(|enabled| crate::autostart::set_enabled(!enabled));
+        if let Err(e) = result {
+            crate::dlog!("startup change failed in Settings: {e}");
+            unsafe {
+                MessageBoxW(
+                    owner,
+                    win::wide(format!(
+                        "{}\n\n{e}",
+                        i18n::choose("Windows başlangıç ayarı değiştirilemedi.", "Could not change the Windows startup setting.")
+                    ))
+                    .as_ptr(),
+                    win::wide("DeskTuk").as_ptr(),
+                    MB_OK | MB_ICONERROR,
+                );
+            }
+        }
         return;
     }
     if !(1..=3).contains(&command) {
@@ -103,7 +133,7 @@ pub fn guide(owner: HWND) {
     }
     let _guard = GuideGuard;
     let text = i18n::choose(
-        "Çemberin üzerine gelerek içeriğini açın.\n\n• Taşıma: merkezden veya boş alandan sol tuşla sürükleyin.\n• Dosya açma: simgeye tıklayın. Dosyayı başka çembere sürüklemek yalnızca başvurusunu taşır.\n• Arama: açık çemberin üzerinde yazın. Başlangıcı eşleşen adlar önce gelir. Ctrl+A, Shift+oklar ve fareyle metin seçebilirsiniz. Esc temizler.\n• Sayfalama: tekerleği kaydırın veya merkeze tıklayın.\n• Kilit: otomatik açılmayı ve göster/gizle düğmesini durdurur. Panelde dosya araması ve taşıma kullanılabilir.\n• Izgara: seçim sonraki bırakmaları hizalar. Şimdi hizala mevcut çemberleri uygun boş hücrelere yerleştirir.\n• Paneldeki çember adına tıklayıp üst kutuda arayın. Enter veya çift tıklamayla açın. Sağ tık menüsü de kullanılabilir.\n• Paneli boş alanlarından sürükleyin; ekranın dört kenarında ve köşelerinde durur.\n• Dil ve ipuçları Ayarlar menüsündedir.",
-        "Hover over a circle to reveal its contents.\n\n• Move: drag its centre or empty background with the left button.\n• Open: click a file icon. Dragging a file to another circle moves only its reference.\n• Search: type over an open circle. Prefix matches appear first. Use Ctrl+A, Shift+arrows or the mouse to select text. Esc clears.\n• Pages: scroll the wheel or click the centre.\n• Lock: stops hover opening and show/hide. Panel file search and dragging remain available.\n• Grid: selection affects future drops. Align now places existing circles in suitable empty cells.\n• Click a circle row and search in the top field. Enter or double-click opens a file. The context menu is also available.\n• Drag blank panel areas to move along any screen edge or corner.\n• Language and usage tips are in Settings.");
+        "Çemberin üzerine gelerek içeriğini açın.\n\n• Taşıma: merkezden veya boş alandan sol tuşla sürükleyin.\n• Dosya açma: simgeye tıklayın. Dosyayı başka çembere sürüklemek yalnızca başvurusunu taşır.\n• Dışarı sürükleme: dosyayı başka bir uygulamaya sürüklerken Ctrl tuşunu basılı tutun. Özgün dosya ve DeskTuk başvurusu yerinde kalır.\n• Arama: açık çemberin üzerinde yazın. Başlangıcı eşleşen adlar önce gelir. Ctrl+A, Shift+oklar ve fareyle metin seçebilirsiniz. Esc temizler.\n• Sayfalama: tekerleği kaydırın veya merkeze tıklayın.\n• Kilit: otomatik açılmayı ve göster/gizle düğmesini durdurur. Panelde dosya araması ve taşıma kullanılabilir.\n• Izgara: seçim sonraki bırakmaları hizalar. Şimdi hizala mevcut çemberleri uygun boş hücrelere yerleştirir.\n• Paneldeki çember adına tıklayıp üst kutuda arayın. Enter veya çift tıklamayla açın. Sağ tık menüsü de kullanılabilir.\n• Paneli boş alanlarından sürükleyin; ekranın dört kenarında ve köşelerinde durur.\n• Dil, ipuçları ve Windows başlangıç seçeneği Ayarlar'dadır.",
+        "Hover over a circle to reveal its contents.\n\n• Move: drag its centre or empty background with the left button.\n• Open: click a file icon. Dragging a file to another circle moves only its reference.\n• Drag out: hold Ctrl while dragging a file to another app. The original file and DeskTuk reference stay in place.\n• Search: type over an open circle. Prefix matches appear first. Use Ctrl+A, Shift+arrows or the mouse to select text. Esc clears.\n• Pages: scroll the wheel or click the centre.\n• Lock: stops hover opening and show/hide. Panel file search and dragging remain available.\n• Grid: selection affects future drops. Align now places existing circles in suitable empty cells.\n• Click a circle row and search in the top field. Enter or double-click opens a file. The context menu is also available.\n• Drag blank panel areas to move along any screen edge or corner.\n• Language, usage tips and Windows startup are in Settings.");
     unsafe { MessageBoxW(owner, win::wide(text).as_ptr(), win::wide(help_label()).as_ptr(), MB_OK | MB_ICONINFORMATION) };
 }

@@ -15,6 +15,7 @@ pub mod desktop;
 mod drag_capture;
 mod drag_preview;
 pub mod draw;
+mod external_drag;
 pub mod geom;
 mod grid;
 mod grid_overlay;

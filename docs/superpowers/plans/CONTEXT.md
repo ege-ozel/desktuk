@@ -54,9 +54,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D52 adds positive hints and dock search; D54 uses one virtual scrollbar, locked
   search, rounded tool/field borders and blue drag hints with larger semibold text.
   D55 adds single AA frames, visible hover editing, result keys and teal hover.
-  D57 reuses hover styling for initial/key selection; D58 shares native paint for docs.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
+- D57 reuses hover styling for initial/key selection; D58 shares native paint for docs.
+- D63 adds the bilingual startup toggle and Ctrl+drag OLE copy export; internal drags remain unchanged. Physical drop is unverified; one collapsed-dock size test fails.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
