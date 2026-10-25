@@ -9,7 +9,9 @@ use windows_sys::Win32::Graphics::Gdi::{
     DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, MONITORINFO, MONITOR_DEFAULTTONEAREST, PAINTSTRUCT, PS_SOLID, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 use crate::{app::app, i18n, win};
@@ -23,7 +25,10 @@ const GUIDE: u8 = 1;
 
 thread_local! {
     static PANEL: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
+    static PANEL_OWNER: Cell<HWND> = const { Cell::new(std::ptr::null_mut()) };
     static PAGE: Cell<u8> = const { Cell::new(SETTINGS) };
+    static CLOSE_HOVERED: Cell<bool> = const { Cell::new(false) };
+    static TRACKING_MOUSE: Cell<bool> = const { Cell::new(false) };
     static STARTUP_ENABLED: Cell<Option<bool>> = const { Cell::new(None) };
     static CLASS_READY: Cell<bool> = const { Cell::new(false) };
 }
@@ -59,9 +64,12 @@ fn open(owner: HWND, at: POINT, page: u8) {
             return;
         }
         PAGE.set(page);
+        PANEL_OWNER.set(owner);
         let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96);
         let (w, h) = size(page, dpi);
-        let (x, y) = position_left_of(owner, at, w, h, dpi);
+        let rect = win::window_rect(hwnd);
+        let fallback = POINT { x: rect.right - w, y: rect.top };
+        let (x, y) = position_left_of(owner, fallback, w, h, dpi);
         unsafe {
             SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             shape(hwnd, dpi, w, h);
@@ -73,6 +81,7 @@ fn open(owner: HWND, at: POINT, page: u8) {
     }
 
     PAGE.set(page);
+    PANEL_OWNER.set(owner);
     let dpi = unsafe { GetDpiForWindow(owner) }.max(96);
     let (w, h) = size(page, dpi);
     let (x, y) = position_left_of(owner, at, w, h, dpi);
@@ -160,12 +169,6 @@ fn clamp_to_work_area(at: POINT, width: i32, height: i32) -> (i32, i32) {
         }
     }
     (at.x, at.y)
-}
-
-fn reposition_for_size(hwnd: HWND, width: i32, height: i32) -> POINT {
-    let rect = win::window_rect(hwnd);
-    let (x, y) = clamp_to_work_area(POINT { x: rect.left, y: rect.top }, width, height);
-    POINT { x, y }
 }
 
 fn shape(hwnd: HWND, dpi: u32, width: i32, height: i32) {
@@ -263,6 +266,47 @@ fn draw_icon_toggle(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32, x: i32
     );
 }
 
+fn draw_windows_toggle(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32, x: i32, y: i32, on: bool) {
+    let rect = text_rect(x, y, 38, 38, dpi);
+    rounded(
+        dc,
+        rect,
+        dpi,
+        if on { crate::theme::RAISED } else { crate::theme::SURFACE },
+        if on { crate::theme::ACCENT } else { crate::theme::BORDER },
+    );
+    let color = if on { crate::theme::MINT } else { crate::theme::MUTED };
+    let gap = scale(2, dpi);
+    let tile = scale(8, dpi);
+    let cx = (rect.left + rect.right) / 2;
+    let cy = (rect.top + rect.bottom) / 2;
+    for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+        rounded(
+            dc,
+            win::rect(cx + dx * gap - tile / 2, cy + dy * gap - tile / 2, cx + dx * gap + tile / 2, cy + dy * gap + tile / 2),
+            dpi,
+            color,
+            color,
+        );
+    }
+}
+
+fn draw_close(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32, x: i32) {
+    if CLOSE_HOVERED.get() {
+        rounded(dc, text_rect(x, 14, 34, 34, dpi), dpi, crate::theme::RAISED, crate::theme::BORDER);
+    }
+    color_text(
+        dc,
+        "×",
+        text_rect(x + 3, 16, 28, 30, dpi),
+        dpi,
+        if CLOSE_HOVERED.get() { crate::theme::MINT } else { crate::theme::MUTED },
+        true,
+        140,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+    );
+}
+
 fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
     let (english, hints) = settings_state();
     let startup = STARTUP_ENABLED.get();
@@ -278,7 +322,7 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         92,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
-    color_text(dc, "×", text_rect(334, 17, 28, 28, dpi), dpi, crate::theme::MUTED, true, 140, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    draw_close(dc, dpi, 332);
 
     rounded(dc, text_rect(18, 78, 344, 84, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
     color_text(
@@ -355,7 +399,7 @@ fn paint_settings(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
     if let Some(enabled) = startup {
-        draw_icon_toggle(dc, dpi, 304, 267, enabled, "↗");
+        draw_windows_toggle(dc, dpi, 304, 267, enabled);
     } else {
         color_text(
             dc,
@@ -478,7 +522,7 @@ fn paint_guide(dc: windows_sys::Win32::Graphics::Gdi::HDC, dpi: u32) {
         95,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE,
     );
-    color_text(dc, "×", text_rect(492, 17, 28, 28, dpi), dpi, crate::theme::MUTED, true, 140, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    draw_close(dc, dpi, 490);
     for (index, (heading, body)) in guide_topics(english).into_iter().enumerate() {
         let y = 82 + index as i32 * 62;
         rounded(dc, text_rect(18, y, 504, 56, dpi), dpi, crate::theme::SURFACE, crate::theme::BORDER);
@@ -534,6 +578,39 @@ unsafe extern "system" fn panel_proc(hwnd: HWND, message: u32, wparam: WPARAM, l
             EndPaint(hwnd, &paint);
             0
         }
+        WM_MOUSEMOVE => {
+            if !TRACKING_MOUSE.replace(true) {
+                let mut tracking = TRACKMOUSEEVENT {
+                    cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+                    dwFlags: TME_LEAVE,
+                    hwndTrack: hwnd,
+                    dwHoverTime: 0,
+                };
+                TrackMouseEvent(&mut tracking);
+            }
+            let point = POINT { x: win::x_lparam(lparam), y: win::y_lparam(lparam) };
+            let panel_width = if PAGE.get() == GUIDE { 540 } else { 380 };
+            let dpi = GetDpiForWindow(hwnd).max(96);
+            let hovered = point.x >= scale(panel_width - 48, dpi)
+                && point.x < scale(panel_width - 8, dpi)
+                && point.y >= scale(10, dpi)
+                && point.y <= scale(50, dpi);
+            if CLOSE_HOVERED.replace(hovered) != hovered {
+                let rect = win::rect(scale(panel_width - 50, dpi), scale(10, dpi), scale(panel_width - 8, dpi), scale(50, dpi));
+                InvalidateRect(hwnd, &rect, 0);
+            }
+            0
+        }
+        WM_MOUSELEAVE => {
+            TRACKING_MOUSE.set(false);
+            if CLOSE_HOVERED.replace(false) {
+                let dpi = GetDpiForWindow(hwnd).max(96);
+                let panel_width = if PAGE.get() == GUIDE { 540 } else { 380 };
+                let rect = win::rect(scale(panel_width - 50, dpi), scale(10, dpi), scale(panel_width - 8, dpi), scale(50, dpi));
+                InvalidateRect(hwnd, &rect, 0);
+            }
+            0
+        }
         WM_LBUTTONUP => {
             click(hwnd, win::x_lparam(lparam), win::y_lparam(lparam));
             0
@@ -583,11 +660,14 @@ fn click(hwnd: HWND, x: i32, y: i32) {
         if (652..=700).contains(&y) {
             PAGE.set(SETTINGS);
             let (w, h) = size(SETTINGS, dpi);
-            let at = reposition_for_size(hwnd, w, h);
+            let rect = win::window_rect(hwnd);
+            let fallback = POINT { x: rect.right - w, y: rect.top };
+            let (x, y) = position_left_of(PANEL_OWNER.get(), fallback, w, h, dpi);
             unsafe {
-                SetWindowPos(hwnd, HWND_TOPMOST, at.x, at.y, w, h, SWP_NOACTIVATE);
+                SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
                 shape(hwnd, dpi, w, h);
                 InvalidateRect(hwnd, std::ptr::null(), 1);
+                SetForegroundWindow(hwnd);
             }
         }
         return;
@@ -631,11 +711,14 @@ fn click(hwnd: HWND, x: i32, y: i32) {
     } else if (430..=498).contains(&y) {
         PAGE.set(GUIDE);
         let (w, h) = size(GUIDE, dpi);
-        let at = reposition_for_size(hwnd, w, h);
+        let rect = win::window_rect(hwnd);
+        let fallback = POINT { x: rect.right - w, y: rect.top };
+        let (x, y) = position_left_of(PANEL_OWNER.get(), fallback, w, h, dpi);
         unsafe {
-            SetWindowPos(hwnd, HWND_TOPMOST, at.x, at.y, w, h, SWP_NOACTIVATE);
+            SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             shape(hwnd, dpi, w, h);
             InvalidateRect(hwnd, std::ptr::null(), 1);
+            SetForegroundWindow(hwnd);
         }
     }
     unsafe { InvalidateRect(hwnd, std::ptr::null(), 1) };

@@ -1885,3 +1885,16 @@ panel placement, toggle-to-close Quick Guide, and a cursor-centred drag image.
 
 Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
 `dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).
+
+### D67: Keep Quick Guide above the dock and highlight close
+
+Owner reports that the in-panel Quick Guide can appear behind the dock after its
+page expands. The close control also needs hover feedback, and startup needs its own icon.
+
+- [x] Reposition page changes against the dock and raise the panel after navigation.
+- [x] Add a mint hover treatment to the close control.
+- [x] Draw a distinct four-pane Windows mark for Start with Windows.
+- [x] Run fmt, release Clippy and release tests; record the result below.
+
+Release Clippy passed. Tests: 75 passed, 3 ignored, 1 pre-existing failure at
+`dock_dimensions_scale_with_dpi` ((64, 132) actual, (64, 64) expected).

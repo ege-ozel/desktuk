@@ -57,7 +57,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
 - D63 adds the bilingual startup toggle and Ctrl+drag OLE copy export; internal drags remain unchanged. Physical drop is unverified; one collapsed-dock size test fails.
-- D64 replaces system Settings/guide dialogs with DeskTuk's rounded slate/mint panel and removes OLE handoff redraw/focus work. D65 persists 90/100/110% Settings/Guide text sizing (90% preserves current sizing); D66 refines the panel and centres internal drag previews under the cursor. Installed SHA256: BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305.
+- D64 replaces system Settings/guide dialogs with DeskTuk's rounded slate/mint panel and removes OLE handoff redraw/focus work. D65 persists 90/100/110% text sizing; D66 refines controls and centres drag previews; D67 fixes Guide z-order/placement and adds close hover + Windows startup glyph. Installed SHA256: BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305.
 ## Observed defects / checks not performed
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
