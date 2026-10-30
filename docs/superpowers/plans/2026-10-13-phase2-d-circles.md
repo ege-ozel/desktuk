@@ -1951,3 +1951,32 @@ The installed application was restarted as PID 10500. Configuration SHA256 staye
 The README exporter was also run; all generated assets remained byte-identical,
 so no README media or app source change was committed. Physical mouse acceptance
 is still unperformed. No physical-input integration script was run.
+
+### D70: Refine the hidden-state slash in the dock
+
+Owner requests a stronger slash and a gradient instead of the reddish glow in
+the centre visibility control. The voice transcript also mentions right-click
+menu changes; the third requested action is unclear and is awaiting clarification.
+Keep that menu change separate from the independently requested visual refinement.
+
+- [x] Give the hidden-state slash a slightly wider, darker teal/blue gradient and
+  use the same palette for its subtle glow instead of red.
+- [x] Inspect native compact/expanded previews and run required MSVC checks.
+- [x] Build/install/restart the checked application and verify the config hash.
+- [x] Record evidence, update CONTEXT.md, commit and push.
+- [ ] Owner confirms the physical appearance; clarify the right-click action list.
+
+MSVC formatting, release Clippy, release build and release tests pass (76 passed,
+3 ignored). A local, untracked copy of the existing routed-message fixture stops
+after its collapse/reopen/hide assertions and exports hidden compact/expanded
+PrintWindow previews to `target/d70-menu/`; these were visually inspected. This
+does not claim a pass for the full drag fixture or physical input. No runtime
+dependency, animation timer or menu command changed.
+
+Installer update exited 0, and the restarted installed image (PID 23792) matches
+release SHA256 `F3D9242FE6FC366B938F5094627B6502E8D259A15BD365B289BAA82FDDF0C3F9`.
+Configuration hash immediately before/after install remained
+`921B22A3923A168D2762343EF9B1C1D952A8255AF233FF6E6BA6BDF2693C1C20`.
+Right-click menu reduction awaits clarification of the transcript's third action
+(Exit or usage tips); the final sentence about search also remains unclear. Do
+not infer a search behavior change from that sentence. Prior D69 CI is green.

@@ -700,13 +700,13 @@ fn visibility_surface(size: i32, dpi: u32, visible: bool, progress: Option<f32>,
             let fold = line_distance(px, py, (17.0, 25.5), (31.5, 25.5));
             blend_pixel(pixel, folder, ((0.65 - fold) * factor + 0.5).clamp(0.0, 1.0) * 0.65);
             let slash = line_distance(px, py, (15.0, 15.0), (34.0, 34.0));
-            // A background halo makes the hidden slash readable through the folder.
-            blend_pixel(pixel, color, ((1.9 - slash) * factor + 0.5).clamp(0.0, 1.0) * (1.0 - level));
+            // A wider background halo separates the hidden slash from the folder.
+            blend_pixel(pixel, color, ((2.3 - slash) * factor + 0.5).clamp(0.0, 1.0) * (1.0 - level));
             let hidden = 1.0 - level;
-            let glow = 0.22 * (-slash * slash / 12.5).exp() * hidden;
-            blend_pixel(pixel, win::rgb(246, 87, 104), glow);
-            let gradient = mix_color(TEAL, crate::theme::ACCENT, ((py - 15.0) / 19.0).clamp(0.0, 1.0));
-            blend_pixel(pixel, gradient, ((0.9 - slash) * factor + 0.5).clamp(0.0, 1.0) * hidden);
+            let gradient = mix_color(SWITCH_BG, mix_color(TEAL, crate::theme::ACCENT, ((py - 15.0) / 19.0).clamp(0.0, 1.0)), 0.82);
+            let glow = 0.12 * (-slash * slash / 12.5).exp() * hidden;
+            blend_pixel(pixel, gradient, glow);
+            blend_pixel(pixel, gradient, ((1.15 - slash) * factor + 0.5).clamp(0.0, 1.0) * hidden);
         }
     }
     Some(surface)
