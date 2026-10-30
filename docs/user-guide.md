@@ -46,7 +46,7 @@ Merkez düğmenin altındaki dişli Ayarlar'ı, grid simgesi ızgarayı, bilgi s
 
 ### 11. Kullanım ipuçları
 
-İpuçları normal kontrolleri teal, kilit nedeniyle engellenenleri kırmızı, boş taşınabilir alanları mavi çerçeveyle açıklar. Ayarlar → Kullanım ipuçları ile hepsini birlikte açıp kapatabilirsiniz.
+İpuçları normal kontrolleri teal, kilit nedeniyle engellenenleri kırmızı, boş taşınabilir alanları mavi çerçeveyle açıklar. Ayarlar → Kullanım ipuçları ile hepsini birlikte açıp kapatabilirsiniz. Panelin sağ tık menüsündeki üçüncü seçenek de aynı ayarı değiştirir; tik işareti ipuçlarının açık olduğunu gösterir.
 
 ### 12. Sağ tık ve sistem tepsisi
 
@@ -98,7 +98,7 @@ Below the centre tile, the gear opens Settings, the grid icon opens grid choices
 
 ### 11. Usage tips
 
-Tips explain ordinary controls with a teal border, locked controls with red and blank draggable areas with blue. Settings → Usage tips turns all of them on or off together.
+Tips explain ordinary controls with a teal border, locked controls with red and blank draggable areas with blue. Settings → Usage tips turns all of them on or off together. The third entry in the panel's right-click menu changes the same setting; a checkmark means tips are enabled.
 
 ### 12. Context menu and tray
 

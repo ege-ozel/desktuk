@@ -99,7 +99,7 @@ Both search fields support familiar editing: **Ctrl+A**, **Ctrl+C/X/V/Z**,
 ## Small details, everyday use
 
 - **Keep the panel nearby.** Expanded or compact, it stays on a screen edge. Its position is saved.
-- **Get an explanation.** Usage tips describe controls, explain locked actions and point out draggable space. Turn them off in Settings.
+- **Get an explanation.** Usage tips describe controls, explain locked actions and point out draggable space. Toggle them in Settings or the panel's right-click menu.
 - **Keep access in the tray.** Use the notification-area icon to show DeskTuk again. Windows startup is opt-in from its menu.
 - **Choose your desktop.** **Show desktop icons** controls Explorer's own icons independently of DeskTuk circles.
 - **Keep your layout.** Settings and references live in `%APPDATA%\DeskTuk\desktuk.cfg`. Uninstall leaves this configuration and your referenced files intact.

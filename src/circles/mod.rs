@@ -503,7 +503,14 @@ pub fn popup(entries: &[(usize, &str)], at: POINT) -> usize {
                     }
                 }
             } else {
-                let flags = if id == crate::desktop_view::MENU_ID { crate::desktop_view::menu_flags() } else { MF_STRING };
+                let flags = if id == crate::desktop_view::MENU_ID {
+                    crate::desktop_view::menu_flags()
+                } else if id == crate::settings::HINTS_ID {
+                    let enabled = app().board.try_borrow().map(|b| b.hints).unwrap_or(false);
+                    MF_STRING | if enabled { MF_CHECKED } else { 0 }
+                } else {
+                    MF_STRING
+                };
                 AppendMenuW(m, flags, id, win::wide(crate::i18n::text(label)).as_ptr());
             }
         }
@@ -604,6 +611,7 @@ pub fn dock_menu(at: POINT) {
     let mut entries = vec![
         (IDM_DOCK_EXPAND, expand),
         (IDM_DOCK_LOCK, lock),
+        (crate::settings::HINTS_ID, crate::settings::hints_label()),
         (0, ""),
         (IDM_NEW_CIRCLE, "&New circle"),
         (IDM_CIRCLE_ACTIONS, "\u{c7}emberler"),
@@ -616,6 +624,7 @@ fn dock_command(command: usize) {
     match command {
         IDM_DOCK_EXPAND => crate::dock::context_action(false),
         IDM_DOCK_LOCK => crate::dock::context_action(true),
+        crate::settings::HINTS_ID => crate::settings::toggle_hints(),
         command if command >= CIRCLE_ACTION_BASE => {
             let ci = (command - CIRCLE_ACTION_BASE) / 8;
             let action = (command - CIRCLE_ACTION_BASE) % 8;

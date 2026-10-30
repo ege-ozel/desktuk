@@ -1977,6 +1977,36 @@ Installer update exited 0, and the restarted installed image (PID 23792) matches
 release SHA256 `F3D9242FE6FC366B938F5094627B6502E8D259A15BD365B289BAA82FDDF0C3F9`.
 Configuration hash immediately before/after install remained
 `921B22A3923A168D2762343EF9B1C1D952A8255AF233FF6E6BA6BDF2693C1C20`.
-Right-click menu reduction awaits clarification of the transcript's third action
-(Exit or usage tips); the final sentence about search also remains unclear. Do
+The third right-click action was subsequently clarified as a checked usage-tips
+toggle, delivered in D71. The final sentence about search remains unclear; do
 not infer a search behavior change from that sentence. Prior D69 CI is green.
+
+### D71: Add a checked usage-tips shortcut to the dock context menu
+
+Owner clarifies that the third entry, immediately below Hide menu and Lock, must
+be Usage tips. It toggles on/off with a checkmark and shares the existing Settings
+preference. Keep all other context-menu entries and Settings access available.
+
+- [x] Insert the bilingual usage-tips entry as the third dock context-menu item
+  and read its checkmark from the current board preference whenever opened.
+- [x] Share the toggle with Settings, save the existing usage_tips preference,
+  and dismiss visible/pending hints when the preference changes.
+- [x] Run required MSVC checks and verify the native shortcut/state persistence.
+- [x] Build/install/restart the checked application, preserve user configuration,
+  record evidence, update CONTEXT.md, commit and push.
+- [ ] Owner checks physical interaction and appearance.
+
+Windows MSVC formatting, release Clippy, release build and release tests pass
+(76 passed, 3 ignored). An untracked TEMP-isolated adaptation of the existing
+routed-message fixture (`target/d71-tips-fixture.ps1`) verifies the actual popup's
+third command/translated label/checkmark, toggles tips off through menu keyboard
+messages, toggles them on through Settings, toggles off again, and confirms the
+unchecked popup after process restart. The first probe's menu-key sequence was
+corrected from Home/two Down keys to three Down keys; the full targeted check then
+passed. No physical pointer movement or user preferences were used by the fixture.
+
+Installer update exited 0. Installed/release SHA256:
+`88D316E3547EFF59EE3A2E669D91FD38D26DE031DD6ECD8D4B1A7A27DAF39D88`.
+The app was restarted as PID 23292. Configuration hash immediately before/after
+installation remained `921B22A3923A168D2762343EF9B1C1D952A8255AF233FF6E6BA6BDF2693C1C20`.
+No new dependencies, config keys, idle work or search behavior changes.

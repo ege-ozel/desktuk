@@ -18,6 +18,7 @@ use crate::{app::app, i18n, win};
 
 pub const MENU_ID: usize = 70;
 pub const HELP_ID: usize = 71;
+pub const HINTS_ID: usize = 72;
 
 const CLASS: &str = "DeskTuk.SettingsPanel";
 const SETTINGS: u8 = 0;
@@ -39,6 +40,25 @@ pub fn label() -> &'static str {
 
 pub fn help_label() -> &'static str {
     i18n::choose("Hızlı kılavuz", "Quick guide")
+}
+
+pub fn hints_label() -> &'static str {
+    i18n::choose("Kullanım ipuçları", "Usage tips")
+}
+
+pub fn toggle_hints() {
+    {
+        let Ok(mut board) = app().board.try_borrow_mut() else { return };
+        board.hints = !board.hints;
+    }
+    crate::hint::hide();
+    app().save_config();
+    crate::circles::refresh_all();
+    crate::dock::refresh();
+    let panel = PANEL.get();
+    if !panel.is_null() {
+        unsafe { InvalidateRect(panel, std::ptr::null(), 0) };
+    }
 }
 
 pub fn show(owner: HWND, at: POINT) {
@@ -679,12 +699,7 @@ fn click(hwnd: HWND, x: i32, y: i32) {
             set_language(true);
         }
     } else if (174..=242).contains(&y) {
-        if let Ok(mut board) = app().board.try_borrow_mut() {
-            board.hints = !board.hints;
-        }
-        app().save_config();
-        crate::circles::refresh_all();
-        crate::dock::refresh();
+        toggle_hints();
     } else if (252..=320).contains(&y) {
         if let Some(enabled) = STARTUP_ENABLED.get() {
             match crate::autostart::set_enabled(!enabled) {
