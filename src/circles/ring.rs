@@ -1021,7 +1021,7 @@ fn move_item(c: POINT) {
         unsafe { PostMessageW(hwnd, WM_APP_EXTERNAL_DRAG, 0, 0) };
         return;
     }
-    with(|r| {
+    let feedback_changed = with(|r| {
         if r.press.is_some() {
             let next = geom::drag_slot(&r.metrics, r.page.len(), c.x - r.center.x, c.y - r.center.y, r.hover, win::scale(6, r.dpi));
             let after = next.is_some_and(|k| {
@@ -1038,10 +1038,12 @@ fn move_item(c: POINT) {
             if next != r.hover || after != r.drop_after {
                 r.hover = next;
                 r.drop_after = after;
-                redraw(r);
+                return true;
             }
         }
-    });
+        false
+    })
+    .unwrap_or(false);
     let export = with(|r| {
         let hwnd = r.hwnd;
         let p = r.press.as_mut()?;
@@ -1073,20 +1075,25 @@ fn move_item(c: POINT) {
                 } else {
                     None
                 };
-                return Some((r.hwnd, c, dpi, surface));
+                return Some((r.hwnd, c, dpi, surface, started));
             }
             return None;
         }
         None
     })
     .flatten();
-    if let Some((owner, at, dpi, surface)) = preview {
+    let started = preview.as_ref().is_some_and(|(_, _, _, _, started)| *started);
+    if let Some((owner, at, dpi, surface, _)) = preview {
         if let Some(surface) = surface {
-            with(redraw);
             super::drag_preview::show(surface, owner, at, dpi);
         } else {
             super::drag_preview::move_to(at);
         }
+    }
+    // Keep pointer-following ahead of the full ring repaint, and combine the
+    // initial drag/target feedback into a single frame rather than drawing twice.
+    if feedback_changed || started {
+        with(redraw);
     }
 }
 

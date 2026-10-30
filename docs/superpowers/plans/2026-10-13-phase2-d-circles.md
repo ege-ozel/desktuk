@@ -2096,3 +2096,39 @@ Restarted installed PID: 23588. Configuration hash before/after install remained
 `4FE84A39B525D09CE058A83B5450A3CB8227EC9CCC6C07349E3F3B426D1EE01C`.
 No filesystem crawl, new dependency, preference key or idle worker was added.
 Prior D72 CI run 41065338706 is green; physical owner acceptance remains pending.
+
+### D75: Move file-drag previews before repainting ring feedback
+
+Owner asks for smoother file movement inside circles. The current move handler
+repaints the full ring before moving the pointer preview; at drag start a target
+change can also cause a second full repaint of the same state.
+
+- [x] Update hit/drop state without repainting, move/show the preview first, then
+  repaint feedback once if changed or newly started. Preserve release/cancel/export.
+- [x] Run required MSVC checks and the isolated native item-drag fixture; record
+  evidence and update CONTEXT.md, commit. Bundle installation with the menu work.
+- [ ] Owner evaluates physical smoothness; submission tests cannot prove frame feel.
+
+MSVC formatting, release Clippy, release build and release tests pass (77 passed,
+3 ignored). `scripts/item-drag-regression-test.ps1` passes native transfers within
+and between circles/groups, Back/Recent drops, fixed-slot reorder, cancellation,
+capture loss and referenced-file hash preservation. Pointer preview updates now
+precede feedback painting, and drag start paints the final feedback once. No
+new timer, hook, allocation cache, dependency or input semantics were introduced.
+This is an ordering/work reduction, not a measured displayed-FPS claim. Installed
+application remains D74; bundle delivery awaits the D76 layout clarification.
+
+### D76: Clarify and refine compact file-menu navigation
+
+Owner wants the compact three-circle control to open DeskTuk's small file menu
+in suitable space to its left, with an immediately available search field above
+All, and scoped file lists for circle selections. The exact separate-list versus
+same-menu layout has been asked as a two-choice clarification; no dependent UI
+change will be inferred before resolving that layout.
+
+- [ ] Resolve the menu/list layout and implement the search-first compact entry.
+- [ ] Apply the same search-first access to expanded-panel circle entries.
+- [ ] Verify native scope navigation, work-area placement, focus and compact sizing.
+- [ ] Run required checks, install the combined D75/D76 build preserving config,
+  update CONTEXT.md, commit and push.
+- [ ] Owner accepts appearance and physical interaction.

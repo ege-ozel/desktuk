@@ -4,7 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D74 delivered; README uses soft oval shadows in both themes.
+- A and D through D74 delivered; D75 drag update checked, D76 layout clarification pending.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -57,7 +57,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - D63 adds startup/drag export; physical drop is unverified. D68 fixes the size test. D70 darkens the slash. D71 adds checked Usage tips sharing Settings. D72 adds a teal outer border; D73 uses divider-colored header button frames. D74 adds All search with stable deduplication and no filesystem crawl.
 - D64-D67 add styled Settings/guide, saved text sizing, centred drag previews and guide z-order/hover fixes. D68 makes the collapsed three-circle button reopen the DeskTuk dock and preserves the action anchor. D69 installs that previously undelivered fix, restarts the app and verifies unchanged config. Explorer middle-button auto-scroll remains unsupported without cross-app input interception.
 ## Observed defects / checks not performed
-- D74 MSVC tests: 77 passed, 3 ignored; native All/Recent/circle/group/locked search checks pass. D72 CI 41065338706 is green. D69 local full fixture failed rail-drag (line 175); physical menu/search/border acceptance pending.
+- D75 MSVC tests: 77 passed, 3 ignored; native item transfer/reorder/cancel checks pass. D74 CI 41067047907 is green. D69 local full fixture failed rail-drag (line 175); physical drag/menu/search/border acceptance pending.
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
 - Owner reports D29 fast middle dragging after first hover can stick at grid lines
@@ -87,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D73/D74 installed and checked.
+- Active plan: 2026-10-13-phase2-d-circles.md; D75 checked but not installed; D76 separate-list vs same-menu layout awaits owner clarification.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;
