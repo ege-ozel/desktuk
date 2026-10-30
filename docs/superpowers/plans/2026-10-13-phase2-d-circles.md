@@ -1919,3 +1919,35 @@ preserving the main action's centre. The full routed-message regression passes. 
 exercises physical Explorer auto-scroll. Product preview is an isolated six-scene GIF
 composed from DeskTuk's native offscreen UI exports and generic demo content; it does not
 capture a live desktop session.
+
+### D69: Deliver the three-circle menu fix to the installed application
+
+Owner again reports the three-circle control opening the wrong menu. D68 already
+routes that control to the DeskTuk main dock, but the running installed executable
+is from 2026-10-25 13:52, before D68's 18:41 commit. Its SHA256 is
+`593C3E5963214C6E2583FD69DF213AB7D72C9878047D68D6F8D0314ADE1CEA6D`.
+The repository's README exports regenerate byte-identically; they do not explain
+the stale installed behavior. No further menu implementation change is needed.
+
+- [x] Run required Windows MSVC formatting, release Clippy and release tests.
+- [x] Verify collapse/three-circle reopening with the isolated routed-message fixture.
+- [x] Build the installer, update the installed application and restart it; verify
+  the installed image matches the release image and preserve the configuration hash.
+- [x] Record evidence and update CONTEXT.md; commit and push completed work.
+- [ ] Owner confirms the menu's physical appearance and click behavior.
+
+Windows MSVC `cargo fmt`, release Clippy, release tests (76 passed, 3 ignored)
+and release build pass. The isolated routed-message fixture verified collapsed
+dimensions, three-circle reopening, re-collapse and visibility toggling, then
+failed at its separate rail-drag assertion (script line 175). This is not a full
+fixture pass; no unrelated drag implementation was changed. The expanded and
+collapsed native previews were saved under `target/d69-menu/`; the expanded
+DeskTuk panel was visually inspected.
+
+Installer build and silent update completed with exit 0. Installed and release
+SHA256 both equal `57A5BADADB9229830B6DFE69E8D659F8DEE4DD41A5A06FEA4B6CA8ABE53D1278`.
+The installed application was restarted as PID 10500. Configuration SHA256 stayed
+`5DC1ED195B235CAD9E2AFC3448EC2CBDCB6E003769078487C18393D6842CBE8B`.
+The README exporter was also run; all generated assets remained byte-identical,
+so no README media or app source change was committed. Physical mouse acceptance
+is still unperformed. No physical-input integration script was run.

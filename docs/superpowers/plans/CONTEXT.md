@@ -4,8 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D62 implemented; README uses soft oval shadows in both themes.
-  D56 scoped D55 review found no blocker; final automated/install checks pending.
+- A and D through D69 delivered; README uses soft oval shadows in both themes.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -13,9 +12,8 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D57 installed SHA256: E9F61DF6B2158EB6711435AC5421760D10351712405DEB3C953AB98C2620833C.
+- D69 installed SHA256: 57A5BADADB9229830B6DFE69E8D659F8DEE4DD41A5A06FEA4B6CA8ABE53D1278.
   D44-D57 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-  D57 config unchanged; installed dock is 168 px wide at system 96 DPI.
 - Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
   restore it. D50 changes modes immediately, retaining the top within the work area.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
@@ -56,9 +54,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   and D58 shares native paint for docs.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
-- D63 adds the bilingual startup toggle and Ctrl+drag OLE copy export; internal drags remain unchanged. Physical drop is unverified; one collapsed-dock size test fails.
-- D64 replaces system Settings/guide dialogs with DeskTuk's rounded slate/mint panel and removes OLE handoff redraw/focus work. D65 persists 90/100/110% text sizing; D66 refines controls and centres drag previews; D67 fixes Guide z-order/placement and adds close hover + Windows startup glyph. D68 makes the collapsed three-circle dock button reopen the DeskTuk-styled main dock, anchors mode changes on the main action, and updates stale dimension/runtime regressions. Explorer middle-button auto-scroll remains unsupported without cross-app input interception. Installed SHA256: BB3FEBCCDBA0A6BE7234E2B4C5F97FAC60ECB5DDB55878A7B60A48576AF67305.
+- D63 adds the bilingual startup toggle and Ctrl+drag OLE copy export; physical drop is unverified. D68 fixes the stale collapsed-dock size test.
+- D64-D67 add styled Settings/guide, saved text sizing, centred drag previews and guide z-order/hover fixes. D68 makes the collapsed three-circle button reopen the DeskTuk dock and preserves the action anchor. D69 installs that previously undelivered fix, restarts the app and verifies unchanged config. Explorer middle-button auto-scroll remains unsupported without cross-app input interception.
 ## Observed defects / checks not performed
+- D69: menu collapse/reopen/visibility assertions pass; the routed fixture then fails its separate rail-drag assertion (line 175). Physical menu acceptance pending. MSVC release tests: 76 passed, 3 ignored.
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
 - Owner reports D29 fast middle dragging after first hover can stick at grid lines
@@ -88,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D57 manual-first delivery.
+- Active plan: 2026-10-13-phase2-d-circles.md; D69 installed menu delivery.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;
