@@ -2038,3 +2038,38 @@ and after install remained `854858845422B22A7FBE854BCBA56A3358FF8495DEFB87730B9E
 Physical desktop appearance remains owner acceptance. The preceding D71 CI run
 41059274546 failed its Grid=3 ring-entry assertion (script line 88) after earlier
 steps passed; this is recorded separately from the passing local border checks.
+
+### D73: Share compact dimensions and quiet the expanded header button frames
+
+Owner needs the compact width for VoiceType and asks for the expanded lock and
+expand/collapse button frames to be removed or use the divider color. Choose the
+divider color while retaining teal glyphs and the teal outer panel border.
+
+- [x] Use the existing divider color for the two header button outlines.
+- [x] Document the compact 64 by 132 DIP window (64 px width at 96 DPI) and DPI
+  scaling for VoiceType in docs/dock-geometry.md.
+- [x] Run required MSVC checks, record evidence and update CONTEXT.md; commit.
+  Deliver this change together with D74's global search.
+
+Windows MSVC formatting, release Clippy and release tests pass (76 passed,
+3 ignored). The existing geometry test covers 96/192 DPI compact dimensions;
+the documented intermediate widths/heights follow the same integer scaling.
+No size or input behavior was changed. Installed application remains D72 until
+the combined D73/D74 delivery; native header previews will be inspected there.
+
+### D74: Add All search across Desktop and circle references
+
+Owner clarifies the earlier search request: a visible All entry must search
+everything DeskTuk holds, including Recent, all circles and files inside groups.
+This is a search over existing references, with no filesystem crawling.
+
+- [ ] Add a first All / Tümü row to the expanded dock, usable while locked.
+- [ ] Reuse the native search popup with a separate all-files scope, preserving
+  circle/group navigation and transient ring search behavior.
+- [ ] Build a stable, deduplicated reference snapshot covering Recent and every
+  circle/group; filter using existing search ordering. Test aggregation and ranking.
+- [ ] Verify native All/circle/group search, clear/reset and lock behavior; inspect
+  panel previews and document the shortcut.
+- [ ] Run required MSVC checks, rebuild/install/restart, preserve config, record
+  evidence, update CONTEXT.md, commit and push both task commits.
+- [ ] Owner checks physical appearance and search interactions.

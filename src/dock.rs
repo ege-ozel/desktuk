@@ -836,7 +836,9 @@ unsafe fn draw_button(dc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, dp
             let glyph = line_distance(px, py, a, b).min(line_distance(px, py, b, c));
             let coverage = if expanded.is_some() { (factor * 0.8 + 0.5 - glyph).clamp(0.0, 1.0) } else { 0.0 };
             let border = if EXPANDED.get() { (factor * 0.5 + 0.5 - edge).clamp(0.0, 1.0) } else { 0.0 };
-            blend_pixel(&mut pixels[(y * w + x) as usize], TEAL, coverage.max(border * 0.65));
+            let pixel = &mut pixels[(y * w + x) as usize];
+            blend_pixel(pixel, ACCENT, border);
+            blend_pixel(pixel, TEAL, coverage);
         }
     }
     unsafe { BitBlt(dc, rect.left, rect.top, w, h, surface.dc(), 0, 0, SRCCOPY) };

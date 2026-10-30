@@ -4,7 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D72 delivered; README uses soft oval shadows in both themes.
+- A and D through D72 delivered; D73 checked for D74 delivery. README uses oval shadows.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -87,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D72 teal dock border delivered.
+- Active plan: 2026-10-13-phase2-d-circles.md; D73 quieter header/64-DIP width checked; D74 All search next.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;
