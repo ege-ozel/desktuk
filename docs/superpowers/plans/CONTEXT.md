@@ -4,7 +4,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Inspect `git status --short --branch` and `git worktree list`.
 - Main is the integration baseline; owner permits direct main commits/pushes.
   Do not open/reopen PRs unless requested. Preserve task-by-task commits/checks.
-- A and D through D72 delivered; D73 checked for D74 delivery. README uses oval shadows.
+- A and D through D74 delivered; README uses soft oval shadows in both themes.
 - Owner requires circles and open rings always topmost, including Show Desktop.
 ## Delivered behavior and latest changes
 - Desktop file references are grouped in circles; Recent, hover rings, paging,
@@ -12,10 +12,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 - Left/middle drag moves circles freely, snapping on release; centre click pages.
 - Grid Off / 2x2 / 3x3 / 4x4 / 6x6 / 8x8 uses the current monitor's taskbar-free work area;
   guides mark the target cell and landing centre until release/cancel.
-- D72 installed SHA256: 4DD15117C5A18794DE8510BABE59CCBCA80B530AA2D2E46A716383EEF9845FDD.
+- D74 installed SHA256: 0D4867C8963F6839FA01A5EF00B822ABB87C05FB99E38224DF6E35B19EB6EE8C.
   D44-D57 CI intentionally skipped; owner requests manual tests first. Installed: LOCALAPPDATA/Programs/DeskTuk/DeskTuk.exe.
-- Dock uses native icon-title text. Menu collapse is session-only; right-click/tray
-  restore it. D50 changes modes immediately, retaining the top within the work area.
+- Dock uses native icon-title text. Compact: 64x132 DIP; expanded width: 168 DIP.
+  D74 All/Tümü searches Recent and all circle/group references. Collapse is session-only; right-click/tray restore it. Sizes: docs/dock-geometry.md.
 - Pointer entry opens immediately with a short eased reveal; closing takes 110 ms.
   Circle surfaces use pixel-coverage blending. No new dependencies or idle polling.
 - Release review: ../reviews/2026-10-23-release-readiness.md (D55 candidate, unsigned).
@@ -54,10 +54,10 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
   and D58 shares native paint for docs.
   Native text selection/Ctrl+A; D53 fixes the omitted
   popup class name that prevented both lists and edit boxes opening.
-- D63 adds startup/drag export; physical drop is unverified. D68 fixes the size test. D70 darkens the slash. D71 adds checked Usage tips as the third dock context action, sharing Settings/persistence. D72 gives the expanded/compact dock a teal client/DWM outer border; native previews verified. Search wording remains unclear.
+- D63 adds startup/drag export; physical drop is unverified. D68 fixes the size test. D70 darkens the slash. D71 adds checked Usage tips sharing Settings. D72 adds a teal outer border; D73 uses divider-colored header button frames. D74 adds All search with stable deduplication and no filesystem crawl.
 - D64-D67 add styled Settings/guide, saved text sizing, centred drag previews and guide z-order/hover fixes. D68 makes the collapsed three-circle button reopen the DeskTuk dock and preserves the action anchor. D69 installs that previously undelivered fix, restarts the app and verifies unchanged config. Explorer middle-button auto-scroll remains unsupported without cross-app input interception.
 ## Observed defects / checks not performed
-- D72 MSVC tests: 76 passed, 3 ignored; border previews pass. D69 local full fixture failed rail-drag (line 175); D71 CI 41059274546 failed Grid=3 ring entry (line 88). Physical menu/border acceptance pending.
+- D74 MSVC tests: 77 passed, 3 ignored; native All/Recent/circle/group/locked search checks pass. D72 CI 41065338706 is green. D69 local full fixture failed rail-drag (line 175); physical menu/search/border acceptance pending.
 - Installer: dist/DeskTuk-0.1.0-Setup-x64.exe; wizard/install checks passed in D40.
   Shell links migrated; physical taskbar cache refresh is unverified. See installer/README.md.
 - Owner reports D29 fast middle dragging after first hover can stick at grid lines
@@ -87,7 +87,7 @@ Keep this guide under 100 lines. Live Git/CI outrank snapshots.
 | Bootstrap/message loop | src/app.rs |
 | Isolated runtime fixtures | scripts/*regression-test.ps1 |
 ## Bounded reading
-- Active plan: 2026-10-13-phase2-d-circles.md; D73 quieter header/64-DIP width checked; D74 All search next.
+- Active plan: 2026-10-13-phase2-d-circles.md; D73/D74 installed and checked.
 - Required phase design: ../specs/2026-10-13-phase-2-design.md.
 - Product decisions: ../specs/2026-10-13-circles-design.md.
 - Search src/ first, then scripts/ and the active plan. Use `rg -n` / `rg --files`;

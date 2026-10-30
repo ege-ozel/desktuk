@@ -66,6 +66,12 @@ impl FrameCorners {
         }
     }
 }
+#[derive(Clone, Copy)]
+enum SearchTarget {
+    Circle(Target),
+    All,
+}
+
 struct State {
     hwnd: HWND,
     edit: HWND,
@@ -74,7 +80,7 @@ struct State {
     font: HFONT,
     brush: HBRUSH,
     corners: Option<FrameCorners>,
-    target: Option<Target>,
+    target: Option<SearchTarget>,
     base: Vec<SlotRef>,
     source: Vec<SlotRef>,
     matches: Vec<SlotRef>,
@@ -107,7 +113,11 @@ pub fn close() {
 }
 pub fn open(target: Target, at: POINT) {
     let dpi = unsafe { GetDpiForWindow(crate::dock::window()) }.max(96);
-    create(Some(target), at, "", dpi);
+    create(Some(SearchTarget::Circle(target)), at, "", dpi);
+}
+pub fn open_all(at: POINT) {
+    let dpi = unsafe { GetDpiForWindow(crate::dock::window()) }.max(96);
+    create(Some(SearchTarget::All), at, "", dpi);
 }
 pub fn edit_ring(at: POINT, initial: &str, dpi: u32) {
     if handles().is_none() {
@@ -122,15 +132,23 @@ fn text(hwnd: HWND) -> String {
         String::from_utf16_lossy(&buf[..n])
     }
 }
-fn refs(target: Target) -> Vec<SlotRef> {
-    if target == Target::Recent {
-        super::recent_paths().into_iter().map(SlotRef::Item).collect()
-    } else {
-        app().board.try_borrow().map(|b| view::slot_refs(&b, target, &[], &[])).unwrap_or_default()
+fn refs(target: SearchTarget) -> Vec<SlotRef> {
+    match target {
+        SearchTarget::All => {
+            let recent = super::recent_paths();
+            app().board.try_borrow().map(|b| view::all_refs(&b, &recent)).unwrap_or_default()
+        }
+        SearchTarget::Circle(Target::Recent) => super::recent_paths().into_iter().map(SlotRef::Item).collect(),
+        SearchTarget::Circle(target) => app().board.try_borrow().map(|b| view::slot_refs(&b, target, &[], &[])).unwrap_or_default(),
     }
 }
-fn candidates(target: Target, base: &[SlotRef]) -> Vec<SlotRef> {
-    app().board.try_borrow().map(|b| view::search_candidates(&b, target, base.to_vec())).unwrap_or_else(|_| base.to_vec())
+fn candidates(target: SearchTarget, base: &[SlotRef]) -> Vec<SlotRef> {
+    match target {
+        SearchTarget::All => base.to_vec(),
+        SearchTarget::Circle(target) => {
+            app().board.try_borrow().map(|b| view::search_candidates(&b, target, base.to_vec())).unwrap_or_else(|_| base.to_vec())
+        }
+    }
 }
 pub fn hover_editor() -> bool {
     ACTIVE.with(|s| s.borrow().as_ref().is_some_and(|s| s.target.is_none() && unsafe { GetForegroundWindow() } != s.hwnd))
@@ -218,7 +236,7 @@ pub fn ring_char(value: u32) -> bool {
     }
     true
 }
-fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
+fn create(target: Option<SearchTarget>, at: POINT, initial: &str, dpi: u32) {
     close();
     crate::hint::hide();
     let sc = |v| win::scale(v, dpi);
@@ -339,7 +357,12 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
         SendMessageW(edit, WM_SETFONT, font as usize, 1);
         SendMessageW(edit, EM_LIMITTEXT, 80, 0);
         SendMessageW(edit, EM_SETSEL, initial.encode_utf16().count(), initial.encode_utf16().count() as isize);
-        SendMessageW(edit, 0x1501, 1, win::wide(i18n::choose("Dosya ara…", "Search files…")).as_ptr() as isize);
+        let cue = if matches!(target, Some(SearchTarget::All)) {
+            i18n::choose("Tüm dosyalarda ara…", "Search all files…")
+        } else {
+            i18n::choose("Dosya ara…", "Search files…")
+        };
+        SendMessageW(edit, 0x1501, 1, win::wide(cue).as_ptr() as isize);
         SetWindowSubclass(edit, Some(input_proc), 1, 0);
         if !list.is_null() {
             SendMessageW(list, WM_SETFONT, font as usize, 1);
@@ -379,7 +402,7 @@ fn create(target: Option<Target>, at: POINT, initial: &str, dpi: u32) {
         }
     }
 }
-fn label(slot: &SlotRef, target: Target) -> String {
+fn label(slot: &SlotRef, target: SearchTarget) -> String {
     match slot {
         SlotRef::Item(p) => p.file_name().unwrap_or(p.as_os_str()).to_string_lossy().into_owned(),
         SlotRef::Back => i18n::choose("‹ Geri", "‹ Back").to_owned(),
@@ -388,9 +411,13 @@ fn label(slot: &SlotRef, target: Target) -> String {
                 .board
                 .try_borrow()
                 .ok()
-                .and_then(
-                    |b| if let Target::Circle(ci) = target { b.circles.get(ci)?.groups.get(*gi).map(|g| g.name.clone()) } else { None },
-                )
+                .and_then(|b| {
+                    if let SearchTarget::Circle(Target::Circle(ci)) = target {
+                        b.circles.get(ci)?.groups.get(*gi).map(|g| g.name.clone())
+                    } else {
+                        None
+                    }
+                })
                 .unwrap_or_default();
             format!("{name} ›")
         }
@@ -483,12 +510,13 @@ fn activate() {
             close();
             let _ = crate::items::open(&path, app().controller.get());
         }
-        Some((Target::Circle(ci), SlotRef::Group(gi))) => navigate(Target::Group(ci, gi)),
-        Some((Target::Group(ci, _), SlotRef::Back)) => navigate(Target::Circle(ci)),
+        Some((SearchTarget::Circle(Target::Circle(ci)), SlotRef::Group(gi))) => navigate(Target::Group(ci, gi)),
+        Some((SearchTarget::Circle(Target::Group(ci, _)), SlotRef::Back)) => navigate(Target::Circle(ci)),
         _ => {}
     }
 }
 fn navigate(target: Target) {
+    let target = SearchTarget::Circle(target);
     let base = refs(target);
     let source = candidates(target, &base);
     ACTIVE.with(|s| {

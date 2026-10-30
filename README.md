@@ -71,6 +71,7 @@ Actions you choose in a Windows shell menu still act on the real file.
 | Settings | Chooses the language and turns usage tips on or off. |
 | Grid | Chooses Off, 2×2, 3×3, 4×4, 6×6 or 8×8. **Align now** arranges existing circles. |
 | Info | Opens the short guide. Clicking again brings the same guide forward. |
+| All | Searches Recent and all circles, including files inside groups. |
 | Circle rows | Opens a searchable file list, including while locked. |
 
 Grid selection keeps the current layout in place; it snaps subsequent drag releases.
@@ -83,7 +84,8 @@ field appears. **The first result is highlighted**, including before you type.
 Up/Down moves the selection; Enter opens the highlighted item. Moving over a file
 highlights that file instead. Escape clears the search; closing the circle resets it.
 
-**From the panel:** click a circle name and type in the field above its file list.
+**From the panel:** click **All** to search Recent and every circle/group together,
+or click a circle name to search within it. Type in the field above the file list.
 The first result is selected as the list opens and whenever the query changes.
 Down selects the next result. Single-click selects; double-click or Enter opens.
 The list has one continuous scrollbar. Escape closes it.

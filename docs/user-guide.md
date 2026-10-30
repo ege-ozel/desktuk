@@ -26,6 +26,8 @@ Yazmaya başlayınca gerçek bir metin kutusu açılır. Ctrl+A, Ctrl+C/X/V/Z, S
 
 ### 6. Panelden dosya açın
 
+En üstteki **Tümü** satırı, Son öğeler ve tüm çember/gruplardaki dosyaları birlikte arar. Aynı dosya bir kez listelenir. Kilitliyken de kullanılabilir.
+
 Ayırıcının altındaki çember adına tıklayın. Üst alanda yazmak listeyi filtreler. Liste açıldığında ve sorgu değiştiğinde ilk sonuç seçilidir; aşağı ok sonraki sonuca geçer. Tek tıklama seçer; Enter veya çift tıklama açar. Tab alanla liste arasında geçer; Esc pencereyi kapatır. Liste tek kaydırma çubuğu kullanır. Gruplar ve Geri satırı da Enter veya çift tıklamayla açılır.
 
 ### 7. Paneli yerleştirin
@@ -77,6 +79,8 @@ Typing opens a native text field. Use Ctrl+A, Ctrl+C/X/V/Z, Shift+arrows, Home/E
 Scroll the wheel, or click the centre when no search is active, to change circle pages. Keyboard navigation reveals the next page when needed.
 
 ### 6. Launch from the panel
+
+The top **All** row searches Recent and every circle/group together. Each file appears once. It also works while locked.
 
 Click a circle name below the divider. Type in the top field to filter its list. The first result is selected on opening and whenever the query changes; Down advances to the next result. Single-click selects; Enter or double-click opens. Tab switches between field and list; Escape closes the window. Results use one scrollbar. Enter or double-click also navigates groups and Back.
 

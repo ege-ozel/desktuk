@@ -62,16 +62,17 @@ fn docs_native_export() {
         composite(&mut canvas, w, h, &mut circle, x + pad, y + pad);
     }
     let entries = vec![
+        (Entry::All, "All".into()),
         (Entry::Target(Which::Recent), "Recent".into()),
         (Entry::Target(Which::User(0)), "Music".into()),
         (Entry::Target(Which::User(1)), "Apps".into()),
     ];
     EXPANDED.set(true);
-    // Same dimensions as dimensions(): fixed header/tools + three visible rows + padding.
+    // Same dimensions as dimensions(): fixed header/tools + visible rows + padding.
     let dw = expanded_width(dpi);
-    let dh = scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP + TOOLS_H + 3 * ROW_H + PAD, dpi);
+    let dh = scale(HEADER_H + GAP + ACTION_SIZE + TOOLS_GAP + TOOLS_H + entries.len() as i32 * ROW_H + PAD, dpi);
     let mut dock = Surface::new(dw, dh).expect("dock surface");
-    paint_contents(dock.dc(), win::rect(0, 0, dw, dh), dpi, &entries, 3, true, false);
+    paint_contents(dock.dc(), win::rect(0, 0, dw, dh), dpi, &entries, entries.len(), true, false);
     // Offline GDI does not supply DWM's outer window clipping. Keep the rectangular
     // client border; do not invent a different rounded frame in its place.
     for pixel in dock.pixels() {

@@ -47,6 +47,10 @@ jobs:
         shell: powershell
         run: ./scripts/circles-regression-test.ps1 -Exe target/release/DeskTuk.exe
 
+      - name: All search, scoped navigation and compact geometry
+        shell: powershell
+        run: ./scripts/all-search-regression-test.ps1 -Exe target/release/DeskTuk.exe
+
       - name: Tray and second-launch recovery with isolated TEMP fixtures
         shell: powershell
         run: ./scripts/tray-regression-test.ps1 -Exe target/release/DeskTuk.exe

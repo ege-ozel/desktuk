@@ -1978,8 +1978,8 @@ release SHA256 `F3D9242FE6FC366B938F5094627B6502E8D259A15BD365B289BAA82FDDF0C3F9
 Configuration hash immediately before/after install remained
 `921B22A3923A168D2762343EF9B1C1D952A8255AF233FF6E6BA6BDF2693C1C20`.
 The third right-click action was subsequently clarified as a checked usage-tips
-toggle, delivered in D71. The final sentence about search remains unclear; do
-not infer a search behavior change from that sentence. Prior D69 CI is green.
+toggle, delivered in D71. The search request was later clarified and delivered
+as All search in D74. Prior D69 CI is green.
 
 ### D71: Add a checked usage-tips shortcut to the dock context menu
 
@@ -2063,13 +2063,36 @@ Owner clarifies the earlier search request: a visible All entry must search
 everything DeskTuk holds, including Recent, all circles and files inside groups.
 This is a search over existing references, with no filesystem crawling.
 
-- [ ] Add a first All / Tümü row to the expanded dock, usable while locked.
-- [ ] Reuse the native search popup with a separate all-files scope, preserving
+- [x] Add a first All / Tümü row to the expanded dock, usable while locked.
+- [x] Reuse the native search popup with a separate all-files scope, preserving
   circle/group navigation and transient ring search behavior.
-- [ ] Build a stable, deduplicated reference snapshot covering Recent and every
+- [x] Build a stable, deduplicated reference snapshot covering Recent and every
   circle/group; filter using existing search ordering. Test aggregation and ranking.
-- [ ] Verify native All/circle/group search, clear/reset and lock behavior; inspect
+- [x] Verify native All/circle/group search, clear/reset and lock behavior; inspect
   panel previews and document the shortcut.
-- [ ] Run required MSVC checks, rebuild/install/restart, preserve config, record
+- [x] Run required MSVC checks, rebuild/install/restart, preserve config, record
   evidence, update CONTEXT.md, commit and push both task commits.
 - [ ] Owner checks physical appearance and search interactions.
+
+Windows MSVC formatting, release Clippy, release build and release tests pass
+(77 passed, 3 ignored). The new pure test verifies Recent/circle/group coverage,
+stable case-insensitive path deduplication, prefix ranking and board preservation.
+`scripts/all-search-regression-test.ps1` passes using TEMP-only reference files and
+routed edit messages: All sees both direct/grouped files from two circles, Recent
+stays scoped, group entry/Back still work, empty/no-match queries reset correctly,
+and All works while locked. Reference hashes remain unchanged. The fixture is
+included in Windows CI; no physical input is injected. Its initial text-setting
+probe was replaced with routed edit characters to exercise actual EN_CHANGE input.
+
+Native previews at `target/d74-search/` were inspected: All is the first row, the
+two header frames match the divider, the outer border stays teal. The fixture
+measures compact width 64 px, height 132 px at 96 DPI. VoiceType's equivalent is
+64 DIP width; the full scaling table is in docs/dock-geometry.md. The existing
+README exporter now includes the All row on future exports; PNGs were not rebuilt.
+
+The D73/D74 installer update exited 0. Installed and release SHA256 both equal
+`0D4867C8963F6839FA01A5EF00B822ABB87C05FB99E38224DF6E35B19EB6EE8C`.
+Restarted installed PID: 23588. Configuration hash before/after install remained
+`4FE84A39B525D09CE058A83B5450A3CB8227EC9CCC6C07349E3F3B426D1EE01C`.
+No filesystem crawl, new dependency, preference key or idle worker was added.
+Prior D72 CI run 41065338706 is green; physical owner acceptance remains pending.

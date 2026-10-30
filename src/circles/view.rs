@@ -51,6 +51,18 @@ pub fn search_candidates(board: &Board, target: Target, mut refs: Vec<SlotRef>) 
     refs
 }
 
+/// Every known file, including grouped references, in stable display order.
+pub fn all_refs(board: &Board, recent: &[PathBuf]) -> Vec<SlotRef> {
+    let mut seen = std::collections::HashSet::new();
+    recent
+        .iter()
+        .chain(board.circles.iter().flat_map(|circle| circle.items.iter().chain(circle.groups.iter().flat_map(|group| &group.items))))
+        .filter(|path| seen.insert(path.as_os_str().to_ascii_lowercase()))
+        .cloned()
+        .map(SlotRef::Item)
+        .collect()
+}
+
 /// Two stable ranks in O(n), without sorting or cloning non-matching paths.
 fn search_key(text: &str) -> String {
     // Tolerate both Turkish I forms without allocating a second normalized string.
@@ -127,6 +139,28 @@ mod tests {
         b.assign(&p(r"C:\D\a.wav"), Place::Circle(m));
         b.assign(&p(r"C:\D\b.wav"), Place::Group(m, g));
         b
+    }
+
+    #[test]
+    fn all_search_covers_recent_circles_and_groups_once_without_changing_the_board() {
+        let mut b = board();
+        let second = b.add_circle("Apps", (0, 0));
+        b.assign(&p(r"C:\D\tool.exe"), Place::Circle(second));
+        // Tolerate a stale duplicate while retaining the first spelling and order.
+        b.circles[second].items.push(p(r"c:\d\A.WAV"));
+        let before = b.render();
+        let recent = [p(r"C:\D\notes.txt"), p(r"C:\D\NOTES.TXT"), p(r"C:\D\xtool.exe")];
+        let refs = all_refs(&b, &recent);
+        assert_eq!(
+            refs,
+            [r"C:\D\notes.txt", r"C:\D\xtool.exe", r"C:\D\a.wav", r"C:\D\b.wav", r"C:\D\tool.exe"].map(|name| SlotRef::Item(p(name)))
+        );
+        assert_eq!(filter_refs(&refs, "B.WAV"), vec![SlotRef::Item(p(r"C:\D\b.wav"))]);
+        assert_eq!(filter_refs(&refs, "tool"), [r"C:\D\tool.exe", r"C:\D\xtool.exe"].map(|name| SlotRef::Item(p(name))));
+        assert_eq!(filter_refs(&refs, ""), refs);
+        assert!(filter_refs(&refs, "missing").is_empty());
+        assert_eq!(b.render(), before);
+        assert!(all_refs(&Board::default(), &[]).is_empty());
     }
 
     #[test]

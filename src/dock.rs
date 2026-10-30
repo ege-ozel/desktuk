@@ -74,6 +74,7 @@ struct ToolIcons {
 
 #[derive(Clone, Copy)]
 enum Entry {
+    All,
     Target(Which),
 }
 
@@ -115,7 +116,8 @@ fn scale(value: i32, dpi: u32) -> i32 {
 
 fn rows() -> Vec<(Entry, String)> {
     let Ok(board) = app::app().board.try_borrow() else { return Vec::new() };
-    let mut rows = Vec::with_capacity(board.circles.len() + 1);
+    let mut rows = Vec::with_capacity(board.circles.len() + 2);
+    rows.push((Entry::All, crate::i18n::choose("Tümü", "All").to_string()));
     rows.push((Entry::Target(Which::Recent), crate::i18n::text("Recent").to_string()));
     rows.extend(board.circles.iter().enumerate().map(|(i, circle)| (Entry::Target(Which::User(i)), circle.name.clone())));
     rows
@@ -1153,6 +1155,13 @@ unsafe fn click_client(hwnd: HWND, x: i32, y: i32) {
         if offset < visible && win::rect_contains(&row_rect(dpi, index), POINT { x, y }) {
             if let Some((entry, _)) = entries.get(index).cloned() {
                 match entry {
+                    Entry::All => {
+                        let row = row_rect(dpi, index);
+                        let mut at = POINT { x: row.right, y: row.top };
+                        ClientToScreen(hwnd, &mut at);
+                        crate::hint::hide();
+                        circles::launcher::open_all(at);
+                    }
                     Entry::Target(which) => {
                         let row = row_rect(dpi, index);
                         let mut at = POINT { x: row.right, y: row.top };
