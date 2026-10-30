@@ -6,7 +6,7 @@
 use std::cell::{Cell, RefCell};
 
 use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
-use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
+use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, CreateSolidBrush, DeleteObject, DrawTextW, EndPaint, FillRect, FrameRect, InvalidateRect, ScreenToClient, SelectObject,
     SetBkMode, SetTextColor, DT_CENTER, DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HFONT, PAINTSTRUCT, TRANSPARENT,
@@ -550,6 +550,7 @@ pub fn create() {
             (&corner as *const i32).cast(),
             std::mem::size_of_val(&corner) as u32,
         );
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR as u32, (&TEAL as *const u32).cast(), std::mem::size_of_val(&TEAL) as u32);
     }
     crate::host::exclude_from_peek(hwnd);
     place(hwnd);
@@ -994,13 +995,14 @@ fn paint_contents(
 
     let bg = unsafe { CreateSolidBrush(BG) };
     let accent = unsafe { CreateSolidBrush(ACCENT) };
+    let border_brush = unsafe { CreateSolidBrush(TEAL) };
     let font = icon_title_font(dpi);
     let old_font = if font.is_null() { std::ptr::null_mut() } else { unsafe { SelectObject(hdc, font) } };
     let switch_rect = action_rect(dpi);
     let border = win::rect(0, 0, client.right, client.bottom);
     unsafe {
         FillRect(hdc, &client, bg);
-        FrameRect(hdc, &border, accent);
+        FrameRect(hdc, &border, border_brush);
         SetBkMode(hdc, TRANSPARENT as i32);
         if EXPANDED.get() {
             let heading_font = crate::theme::font(dpi, true, 100);
@@ -1096,6 +1098,7 @@ fn paint_contents(
         }
         DeleteObject(bg);
         DeleteObject(accent);
+        DeleteObject(border_brush);
         if !font.is_null() {
             if !old_font.is_null() {
                 SelectObject(hdc, old_font);

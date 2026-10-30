@@ -2010,3 +2010,31 @@ Installer update exited 0. Installed/release SHA256:
 The app was restarted as PID 23292. Configuration hash immediately before/after
 installation remained `921B22A3923A168D2762343EF9B1C1D952A8255AF233FF6E6BA6BDF2693C1C20`.
 No new dependencies, config keys, idle work or search behavior changes.
+
+### D72: Apply the missed teal border to the dock panel
+
+Owner clarifies that the requested teal border was missed while the slash and
+usage-tips shortcut were implemented. Apply DeskTuk's shared teal to the outer
+frame of both expanded and collapsed dock modes.
+
+- [x] Paint the client outer frame teal and request the matching native DWM border
+  color so rounded Windows 11 corners retain the same color; keep the divider unchanged.
+- [x] Inspect native expanded/collapsed previews; run required MSVC checks.
+- [x] Rebuild/install/restart the checked application, verify matching image and
+  preserved user configuration, update CONTEXT.md, commit and push.
+- [ ] Owner confirms the physical border appearance.
+
+MSVC `cargo fmt`, release Clippy, release build and release tests pass (76 passed,
+3 ignored). The existing local preview adaptation of the routed-message fixture
+passes collapse/reopen/hide checks and exports `target/d72-border/expanded.png`
+and `collapsed.png`. Both native PrintWindow exports were visually inspected;
+their outer edge pixels are RGB(113, 216, 194), the shared teal. No new tests,
+dependencies, input behavior, preference keys or idle work were added.
+
+Installer update exited 0. Installed/release SHA256 both equal
+`4DD15117C5A18794DE8510BABE59CCBCA80B530AA2D2E46A716383EEF9845FDD`.
+The installed application was restarted as PID 1492. Configuration hash before
+and after install remained `854858845422B22A7FBE854BCBA56A3358FF8495DEFB87730B9E2815B9851B84`.
+Physical desktop appearance remains owner acceptance. The preceding D71 CI run
+41059274546 failed its Grid=3 ring-entry assertion (script line 88) after earlier
+steps passed; this is recorded separately from the passing local border checks.
